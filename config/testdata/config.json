@@ -1,0 +1,43 @@
+{
+  "log": {
+    "logFile": "log/update-manager.log",
+    "logLevel": "ERROR",
+    "logFileSize": 3,
+    "logFileCount": 6,
+    "logFileMaxAge": 29
+  },
+  "mqtt": {
+    "brokerUrl":"www",
+    "keepAlive": 500,
+    "disconnectTimeout": 500,
+    "clientUsername":"username",
+    "clientPassword":"pass",
+    "connectTimeout": 500,
+    "acknowledgeTimeout": 500,
+    "subscribeTimeout": 500,
+    "unsubscribeTimeout": 500
+  },
+  "domain": "testdomain",
+  "rebootEnabled": false,
+  "rebootAfter": "1m",
+  "reportFeedbackInterval": "2m",
+  "currentStateDelay": "1m",
+  "phaseTimeout": "2m",
+  "agents": {
+    "self-update": {
+      "name": "testSUname",
+      "rebootRequired": false,
+      "readTimeout": "30s"
+    },
+    "containers": {
+      "name": "testContainersName",
+      "rebootRequired": true,
+      "readTimeout": "30s"
+    },
+    "safety-domain": {
+      "name": "testSDname",
+      "rebootRequired": true,
+      "readTimeout": "30s"
+    }
+  }
+}
