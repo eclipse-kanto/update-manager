@@ -34,10 +34,6 @@ func (s *dummyStateHandler) HandleDesiredStateFeedback(bytes []byte) error {
 	return s.feedbackErr
 }
 
-func (s *dummyStateHandler) setDesiredStateFeedbackError(err error) {
-	s.feedbackErr = err
-}
-
 func (s *dummyStateHandler) HandleCurrentState(bytes []byte) error {
 	s.currentStatePayload = bytes
 	return s.currentStateErr

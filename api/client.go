@@ -17,8 +17,6 @@ type UpdateAgentHandler interface {
 	HandleDesiredState([]byte) error
 	HandleDesiredStateCommand([]byte) error
 	HandleCurrentStateGet([]byte) error
-
-	//GetCurrentState(context.Context, string) ([]byte, error)
 }
 
 // UpdateAgentClient defines an interface for interacting with the UpdateAgent API

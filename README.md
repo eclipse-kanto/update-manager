@@ -10,11 +10,9 @@ The update manager works together with a number of additional components, named 
 
 The update domains are, but not limitted to:
 - [Self-Update (OS Update) of connected Device](https://github.com/eclipse-leda/leda-contrib-self-update-agent)
-- [Container Runtime](https://github.com/eclipse-leda/leda-contrib-containers-update-agent)
-- Adaptive AUTOSAR Applications and base image
+- [Container Management](https://github.com/eclipse-kanto/container-management)
+- IoT Device Firmware
 - Embedded ECU Firmware
-- AOS
-- Android Automotive
 
 ## Community
 

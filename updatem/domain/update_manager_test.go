@@ -189,7 +189,6 @@ func TestGetCurrentStateInvalidPayload(t *testing.T) {
 				Timestamp:  time.Now().UnixNano() / int64(time.Millisecond),
 				Payload:    "invalid-payload",
 			}
-			envelopeBytes, _ = json.Marshal(envelope)
 			json.Unmarshal(bytes, envelope)
 			assert.Equal(t, testActivityID, envelope.ActivityID)
 			updateManager.HandleCurrentState([]byte("invalid-payload"))

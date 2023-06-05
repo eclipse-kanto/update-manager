@@ -50,7 +50,7 @@ func Launch(cfg *config.Config, client api.UpdateAgentClient, updateManager api.
 	logger.Debug("successfully started Update Manager")
 
 	var signalChan = make(chan os.Signal, 1)
-	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGHUP, syscall.SIGKILL)
+	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGHUP)
 
 	sig := <-signalChan
 	cancel()
