@@ -171,7 +171,10 @@ func (updateManager *domainUpdateManager) Dispose() error {
 }
 
 func (updateManager *domainUpdateManager) WatchEvents(ctx context.Context) {
-	updateManager.desiredStateClient.Subscribe(updateManager)
+	err := updateManager.desiredStateClient.Subscribe(updateManager)
+	if err != nil {
+		logger.ErrorErr(err, "[%s] cannot subscribe for events", updateManager.Name())
+	}
 }
 
 func (updateManager *domainUpdateManager) SetCallback(callback api.UpdateManagerCallback) {

@@ -169,7 +169,8 @@ func TestGetCurrentState(t *testing.T) {
 		expectedPayload := map[string]interface{}(map[string]interface{}{"softwareNodes": []interface{}{map[string]interface{}{"id": "update-manager", "name": "Update Manager", "type": "APPLICATION", "version": "development"}}})
 		assert.Nil(t, err)
 		inventoryEnvelope := &types.Envelope{}
-		json.Unmarshal(currentStateBytes, inventoryEnvelope)
+		err = json.Unmarshal(currentStateBytes, inventoryEnvelope)
+		assert.Nil(t, err)
 		assert.Equal(t, expectedPayload, inventoryEnvelope.Payload)
 	})
 
@@ -187,7 +188,8 @@ func TestGetCurrentState(t *testing.T) {
 		expectedPayload := map[string]interface{}(map[string]interface{}{"softwareNodes": []interface{}{map[string]interface{}{"id": "update-manager", "name": "Update Manager", "type": "APPLICATION", "version": "development"}}})
 		assert.Nil(t, err)
 		inventoryEnvelope := &types.Envelope{}
-		json.Unmarshal(currentStateBytes, inventoryEnvelope)
+		err = json.Unmarshal(currentStateBytes, inventoryEnvelope)
+		assert.Nil(t, err)
 		assert.Equal(t, expectedPayload, inventoryEnvelope.Payload)
 	})
 
@@ -212,7 +214,8 @@ func TestHandleDesiredState(t *testing.T) {
 	}
 
 	t.Run("test_invalid_desired_state", func(t *testing.T) {
-		updAgent.HandleDesiredState([]byte("invalid-desired-state"))
+		err := updAgent.HandleDesiredState([]byte("invalid-desired-state"))
+		assert.NotNil(t, err)
 	})
 
 	t.Run("test_correct_desired_state", func(t *testing.T) {
@@ -228,7 +231,8 @@ func TestHandleDesiredState(t *testing.T) {
 			ch <- true
 			assert.True(t, reflect.DeepEqual(desiredState, state))
 		})
-		updAgent.HandleDesiredState([]byte(dummyDesiredStateJSON))
+		err := updAgent.HandleDesiredState([]byte(dummyDesiredStateJSON))
+		assert.Nil(t, err)
 		<-ch
 	})
 }

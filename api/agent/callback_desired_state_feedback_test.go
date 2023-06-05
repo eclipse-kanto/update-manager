@@ -41,7 +41,8 @@ func TestHandleDesiredStateFeedbackEvent(t *testing.T) {
 	t.Run("test_actions_nil_publishDesiredState_err", func(t *testing.T) {
 		mockClient.EXPECT().PublishDesiredStateFeedback(gomock.Any()).DoAndReturn(func(bytes []byte) error {
 			feedbackEnvelope := &types.Envelope{}
-			json.Unmarshal(bytes, feedbackEnvelope)
+			err := json.Unmarshal(bytes, feedbackEnvelope)
+			assert.NotNil(t, err)
 			expectedFeedback := map[string]interface{}{"message": "operation completed", "status": "COMPLETED"}
 			assert.Equal(t, testActivityID, feedbackEnvelope.ActivityID)
 			assert.Equal(t, expectedFeedback, feedbackEnvelope.Payload)
@@ -60,7 +61,8 @@ func TestHandleDesiredStateFeedbackEvent(t *testing.T) {
 		}
 		mockClient.EXPECT().PublishDesiredStateFeedback(gomock.Any()).DoAndReturn(func(bytes []byte) error {
 			feedbackEnvelope := &types.Envelope{}
-			json.Unmarshal(bytes, feedbackEnvelope)
+			err := json.Unmarshal(bytes, feedbackEnvelope)
+			assert.NotNil(t, err)
 			expectedFeedback := map[string]interface{}{"actions": []interface{}{map[string]interface{}{"component": map[string]interface{}{}, "message": "update success", "status": "UPDATE_SUCCESS"}}, "message": "operation completed", "status": "COMPLETED"}
 			assert.Equal(t, testActivityID, feedbackEnvelope.ActivityID)
 			assert.Equal(t, expectedFeedback, feedbackEnvelope.Payload)
@@ -79,7 +81,8 @@ func TestHandleDesiredStateFeedbackEvent(t *testing.T) {
 		}
 		mockClient.EXPECT().PublishDesiredStateFeedback(gomock.Any()).DoAndReturn(func(bytes []byte) error {
 			feedbackEnvelope := &types.Envelope{}
-			json.Unmarshal(bytes, feedbackEnvelope)
+			err := json.Unmarshal(bytes, feedbackEnvelope)
+			assert.NotNil(t, err)
 			expectedFeedback := map[string]interface{}{"actions": []interface{}{map[string]interface{}{"component": map[string]interface{}{}, "message": "update success", "status": "UPDATE_SUCCESS"}}, "message": "operation completed", "status": "COMPLETED"}
 			assert.Equal(t, testActivityID, feedbackEnvelope.ActivityID)
 			assert.Equal(t, expectedFeedback, feedbackEnvelope.Payload)

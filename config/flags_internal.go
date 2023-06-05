@@ -18,6 +18,8 @@ import (
 	"io"
 	"os"
 	"strings"
+
+	"github.com/eclipse-kanto/update-manager/logger"
 )
 
 const (
@@ -51,7 +53,10 @@ func parseFlags(cfg *Config, version string) {
 	SetupAllUpdateManagerFlags(flagSet, cfg)
 
 	fVersion := flagSet.Bool("version", false, "Prints current version and exits")
-	flagSet.Parse(os.Args[1:])
+	err := flagSet.Parse(os.Args[1:])
+	if err != nil {
+		logger.ErrorErr(err, "Cannot parse command flags")
+	}
 
 	if *fVersion {
 		fmt.Println(version)
@@ -64,7 +69,10 @@ func parseDomainsFlag() map[string]bool {
 	flagSet := flag.NewFlagSet("", flag.ContinueOnError)
 	flagSet.SetOutput(io.Discard)
 	flagSet.StringVar(&listDomains, domainsFlagID, EnvToString("DOMAINS", ""), "Specify a comma-separated list of domains handled by the update manager")
-	flagSet.Parse(getFlagArgs(domainsFlagID))
+	err := flagSet.Parse(getFlagArgs(domainsFlagID))
+	if err != nil {
+		logger.ErrorErr(err, "Cannot parse domain flag")
+	}
 	if len(listDomains) > 0 {
 		domains := strings.Split(listDomains, ",")
 		result := make(map[string]bool)

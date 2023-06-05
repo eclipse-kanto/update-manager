@@ -67,7 +67,10 @@ func startComponent(ctx context.Context, agent api.UpdateAgent) error {
 
 func stopComponent(agent api.UpdateAgent) {
 	logger.Debug("stopping Update Manager")
-	agent.Stop()
+	err := agent.Stop()
+	if err != nil {
+		logger.ErrorErr(err, "error stopping Update Manager")
+	}
 	logger.Debug("stopping Update Manager finished")
 }
 

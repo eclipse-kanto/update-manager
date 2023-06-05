@@ -68,7 +68,7 @@ func (updateManager *domainUpdateManager) HandleCurrentState(currentState []byte
 	return nil
 }
 
-func (updateManager *domainUpdateManager) updateCurrentState(activityID string, timestamp int64, newInventory *types.Inventory) error {
+func (updateManager *domainUpdateManager) updateCurrentState(activityID string, timestamp int64, newInventory *types.Inventory) {
 	updateManager.currentState.inventory = newInventory
 	updateManager.currentState.timestamp = timestamp
 	updateManager.eventCallback.HandleCurrentStateEvent(updateManager.Name(), activityID, newInventory)
@@ -76,5 +76,4 @@ func (updateManager *domainUpdateManager) updateCurrentState(activityID string, 
 	if activityID != "" && activityID == updateManager.currentState.expActivityID {
 		updateManager.currentState.receiveChan <- true
 	}
-	return nil
 }

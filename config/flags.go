@@ -18,6 +18,8 @@ import (
 	"io"
 	"os"
 	"strconv"
+
+	"github.com/eclipse-kanto/update-manager/logger"
 )
 
 const (
@@ -57,7 +59,10 @@ func ParseConfigFilePath() string {
 	flagSet := flag.NewFlagSet("", flag.ContinueOnError)
 	flagSet.SetOutput(io.Discard)
 	flagSet.StringVar(&cfgFilePath, configFileFlagID, "", "Specify the configuration file")
-	flagSet.Parse(getFlagArgs(configFileFlagID))
+	err := flagSet.Parse(getFlagArgs(configFileFlagID))
+	if err != nil {
+		logger.ErrorErr(err, "Cannot parse the config-file flag")
+	}
 	return cfgFilePath
 }
 

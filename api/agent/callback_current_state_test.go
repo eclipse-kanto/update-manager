@@ -44,7 +44,8 @@ func TestHandleCurrentStateEvent(t *testing.T) {
 		mockClient := mocks.NewMockUpdateAgentClient(mockCtr)
 		mockClient.EXPECT().PublishCurrentState(gomock.Any()).DoAndReturn(func(bytes []byte) error {
 			inventoryEnvelope := &types.Envelope{}
-			json.Unmarshal(bytes, inventoryEnvelope)
+			err := json.Unmarshal(bytes, inventoryEnvelope)
+			assert.NotNil(t, err)
 			expectedPayload := map[string]interface{}(map[string]interface{}{"softwareNodes": []interface{}{map[string]interface{}{"id": "update-manager", "name": "Update Manager", "type": "APPLICATION", "version": "development"}}})
 			assert.Equal(t, "", inventoryEnvelope.ActivityID)
 			assert.Equal(t, expectedPayload, inventoryEnvelope.Payload)
@@ -71,7 +72,8 @@ func TestHandleCurrentStateEvent(t *testing.T) {
 		mockClient := mocks.NewMockUpdateAgentClient(mockCtr)
 		mockClient.EXPECT().PublishCurrentState(gomock.Any()).DoAndReturn(func(bytes []byte) error {
 			inventoryEnvelope := &types.Envelope{}
-			json.Unmarshal(bytes, inventoryEnvelope)
+			err := json.Unmarshal(bytes, inventoryEnvelope)
+			assert.NotNil(t, err)
 			expectedPayload := map[string]interface{}(map[string]interface{}{"softwareNodes": []interface{}{map[string]interface{}{"id": "update-manager", "name": "Update Manager", "type": "APPLICATION", "version": "development"}}})
 			assert.Equal(t, testActivityID, inventoryEnvelope.ActivityID)
 			assert.Equal(t, expectedPayload, inventoryEnvelope.Payload)
