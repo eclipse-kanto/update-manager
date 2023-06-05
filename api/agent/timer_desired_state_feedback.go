@@ -106,11 +106,12 @@ func (t *desiredStateFeedbackNotifier) updateReportedActions() {
 }
 
 func toActionsString(actions []*types.Action) string {
-	actionsString := "["
+	var sb strings.Builder
+	sb.WriteString("[ ")
 	for _, action := range actions {
-		actionString := fmt.Sprintf("{Component:{ID:%s Version:%s} Status:%s Progress:%v Message:%s}", action.Component.ID, action.Component.Version, action.Status, action.Progress, action.Message)
-		actionsString = actionsString + actionString + " "
+		actionString := fmt.Sprintf("{Component:{ID:%s Version:%s} Status:%s Progress:%v Message:%s} ", action.Component.ID, action.Component.Version, action.Status, action.Progress, action.Message)
+		sb.WriteString(actionString)
 	}
-	actionsString = strings.Trim(actionsString, " ") + "]"
-	return actionsString
+	sb.WriteString("]")
+	return sb.String()
 }
