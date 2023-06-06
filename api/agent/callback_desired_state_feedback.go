@@ -21,7 +21,12 @@ func (agent *updateAgent) HandleDesiredStateFeedbackEvent(domain string, activit
 	logger.Debug("handle desired state feedback event")
 
 	if status != types.StatusRunning {
-		agent.publishDesiredStateFeedback(activityID, baseline, status, message, actions)
+		agent.publishDesiredStateFeedback(activityID, &types.DesiredStateFeedback{
+			Baseline: baseline,
+			Status:   status,
+			Message:  message,
+			Actions:  actions,
+		})
 		if status == types.StatusCompleted || status == types.StatusIncomplete {
 			if agent.desiredStateFeedbackNotifier != nil {
 				agent.desiredStateFeedbackNotifier.stop()
@@ -40,21 +45,13 @@ func (agent *updateAgent) HandleDesiredStateFeedbackEvent(domain string, activit
 	agent.desiredStateFeedbackNotifier.set(activityID, actions)
 }
 
-func (agent *updateAgent) publishDesiredStateFeedback(activityID, baseline string, status types.StatusType, message string, actions []*types.Action) {
-	feedback := &types.DesiredStateFeedback{
-		Baseline: baseline,
-		Status:   status,
-		Message:  message,
-		Actions:  actions,
-	}
-
+func (agent *updateAgent) publishDesiredStateFeedback(activityID string, feedback *types.DesiredStateFeedback) {
 	desiredStateFeedbackBytes, err := types.ToDesiredStateFeedbackBytes(activityID, feedback)
 	if err != nil {
 		logger.ErrorErr(err, "cannot create payload for desired state feedback.")
 		return
 	}
-	err = agent.client.PublishDesiredStateFeedback(desiredStateFeedbackBytes)
-	if err != nil {
+	if err := agent.client.PublishDesiredStateFeedback(desiredStateFeedbackBytes); err != nil {
 		logger.ErrorErr(err, "cannot publish desired state feedback.")
 	}
 }

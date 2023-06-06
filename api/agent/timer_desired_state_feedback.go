@@ -52,7 +52,10 @@ func (t *desiredStateFeedbackNotifier) set(activityID string, actions []*types.A
 	if t.internalTimer == nil {
 		t.activityID = activityID
 		t.updateReportedActions()
-		t.agent.publishDesiredStateFeedback(activityID, "", types.StatusRunning, "", actions)
+		t.agent.publishDesiredStateFeedback(activityID, &types.DesiredStateFeedback{
+			Status:  types.StatusRunning,
+			Actions: actions,
+		})
 		t.internalTimer = time.AfterFunc(t.interval, t.notifyEvent)
 	}
 }
@@ -82,26 +85,26 @@ func (t *desiredStateFeedbackNotifier) notifyEvent() {
 		return
 	}
 	t.updateReportedActions()
-	t.agent.publishDesiredStateFeedback(t.activityID, "", types.StatusRunning, "", t.actions)
+	t.agent.publishDesiredStateFeedback(t.activityID, &types.DesiredStateFeedback{
+		Status:  types.StatusRunning,
+		Actions: t.actions,
+	})
 }
 
 func (t *desiredStateFeedbackNotifier) updateActions(actions []*types.Action) {
 	if logger.IsTraceEnabled() {
-		traceMsg := fmt.Sprintf("the current actions are: %v", toActionsString(t.actions))
-		logger.Trace(traceMsg)
+		logger.Trace(fmt.Sprintf("the current actions are: %v", toActionsString(t.actions)))
 	}
 	t.actions = actions
 	if logger.IsTraceEnabled() {
-		traceMsg := fmt.Sprintf("the updated actions are: %s", toActionsString(t.actions))
-		logger.Trace(traceMsg)
+		logger.Trace(fmt.Sprintf("the updated actions are: %s", toActionsString(t.actions)))
 	}
 }
 
 func (t *desiredStateFeedbackNotifier) updateReportedActions() {
 	t.reportedActions = t.actions
 	if logger.IsTraceEnabled() {
-		traceMsg := fmt.Sprintf("the reported actions for status '%s' are: %s", types.StatusRunning, toActionsString(t.reportedActions))
-		logger.Trace(traceMsg)
+		logger.Trace(fmt.Sprintf("the reported actions for status '%s' are: %s", types.StatusRunning, toActionsString(t.reportedActions)))
 	}
 }
 

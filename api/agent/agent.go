@@ -69,8 +69,7 @@ func (agent *updateAgent) Start(ctx context.Context) error {
 	agent.manager.SetCallback(agent)
 
 	agent.ctx = ctx
-	err := agent.client.Connect(agent)
-	if err != nil {
+	if err := agent.client.Connect(agent); err != nil {
 		return err
 	}
 	logger.Debug("started update agent.")
@@ -86,8 +85,7 @@ func (agent *updateAgent) Stop() error {
 	agent.clientLock.Lock()
 	defer agent.clientLock.Unlock()
 
-	err := agent.manager.Dispose()
-	if err != nil {
+	if err := agent.manager.Dispose(); err != nil {
 		return err
 	}
 	agent.client.Disconnect()
@@ -117,24 +115,21 @@ func (agent *updateAgent) GetCurrentState(ctx context.Context, activityID string
 	if strings.HasPrefix(activityID, prefixInitCurrentStateID) {
 		agent.manager.WatchEvents(agent.ctx)
 	}
-	var err error
-	var inventory *types.Inventory
-	if inventory, err = agent.manager.Get(ctx, activityID); err != nil {
+	inventory, err := agent.manager.Get(ctx, activityID)
+	if err != nil {
 		return nil, err
 	}
 	currentStateBytes, err := types.ToCurrentStateBytes(activityID, inventory)
-	if err == nil {
-		agent.stopCurrentStateStateNotifier()
+	if err != nil {
+		return nil, err
 	}
-	return currentStateBytes, err
+	agent.stopCurrentStateStateNotifier()
+	return currentStateBytes, nil
 }
 
 func (agent *updateAgent) HandleDesiredState(desiredStateBytes []byte) error {
 	activityID, desiredState, err := types.FromDesiredStateBytes(desiredStateBytes)
 	if err != nil {
-		if activityID != "" {
-			agent.HandleDesiredStateFeedbackEvent(agent.manager.Name(), activityID, "", types.StatusIdentificationFailed, err.Error(), []*types.Action{})
-		}
 		return err
 	}
 	logger.Debug("Received desired state request, activity-id=%s ", activityID)
@@ -162,8 +157,7 @@ func (agent *updateAgent) HandleCurrentStateGet(currentStateGetBytes []byte) err
 	if err != nil {
 		return err
 	}
-	err = agent.client.PublishCurrentState(currentStateBytes)
-	if err != nil {
+	if err = agent.client.PublishCurrentState(currentStateBytes); err != nil {
 		return errors.Wrap(err, "cannot publish current state.")
 	}
 	return nil
