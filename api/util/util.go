@@ -19,7 +19,7 @@ import (
 	"github.com/eclipse-kanto/update-manager/logger"
 )
 
-// ParseDuration converts the given string as time duration value.
+// ParseDuration converts the given string as time duration value, or returns defValue in case of an error or emptyValue if property is not set.
 func ParseDuration(property, strValue string, defValue, emptyValue time.Duration) time.Duration {
 	if strValue == "" {
 		logger.Warn("Duration for property '%s' not set, using value %v", property, emptyValue)

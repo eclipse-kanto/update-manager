@@ -34,9 +34,6 @@ const (
 	CommandCleanup CommandType = "CLEANUP"
 )
 
-// BaselineRemoveComponentsSuffix denotes the suffix for the reserved baselines for removing components, not presented in the Desired State manifest.
-const BaselineRemoveComponentsSuffix = ":remove-components"
-
 // DesiredState defines the payload holding the Desired State specification.
 type DesiredState struct {
 	Baselines []*Baseline `json:"baselines,omitempty"`

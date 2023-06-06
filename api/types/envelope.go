@@ -29,8 +29,7 @@ func FromEnvelope(bytes []byte, payload interface{}) (*Envelope, error) {
 	envelope := &Envelope{
 		Payload: payload,
 	}
-	err := json.Unmarshal(bytes, envelope)
-	if err != nil {
+	if err := json.Unmarshal(bytes, envelope); err != nil {
 		return nil, err
 	}
 	return envelope, nil

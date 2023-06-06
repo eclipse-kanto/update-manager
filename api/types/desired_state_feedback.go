@@ -25,7 +25,7 @@ const (
 	StatusIdentifying StatusType = "IDENTIFYING"
 	// StatusIdentified denotes that required actions are identified.
 	StatusIdentified StatusType = "IDENTIFIED"
-	// StatusIdentificationFailed denotes some or all of the required actions failed to be indentified.
+	// StatusIdentificationFailed denotes some or all of the required actions failed to be identified.
 	StatusIdentificationFailed StatusType = "IDENTIFICATION_FAILED"
 	// StatusDownloadCompleted denotes that identified actions are downloaded successfully.
 	StatusDownloadCompleted StatusType = "DOWNLOAD_COMPLETED"
@@ -78,7 +78,7 @@ const (
 	BaselineStatusCleanup StatusType = "CLEANUP"
 	// BaselineStatusCleanupSuccess denotes that the cleanup process for a baseline after activation was successful.
 	BaselineStatusCleanupSuccess StatusType = "CLEANUP_SUCCESS"
-	// BaselineStatusCleanupFailure denotes that the cleanup process for a baseline after activation was not succesful.
+	// BaselineStatusCleanupFailure denotes that the cleanup process for a baseline after activation was not successful.
 	BaselineStatusCleanupFailure StatusType = "CLEANUP_FAILURE"
 
 	// ActionStatusIdentified denotes action is identified, initial status for each action.

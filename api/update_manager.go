@@ -18,13 +18,13 @@ import (
 	"github.com/eclipse-kanto/update-manager/api/types"
 )
 
-// UpdateAgent defines the interface for starting/stoping an update agent.
+// UpdateAgent defines the interface for starting/stopping an update agent.
 type UpdateAgent interface {
 	Start(context.Context) error
 	Stop() error
 }
 
-// UpdateManagerConfig holds configuration properties for an update agent.
+// UpdateManagerConfig holds configuration properties for an update manager.
 type UpdateManagerConfig struct {
 	Name           string
 	RebootRequired bool   `json:"rebootRequired"`

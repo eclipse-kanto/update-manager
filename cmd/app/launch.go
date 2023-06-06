@@ -31,7 +31,7 @@ const (
 	defaultCurrentStateDelay      = 30 * time.Second
 )
 
-// Launch is the entry point for lauching of the Update Manager instance
+// Launch is the entry point for launching of the Update Manager instance
 func Launch(cfg *config.Config, client api.UpdateAgentClient, updateManager api.UpdateManager) error {
 	ua, err := initComponent(cfg, client, updateManager)
 	if err != nil {
@@ -42,8 +42,7 @@ func Launch(cfg *config.Config, client api.UpdateAgentClient, updateManager api.
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	err = startComponent(ctx, ua)
-	if err != nil {
+	if err = startComponent(ctx, ua); err != nil {
 		logger.ErrorErr(err, "failed to start Update Manager")
 		return err
 	}
@@ -67,8 +66,7 @@ func startComponent(ctx context.Context, agent api.UpdateAgent) error {
 
 func stopComponent(agent api.UpdateAgent) {
 	logger.Debug("stopping Update Manager")
-	err := agent.Stop()
-	if err != nil {
+	if err := agent.Stop(); err != nil {
 		logger.ErrorErr(err, "error stopping Update Manager")
 	}
 	logger.Debug("stopping Update Manager finished")

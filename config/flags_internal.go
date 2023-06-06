@@ -34,11 +34,11 @@ func SetupAllUpdateManagerFlags(flagSet *flag.FlagSet, cfg *Config) {
 	flagSet.String(domainsFlagID, "", "Specify a comma-separated list of domains handled by the update manager")
 
 	flagSet.BoolVar(&cfg.RebootEnabled, "reboot-enabled", EnvToBool("REBOOT_ENABLED", cfg.RebootEnabled), "Specify a flag that controls the enabling/disabling of the reboot process after successful update operation")
-	flagSet.StringVar(&cfg.RebootAfter, "reboot-after", EnvToString("REBOOT_AFTER", cfg.RebootAfter), "Specify the timeout in cron format to wait before a reboot process is initiated after successful update operation")
+	flagSet.StringVar(&cfg.RebootAfter, "reboot-after", EnvToString("REBOOT_AFTER", cfg.RebootAfter), "Specify the timeout in cron format to wait before a reboot process is initiated after successful update operation. Value should be a positive integer number followed by a unit suffix, such as '60s', '10m', etc")
 
-	flagSet.StringVar(&cfg.PhaseTimeout, "phase-timeout", EnvToString("PHASE_TIMEOUT", cfg.PhaseTimeout), "Specify the timeout for completing an Update Orchestration phase")
-	flagSet.StringVar(&cfg.ReportFeedbackInterval, "report-feedback-interval", EnvToString("REPORT_FEEDBACK_INTERVAL", cfg.ReportFeedbackInterval), "Specify the time interval for reporting intermediate desired state feedback messages during an active update operation")
-	flagSet.StringVar(&cfg.CurrentStateDelay, "current-state-delay", EnvToString("CURRENT_STATE_DELAY", cfg.CurrentStateDelay), "Specify the time delay for reporting current state messages")
+	flagSet.StringVar(&cfg.PhaseTimeout, "phase-timeout", EnvToString("PHASE_TIMEOUT", cfg.PhaseTimeout), "Specify the timeout for completing an Update Orchestration phase. Value should be a positive integer number followed by a unit suffix, such as '60s', '10m', etc")
+	flagSet.StringVar(&cfg.ReportFeedbackInterval, "report-feedback-interval", EnvToString("REPORT_FEEDBACK_INTERVAL", cfg.ReportFeedbackInterval), "Specify the time interval for reporting intermediate desired state feedback messages during an active update operation. Value should be a positive integer number followed by a unit suffix, such as '60s', '10m', etc")
+	flagSet.StringVar(&cfg.CurrentStateDelay, "current-state-delay", EnvToString("CURRENT_STATE_DELAY", cfg.CurrentStateDelay), "Specify the time delay for reporting current state messages. Value should be a positive integer number followed by a unit suffix, such as '60s', '10m', etc")
 
 	setupAgentsConfigFlags(flagSet, cfg)
 }
@@ -53,8 +53,7 @@ func parseFlags(cfg *Config, version string) {
 	SetupAllUpdateManagerFlags(flagSet, cfg)
 
 	fVersion := flagSet.Bool("version", false, "Prints current version and exits")
-	err := flagSet.Parse(os.Args[1:])
-	if err != nil {
+	if err := flagSet.Parse(os.Args[1:]); err != nil {
 		logger.ErrorErr(err, "Cannot parse command flags")
 	}
 
@@ -69,8 +68,7 @@ func parseDomainsFlag() map[string]bool {
 	flagSet := flag.NewFlagSet("", flag.ContinueOnError)
 	flagSet.SetOutput(io.Discard)
 	flagSet.StringVar(&listDomains, domainsFlagID, EnvToString("DOMAINS", ""), "Specify a comma-separated list of domains handled by the update manager")
-	err := flagSet.Parse(getFlagArgs(domainsFlagID))
-	if err != nil {
+	if err := flagSet.Parse(getFlagArgs(domainsFlagID)); err != nil {
 		logger.ErrorErr(err, "Cannot parse domain flag")
 	}
 	if len(listDomains) > 0 {
@@ -115,7 +113,7 @@ func setupAgentsConfigFlags(flagSet *flag.FlagSet, cfg *Config) {
 			rtoDef = readTimeoutDefault
 		}
 
-		flagSet.BoolVar(&agent.RebootRequired, rr, EnvToBool(rrEV, rrDef), "Specify the reboot required flag for the given domain")
-		flagSet.StringVar(&agent.ReadTimeout, rto, EnvToString(rtoEV, rtoDef), "Specify the read timeout for the given domain")
+		flagSet.BoolVar(&agent.RebootRequired, rr, EnvToBool(rrEV, rrDef), "Specify the reboot required flag for the given domain.")
+		flagSet.StringVar(&agent.ReadTimeout, rto, EnvToString(rtoEV, rtoDef), "Specify the read timeout for the given domain. Value should be a positive integer number followed by a unit suffix, such as '60s', '10m', etc")
 	}
 }

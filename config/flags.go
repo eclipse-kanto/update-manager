@@ -50,7 +50,6 @@ func SetupFlags(flagSet *flag.FlagSet, cfg *BaseConfig) {
 	flagSet.Int64Var(&cfg.MQTT.UnsubscribeTimeout, "mqtt-conn-unsub-timeout", EnvToInt("MQTT_CONN_UNSUB_TIMEOUT", cfg.MQTT.UnsubscribeTimeout), "Specify the unsubscribe timeout for the MQTT requests in milliseconds")
 
 	flagSet.StringVar(&cfg.Domain, "domain", EnvToString("DOMAIN", cfg.Domain), "Specify the Domain of this update agent, used as MQTT topic prefix.")
-
 }
 
 // ParseConfigFilePath returns the value for configuration file path if set.
@@ -59,8 +58,7 @@ func ParseConfigFilePath() string {
 	flagSet := flag.NewFlagSet("", flag.ContinueOnError)
 	flagSet.SetOutput(io.Discard)
 	flagSet.StringVar(&cfgFilePath, configFileFlagID, "", "Specify the configuration file")
-	err := flagSet.Parse(getFlagArgs(configFileFlagID))
-	if err != nil {
+	if err := flagSet.Parse(getFlagArgs(configFileFlagID)); err != nil {
 		logger.ErrorErr(err, "Cannot parse the config-file flag")
 	}
 	return cfgFilePath

@@ -48,8 +48,7 @@ func LoadConfigFromFile(filePath string, config interface{}) error {
 	if err != nil {
 		return err
 	}
-	err = json.Unmarshal(file, config)
-	if err != nil {
+	if err = json.Unmarshal(file, config); err != nil {
 		return err
 	}
 	return nil
