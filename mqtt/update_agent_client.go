@@ -222,6 +222,9 @@ func newClient(config *ConnectionConfig, onConnect pahomqtt.OnConnectHandler) pa
 		SetAutoReconnect(true).
 		SetProtocolVersion(4).
 		SetConnectTimeout(convertToMilliseconds(config.ConnectTimeout)).
-		SetOnConnectHandler(onConnect)
+		SetOnConnectHandler(onConnect).
+		SetUsername(config.ClientUsername).
+		SetPassword(config.ClientPassword)
+
 	return pahomqtt.NewClient(clientOptions)
 }
