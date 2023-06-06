@@ -17,9 +17,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"github.com/eclipse-kanto/update-manager/logger"
+
+	"github.com/pkg/errors"
 )
 
 const (

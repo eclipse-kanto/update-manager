@@ -21,6 +21,7 @@ import (
 
 	"github.com/eclipse-kanto/update-manager/api/types"
 	"github.com/eclipse-kanto/update-manager/test/mocks"
+
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )

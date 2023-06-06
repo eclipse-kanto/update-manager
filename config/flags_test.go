@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/eclipse-kanto/update-manager/api"
+
 	"github.com/stretchr/testify/assert"
 )
 

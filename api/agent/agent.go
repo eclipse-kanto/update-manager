@@ -18,11 +18,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"github.com/eclipse-kanto/update-manager/api"
 	"github.com/eclipse-kanto/update-manager/api/types"
 	"github.com/eclipse-kanto/update-manager/logger"
+
+	"github.com/pkg/errors"
 )
 
 const prefixInitCurrentStateID = "initial-current-state-"

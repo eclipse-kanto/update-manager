@@ -20,6 +20,7 @@ import (
 
 	"github.com/eclipse-kanto/update-manager/logger"
 	"github.com/eclipse-kanto/update-manager/mqtt"
+
 	"github.com/stretchr/testify/assert"
 )
 

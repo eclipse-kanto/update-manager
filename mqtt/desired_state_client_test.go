@@ -18,6 +18,7 @@ import (
 	"time"
 
 	mocks "github.com/eclipse-kanto/update-manager/mqtt/mock"
+
 	gomock "github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )

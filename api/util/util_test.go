@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/eclipse-kanto/update-manager/api/types"
+
 	"github.com/stretchr/testify/assert"
 )
 
