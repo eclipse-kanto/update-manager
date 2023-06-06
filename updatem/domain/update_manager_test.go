@@ -119,9 +119,9 @@ func TestGetCurrentState(t *testing.T) {
 				Payload:    dummyInventory,
 			}
 			envelopeBytes, _ := json.Marshal(envelope)
-			assert.NotNil(t, json.Unmarshal(bytes, envelope))
+			assert.Nil(t, json.Unmarshal(bytes, envelope))
 			assert.Equal(t, initCurrentStateID, envelope.ActivityID)
-			assert.NotNil(t, updateManager.HandleCurrentState(envelopeBytes))
+			assert.Nil(t, updateManager.HandleCurrentState(envelopeBytes))
 			return nil
 		},
 	)
@@ -153,9 +153,9 @@ func TestGetCurrentStateByActivityID(t *testing.T) {
 				Payload:    dummyInventory,
 			}
 			envelopeBytes, _ := json.Marshal(envelope)
-			assert.NotNil(t, json.Unmarshal(bytes, envelope))
+			assert.Nil(t, json.Unmarshal(bytes, envelope))
 			assert.Equal(t, testActivityID, envelope.ActivityID)
-			assert.NotNil(t, updateManager.HandleCurrentState(envelopeBytes))
+			assert.Nil(t, updateManager.HandleCurrentState(envelopeBytes))
 			return nil
 		},
 	)
@@ -189,7 +189,7 @@ func TestGetCurrentStateInvalidPayload(t *testing.T) {
 				Timestamp:  time.Now().UnixNano() / int64(time.Millisecond),
 				Payload:    "invalid-payload",
 			}
-			assert.NotNil(t, json.Unmarshal(bytes, envelope))
+			assert.Nil(t, json.Unmarshal(bytes, envelope))
 			assert.Equal(t, testActivityID, envelope.ActivityID)
 			assert.NotNil(t, updateManager.HandleCurrentState([]byte("invalid-payload")))
 
@@ -199,9 +199,9 @@ func TestGetCurrentStateInvalidPayload(t *testing.T) {
 				Payload:    dummyInventory,
 			}
 			envelopeBytes, _ = json.Marshal(envelope)
-			assert.NotNil(t, json.Unmarshal(bytes, envelope))
+			assert.Nil(t, json.Unmarshal(bytes, envelope))
 			assert.Equal(t, testActivityID, envelope.ActivityID)
-			assert.NotNil(t, updateManager.HandleCurrentState(envelopeBytes))
+			assert.Nil(t, updateManager.HandleCurrentState(envelopeBytes))
 
 			return nil
 		},
@@ -252,9 +252,9 @@ func TestGetCurrentStateMismatchActivityID(t *testing.T) {
 				Payload:    dummyInventory,
 			}
 			envelopeBytes, _ := json.Marshal(envelope)
-			assert.NotNil(t, json.Unmarshal(bytes, envelope))
+			assert.Nil(t, json.Unmarshal(bytes, envelope))
 			assert.Equal(t, "wrongActivityId", envelope.ActivityID)
-			assert.NotNil(t, updateManager.HandleCurrentState(envelopeBytes))
+			assert.Nil(t, updateManager.HandleCurrentState(envelopeBytes))
 			return nil
 		},
 	)
