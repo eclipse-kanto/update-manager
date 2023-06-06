@@ -46,12 +46,6 @@ eclipse/paho.mqtt.golang (1.4.1)
 * Project: https://github.com/eclipse/paho.mqtt.golang
 * Source:  https://github.com/eclipse/paho.mqtt.golang/releases/tag/v1.4.1
 
-golang/mock (1.6.0)
-
-* License: Apache License 2.0
-* Project: https://github.com/golang/mock
-* Source:  https://github.com/golang/mock/releases/tag/v1.6.0
-
 google/uuid (1.3.0)
 
 * License: BSD 3-Clause "New" or "Revised" License
@@ -87,12 +81,6 @@ natefinch/lumberjack.v2 (v2.0.0)
 * License: MIT License
 * Project: https://github.com/natefinch/lumberjack
 * Source:  https://github.com/natefinch/lumberjack/releases/tag/v2.0.0
-
-stretchr/testify (v1.8.0)
-
-* License: MIT License
-* Project: https://github.com/stretchr/testify
-* Source:  https://github.com/stretchr/testify/releases/tag/v1.8.0
 
 ## Cryptography
 
