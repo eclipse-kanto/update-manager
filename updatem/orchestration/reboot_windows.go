@@ -10,15 +10,23 @@
 //
 // SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
 
+//go:build windows
+// +build windows
+
 package orchestration
 
 import (
+	"os/exec"
 	"time"
+
+	"github.com/eclipse-kanto/update-manager/logger"
 )
 
-// RebootManager defines an interface for restarting the host system
-type RebootManager interface {
-	Reboot(time.Duration) error
-}
+// Reboot makes the host device to reboot.
+// Implementation for Windows just executes the shutdown command using the os/exec package.
+func (rebootManager *rebootManager) Reboot(timeout time.Duration) error {
+	logger.Debug("the system is about to reboot after successful update operation in '%s'", timeout)
+	<-time.After(timeout)
 
-type rebootManager struct{}
+	return exec.Command("cmd", "/C", "shutdown", "/s").Run()
+}
