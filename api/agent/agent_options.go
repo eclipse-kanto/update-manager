@@ -23,7 +23,7 @@ func WithCurrentStateReportDelay(delay time.Duration) updateAgentOption {
 	}
 }
 
-// WithDesiredStateFeedbackReportInterval defines option for update agent to delay the desired state feedback for the given duration, e.g. if there are newer desired state feedback rupdates, only the latest feedbakc will be sent
+// WithDesiredStateFeedbackReportInterval defines option for update agent to delay the desired state feedback for the given duration, e.g. if there are newer desired state feedback updates, only the latest feedback will be sent
 func WithDesiredStateFeedbackReportInterval(interval time.Duration) updateAgentOption {
 	return func(agent *updateAgent) {
 		agent.desiredStateFeedbackReportInterval = interval

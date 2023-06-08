@@ -16,7 +16,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"testing"
 
 	"github.com/eclipse-kanto/update-manager/api/types"
@@ -27,22 +26,8 @@ import (
 )
 
 const (
-	testActivityID     = "testActivityId"
-	dummyInventoryJSON = `
-	{
-		"activityId": "testActivityId",
-		"payload":{
-		   "softwareNodes":[
-			  {
-				 "id":"update-manager",
-				 "version":"development",
-				 "name":"Update Manager",
-				 "type":"APPLICATION"
-			  }
-		   ]
-		}
-	 }
-	`
+	testActivityID = "testActivityId"
+
 	dummyDesiredStateJSON = `
 	{
 		"activityId": "testActivityId",
@@ -167,7 +152,7 @@ func TestGetCurrentState(t *testing.T) {
 		mockUpdateManager.EXPECT().Get(context.Background(), "").Return(inventory, nil)
 		currentStateBytes, err := updAgent.GetCurrentState(context.Background(), "")
 
-		expectedPayload := map[string]interface{}(map[string]interface{}{"softwareNodes": []interface{}{map[string]interface{}{"id": "update-manager", "name": "Update Manager", "type": "APPLICATION", "version": "development"}}})
+		expectedPayload := map[string]interface{}{"softwareNodes": []interface{}{map[string]interface{}{"id": "update-manager", "name": "Update Manager", "type": "APPLICATION", "version": "development"}}}
 		assert.Nil(t, err)
 		inventoryEnvelope := &types.Envelope{}
 		err = json.Unmarshal(currentStateBytes, inventoryEnvelope)
@@ -186,7 +171,7 @@ func TestGetCurrentState(t *testing.T) {
 
 		currentStateBytes, err := updAgent.GetCurrentState(context.Background(), testActivityID)
 
-		expectedPayload := map[string]interface{}(map[string]interface{}{"softwareNodes": []interface{}{map[string]interface{}{"id": "update-manager", "name": "Update Manager", "type": "APPLICATION", "version": "development"}}})
+		expectedPayload := map[string]interface{}{"softwareNodes": []interface{}{map[string]interface{}{"id": "update-manager", "name": "Update Manager", "type": "APPLICATION", "version": "development"}}}
 		assert.Nil(t, err)
 		inventoryEnvelope := &types.Envelope{}
 		err = json.Unmarshal(currentStateBytes, inventoryEnvelope)
@@ -230,7 +215,7 @@ func TestHandleDesiredState(t *testing.T) {
 		ch := make(chan bool, 1)
 		mockUpdateManager.EXPECT().Apply(context.Background(), testActivityID, gomock.Any()).DoAndReturn(func(ctx context.Context, activityID string, state *types.DesiredState) {
 			ch <- true
-			assert.True(t, reflect.DeepEqual(desiredState, state))
+			assert.Equal(t, desiredState, state)
 		})
 		err := updAgent.HandleDesiredState([]byte(dummyDesiredStateJSON))
 		assert.Nil(t, err)

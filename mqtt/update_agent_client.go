@@ -67,6 +67,7 @@ func (client *updateAgentClient) topic(topicSuffix string) string {
 	return client.mqttPrefix + topicSuffix
 }
 
+// Domain returns the name of the domain that is handled by this client.
 func (client *updateAgentClient) Domain() string {
 	return client.domain
 }
@@ -150,15 +151,13 @@ func (client *updateAgentClient) handleStateRequest(mqttClient pahomqtt.Client, 
 	topicDesiredStateCommand := client.topic(suffixDesiredStateCommand)
 	if topic == topicDesiredStateCommand {
 		logger.Trace("[%s] received desired state command request", client.Domain())
-		desiredStateCommand := message.Payload()
-		if err := client.handler.HandleDesiredStateCommand(desiredStateCommand); err != nil {
+		if err := client.handler.HandleDesiredStateCommand(message.Payload()); err != nil {
 			logger.ErrorErr(err, "[%s] error processing desired state command request", client.Domain())
 		}
 		return
 	}
 	logger.Trace("[%s] received current state get request", client.Domain())
-	currentStateGet := message.Payload()
-	if err := client.handler.HandleCurrentStateGet(currentStateGet); err != nil {
+	if err := client.handler.HandleCurrentStateGet(message.Payload()); err != nil {
 		logger.ErrorErr(err, "[%s] error processing current state get request", client.Domain())
 	}
 }
@@ -178,20 +177,20 @@ func (client *updateAgentClient) getAndPublishCurrentState() {
 	}
 }
 
+// PublishCurrentState makes the client send the given raw bytes as current state message.
 func (client *updateAgentClient) PublishCurrentState(currentState []byte) error {
 	if logger.IsTraceEnabled() {
 		logger.Trace("[%s] publishing current state '%s'....", client.Domain(), currentState)
 	} else {
 		logger.Debug("[%s] publishing current state...", client.Domain())
 	}
-	topicCurrentState := client.topic(suffixCurrentState)
-	return client.publish(topicCurrentState, true, currentState)
+	return client.publish(client.topic(suffixCurrentState), true, currentState)
 }
 
+// PublishCurrentState makes the client send the given raw bytes as desired state feedback message.
 func (client *updateAgentClient) PublishDesiredStateFeedback(desiredStateFeedback []byte) error {
 	logger.Debug("[%s] publishing desired state feedback '%s'", client.Domain(), desiredStateFeedback)
-	topicDesiredStateFeedback := client.topic(suffixDesiredStateFeedback)
-	return client.publish(topicDesiredStateFeedback, false, desiredStateFeedback)
+	return client.publish(client.topic(suffixDesiredStateFeedback), false, desiredStateFeedback)
 }
 
 func (client *updateAgentClient) publish(topic string, retained bool, message []byte) error {

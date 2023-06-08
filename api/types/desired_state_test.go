@@ -21,23 +21,22 @@ import (
 func TestFromDesiredStateBytes(t *testing.T) {
 	spec := `{
 		"activityId": "random-activity-id",
-		"apiVersion": "1",
 		"timestamp": 16656700000000,
 		"payload": {
 			"baselines": [
 				{
-					"title": "powertrain 2022",
+					"title": "simple-baseline",
 					"components": [
-						"safety-ecu:powertrain",
-						"safety-ecu:body"
+						"test-domain:component1",
+						"test-domain:component2"
 					]
 				},
 				{
-					"title": "Composite-app123",
+					"title": "composite-baseline",
 					"components": [
 						"containers:xyz",
-						"safety-app:aap-base-1",
-						"safety-app:aap-app-1"
+						"another-domain:app1",
+						"another-domain:app2"
 					]
 				}
 			],
@@ -82,27 +81,27 @@ func TestFromDesiredStateBytes(t *testing.T) {
 					]
 				},
 				{
-					"id": "safety-app",
+					"id": "another-domain",
 					"components": [
 						{
-							"id": "aap-base-1",
+							"id": "app1",
 							"version": "1.0"
 						},
 						{
-							"id": "aap-app-1",
+							"id": "app2",
 							"version": "4.3"
 						}
 					]
 				},
 				{
-					"id": "safety-ecu",
+					"id": "test-domain",
 					"components": [
 						{
-							"id": "powertrain",
+							"id": "component1",
 							"version": "342.444.195"
 						},
 						{
-							"id": "body",
+							"id": "component2",
 							"version": "568.484.195"
 						}
 					]
@@ -127,10 +126,10 @@ func TestFromDesiredStateBytes(t *testing.T) {
 
 	// assert baselines
 	assert.Equal(t, 2, len(desiredState.Baselines))
-	assert.Equal(t, "powertrain 2022", desiredState.Baselines[0].Title)
-	assert.Equal(t, []string{"safety-ecu:powertrain", "safety-ecu:body"}, desiredState.Baselines[0].Components)
-	assert.Equal(t, "Composite-app123", desiredState.Baselines[1].Title)
-	assert.Equal(t, []string{"containers:xyz", "safety-app:aap-base-1", "safety-app:aap-app-1"}, desiredState.Baselines[1].Components)
+	assert.Equal(t, "simple-baseline", desiredState.Baselines[0].Title)
+	assert.Equal(t, []string{"test-domain:component1", "test-domain:component2"}, desiredState.Baselines[0].Components)
+	assert.Equal(t, "composite-baseline", desiredState.Baselines[1].Title)
+	assert.Equal(t, []string{"containers:xyz", "another-domain:app1", "another-domain:app2"}, desiredState.Baselines[1].Components)
 
 	// assert domains
 	assert.Equal(t, 4, len(desiredState.Domains))
@@ -161,25 +160,25 @@ func TestFromDesiredStateBytes(t *testing.T) {
 
 	// assert safety-app
 	safetyapp := desiredState.Domains[1]
-	assert.Equal(t, "safety-app", safetyapp.ID)
+	assert.Equal(t, "another-domain", safetyapp.ID)
 	assert.Empty(t, safetyapp.Config)
 	assert.Equal(t, 2, len(safetyapp.Components))
-	assert.Equal(t, "aap-base-1", safetyapp.Components[0].ID)
+	assert.Equal(t, "app1", safetyapp.Components[0].ID)
 	assert.Equal(t, "1.0", safetyapp.Components[0].Version)
-	assert.Equal(t, "aap-app-1", safetyapp.Components[1].ID)
+	assert.Equal(t, "app2", safetyapp.Components[1].ID)
 	assert.Equal(t, "4.3", safetyapp.Components[1].Version)
 
-	// assert safety-ecu
+	// assert domain1
 	safetyecu := desiredState.Domains[2]
-	assert.Equal(t, "safety-ecu", safetyecu.ID)
+	assert.Equal(t, "test-domain", safetyecu.ID)
 	assert.Empty(t, safetyecu.Config)
 	assert.Equal(t, 2, len(safetyecu.Components))
-	assert.Equal(t, "powertrain", safetyecu.Components[0].ID)
+	assert.Equal(t, "component1", safetyecu.Components[0].ID)
 	assert.Equal(t, "342.444.195", safetyecu.Components[0].Version)
-	assert.Equal(t, "body", safetyecu.Components[1].ID)
+	assert.Equal(t, "component2", safetyecu.Components[1].ID)
 	assert.Equal(t, "568.484.195", safetyecu.Components[1].Version)
 
-	// assert safety-ecu
+	// assert domain1
 	selfupdate := desiredState.Domains[3]
 	assert.Equal(t, "self-update", selfupdate.ID)
 	assert.Empty(t, selfupdate.Config)

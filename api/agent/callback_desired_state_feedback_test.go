@@ -35,7 +35,14 @@ func TestHandleDesiredStateFeedbackEvent(t *testing.T) {
 	}
 
 	t.Run("test_actions_nil_publishDesiredState_no_err", func(t *testing.T) {
-		mockClient.EXPECT().PublishDesiredStateFeedback(gomock.Any()).Return(nil)
+		mockClient.EXPECT().PublishDesiredStateFeedback(gomock.Any()).DoAndReturn(func(bytes []byte) error {
+			feedbackEnvelope := &types.Envelope{}
+			assert.Nil(t, json.Unmarshal(bytes, feedbackEnvelope))
+			expectedFeedback := map[string]interface{}{"message": "operation completed", "status": "COMPLETED"}
+			assert.Equal(t, testActivityID, feedbackEnvelope.ActivityID)
+			assert.Equal(t, expectedFeedback, feedbackEnvelope.Payload)
+			return nil
+		})
 		updAgent.HandleDesiredStateFeedbackEvent("", testActivityID, "", types.StatusCompleted, "operation completed", []*types.Action{})
 	})
 
@@ -46,7 +53,7 @@ func TestHandleDesiredStateFeedbackEvent(t *testing.T) {
 			expectedFeedback := map[string]interface{}{"message": "operation completed", "status": "COMPLETED"}
 			assert.Equal(t, testActivityID, feedbackEnvelope.ActivityID)
 			assert.Equal(t, expectedFeedback, feedbackEnvelope.Payload)
-			return nil
+			return fmt.Errorf("cannot publish message")
 		})
 		updAgent.HandleDesiredStateFeedbackEvent("", testActivityID, "", types.StatusCompleted, "operation completed", []*types.Action{})
 	})

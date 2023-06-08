@@ -41,7 +41,7 @@ type DesiredStateClient interface {
 	Domain() string
 
 	Subscribe(StateHandler) error
-	Unsubscribe()
+	Unsubscribe() error
 
 	PublishDesiredState([]byte) error
 	PublishDesiredStateCommand([]byte) error

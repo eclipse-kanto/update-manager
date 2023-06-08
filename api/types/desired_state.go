@@ -120,7 +120,7 @@ func (desiredState *DesiredState) SplitPerDomains() map[string]*DesiredState {
 	return split
 }
 
-// GetBaselinesForDomain splits the whole desired state into several desired states for each domain
+// GetBaselinesForDomain returns a list of baselines for the requested domain
 func (desiredState *DesiredState) GetBaselinesForDomain(domain string) []*Baseline {
 	baselines := []*Baseline{}
 	for _, baseline := range desiredState.Baselines {

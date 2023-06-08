@@ -18,7 +18,7 @@ import (
 )
 
 func (agent *updateAgent) HandleDesiredStateFeedbackEvent(domain string, activityID string, baseline string, status types.StatusType, message string, actions []*types.Action) {
-	logger.Debug("handle desired state feedback event")
+	logger.Debug("handle desired state feedback event for domain and activityId '%s' - '%s'", domain, activityID)
 
 	if status != types.StatusRunning {
 		agent.publishDesiredStateFeedback(activityID, &types.DesiredStateFeedback{

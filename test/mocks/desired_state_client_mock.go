@@ -117,9 +117,11 @@ func (mr *MockDesiredStateClientMockRecorder) Subscribe(arg0 interface{}) *gomoc
 }
 
 // Unsubscribe mocks base method.
-func (m *MockDesiredStateClient) Unsubscribe() {
+func (m *MockDesiredStateClient) Unsubscribe() error {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Unsubscribe")
+	ret := m.ctrl.Call(m, "Unsubscribe")
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // Unsubscribe indicates an expected call of Unsubscribe.

@@ -46,7 +46,7 @@ func TestHandleCurrentStateEvent(t *testing.T) {
 		mockClient.EXPECT().PublishCurrentState(gomock.Any()).DoAndReturn(func(bytes []byte) error {
 			inventoryEnvelope := &types.Envelope{}
 			assert.Nil(t, json.Unmarshal(bytes, inventoryEnvelope))
-			expectedPayload := map[string]interface{}(map[string]interface{}{"softwareNodes": []interface{}{map[string]interface{}{"id": "update-manager", "name": "Update Manager", "type": "APPLICATION", "version": "development"}}})
+			expectedPayload := map[string]interface{}{"softwareNodes": []interface{}{map[string]interface{}{"id": "update-manager", "name": "Update Manager", "type": "APPLICATION", "version": "development"}}}
 			assert.Equal(t, "", inventoryEnvelope.ActivityID)
 			assert.Equal(t, expectedPayload, inventoryEnvelope.Payload)
 			return nil
@@ -55,7 +55,6 @@ func TestHandleCurrentStateEvent(t *testing.T) {
 			client: mockClient,
 		}
 		updAgent.HandleCurrentStateEvent("testDomain", "", inventory)
-		updAgent.stopCurrentStateStateNotifier()
 	})
 
 	t.Run("test_no_activity_id_with_delay", func(t *testing.T) {
@@ -73,7 +72,7 @@ func TestHandleCurrentStateEvent(t *testing.T) {
 		mockClient.EXPECT().PublishCurrentState(gomock.Any()).DoAndReturn(func(bytes []byte) error {
 			inventoryEnvelope := &types.Envelope{}
 			assert.Nil(t, json.Unmarshal(bytes, inventoryEnvelope))
-			expectedPayload := map[string]interface{}(map[string]interface{}{"softwareNodes": []interface{}{map[string]interface{}{"id": "update-manager", "name": "Update Manager", "type": "APPLICATION", "version": "development"}}})
+			expectedPayload := map[string]interface{}{"softwareNodes": []interface{}{map[string]interface{}{"id": "update-manager", "name": "Update Manager", "type": "APPLICATION", "version": "development"}}}
 			assert.Equal(t, testActivityID, inventoryEnvelope.ActivityID)
 			assert.Equal(t, expectedPayload, inventoryEnvelope.Payload)
 			return nil

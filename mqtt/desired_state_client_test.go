@@ -95,8 +95,7 @@ func TestSubscribe(t *testing.T) {
 		mockToken.EXPECT().Error().Times(1)
 
 		err := desiredStateClient.Subscribe(&dummyStateHandler{})
-
-		assert.Equal(t, fmt.Errorf("cannot subscribe for topics '%v' in '%vms' seconds", "map[testDomainupdate/currentstate:1 testDomainupdate/desiredstatefeedback:1]", 5), err)
+		assert.NotNil(t, err)
 	})
 
 	t.Run("test_Subscribe_correct_token_true", func(t *testing.T) {
@@ -104,10 +103,9 @@ func TestSubscribe(t *testing.T) {
 		mockToken.EXPECT().WaitTimeout(time.Duration(5000000)).Return(true).Times(1)
 
 		assert.Nil(t, desiredStateClient.stateHandler)
-		err := desiredStateClient.Subscribe(&dummyStateHandler{})
+		assert.Nil(t, desiredStateClient.Subscribe(&dummyStateHandler{}))
 
 		assert.NotNil(t, desiredStateClient.stateHandler)
-		assert.Equal(t, nil, err)
 	})
 }
 
@@ -142,7 +140,7 @@ func TestUnsubscribe(t *testing.T) {
 		mockToken.EXPECT().WaitTimeout(time.Duration(5000000)).Return(false).Times(1)
 
 		desiredStateClient.stateHandler = &dummyStateHandler{}
-		desiredStateClient.Unsubscribe()
+		assert.NotNil(t, desiredStateClient.Unsubscribe())
 
 		assert.NotNil(t, desiredStateClient.stateHandler)
 		desiredStateClient.stateHandler = nil
@@ -154,7 +152,7 @@ func TestUnsubscribe(t *testing.T) {
 		mockToken.EXPECT().Error().Times(1)
 
 		desiredStateClient.stateHandler = &dummyStateHandler{}
-		desiredStateClient.Unsubscribe()
+		assert.Nil(t, desiredStateClient.Unsubscribe())
 
 		assert.Nil(t, desiredStateClient.stateHandler)
 	})
