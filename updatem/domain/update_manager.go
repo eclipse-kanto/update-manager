@@ -166,13 +166,14 @@ func (updateManager *domainUpdateManager) setCurrentStateActivityID(activityID s
 }
 
 func (updateManager *domainUpdateManager) Dispose() error {
-	updateManager.desiredStateClient.Unsubscribe()
+	if err := updateManager.desiredStateClient.Unsubscribe(); err != nil {
+		logger.ErrorErr(err, "[%s] cannot unsubscribe for events", updateManager.Name())
+	}
 	return nil
 }
 
 func (updateManager *domainUpdateManager) WatchEvents(ctx context.Context) {
-	err := updateManager.desiredStateClient.Subscribe(updateManager)
-	if err != nil {
+	if err := updateManager.desiredStateClient.Subscribe(updateManager); err != nil {
 		logger.ErrorErr(err, "[%s] cannot subscribe for events", updateManager.Name())
 	}
 }
