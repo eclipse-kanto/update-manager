@@ -72,7 +72,6 @@ func (updateManager *domainUpdateManager) Apply(ctx context.Context, activityID 
 
 	domainName := updateManager.Name()
 
-	var errMessage string
 	updateManager.updateOperation = newUpdateOperation(activityID)
 	logger.Debug("[%s] processing desired state specification - start", domainName)
 
@@ -84,7 +83,7 @@ func (updateManager *domainUpdateManager) Apply(ctx context.Context, activityID 
 	}
 
 	if err := updateManager.desiredStateClient.PublishDesiredState(desiredStateBytes); err != nil {
-		errMessage = fmt.Sprintf("%s. cannot send desired state manifest to domain %s", err.Error(), domainName)
+		errMessage := fmt.Sprintf("%s. cannot send desired state manifest to domain %s", err.Error(), domainName)
 		updateManager.eventCallback.HandleDesiredStateFeedbackEvent(domainName, activityID, "", types.StatusIncomplete, errMessage, []*types.Action{})
 		return
 	}

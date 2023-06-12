@@ -46,7 +46,7 @@ func (orchestrator *updateOrchestrator) HandleDesiredStateFeedbackEvent(domain, 
 	orchestrator.operationLock.Lock()
 	defer orchestrator.operationLock.Unlock()
 
-	if !orchestrator.validateActivity(domain, activityID, baseline, status) {
+	if !orchestrator.validateActivity(domain, activityID) {
 		return
 	}
 
@@ -60,7 +60,7 @@ func (orchestrator *updateOrchestrator) HandleDesiredStateFeedbackEvent(domain, 
 
 }
 
-func (orchestrator *updateOrchestrator) validateActivity(domain, activityID, baseline string, status types.StatusType) bool {
+func (orchestrator *updateOrchestrator) validateActivity(domain, activityID string) bool {
 	if orchestrator.operation == nil {
 		logger.Warn("received desired state feedback event for domain [%s], but there is no active update operation", domain)
 		return false
@@ -263,7 +263,7 @@ func handleDomainCleanupSuccess(orchestrator *updateOrchestrator, domain, messag
 		return
 	}
 	orchestrator.operation.domains[domain] = types.BaselineStatusCleanupSuccess
-	orchestrator.domainUpdateCompleted(domain)
+	orchestrator.domainUpdateCompleted()
 }
 
 func handleDomainCleanupFailure(orchestrator *updateOrchestrator, domain, message string) {
@@ -277,7 +277,7 @@ func handleDomainCleanupFailure(orchestrator *updateOrchestrator, domain, messag
 		return
 	}
 	orchestrator.operation.domains[domain] = types.BaselineStatusCleanupFailure
-	orchestrator.domainUpdateCompleted(domain)
+	orchestrator.domainUpdateCompleted()
 }
 
 func handleDomainCleanup(orchestrator *updateOrchestrator, domain, message string) {
@@ -292,7 +292,7 @@ func handleDomainCleanup(orchestrator *updateOrchestrator, domain, message strin
 	orchestrator.domainUpdateRunning()
 }
 
-func (orchestrator *updateOrchestrator) domainUpdateCompleted(domain string) {
+func (orchestrator *updateOrchestrator) domainUpdateCompleted() {
 	for _, domainUpdateStatus := range orchestrator.operation.domains {
 		if domainUpdateStatus != types.BaselineStatusCleanupSuccess && domainUpdateStatus != types.BaselineStatusCleanupFailure {
 			return
