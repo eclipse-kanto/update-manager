@@ -17,9 +17,9 @@ import (
 	"testing"
 	"time"
 
-	mocks "github.com/eclipse-kanto/update-manager/mqtt/mock"
+	"github.com/eclipse-kanto/update-manager/mqtt/mocks"
 
-	gomock "github.com/golang/mock/gomock"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -40,27 +40,16 @@ func (s *dummyStateHandler) HandleCurrentState(bytes []byte) error {
 	return s.currentStateErr
 }
 
-func (s *dummyStateHandler) setCurrentStateError(err error) {
-	s.currentStateErr = err
-}
-
 func TestDomain(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 	mockPaho := mocks.NewMockClient(mockCtrl)
 
-	client := &mqttClient{
-		pahoClient: mockPaho,
-		mqttConfig: &ConnectionConfig{},
-	}
-
 	updateAgentClient := &updateAgentClient{
-		mqttClient: client,
+		mqttClient: newInternalClient("testDomain", &ConnectionConfig{}, mockPaho),
 	}
-	desiredStateClient := NewDesiredStateClient("testDomain", updateAgentClient)
 
-	res := desiredStateClient.Domain()
-	assert.Equal(t, "testDomain", res)
+	assert.Equal(t, "testDomain", NewDesiredStateClient("testDomain", updateAgentClient).Domain())
 }
 
 func TestSubscribe(t *testing.T) {
@@ -69,37 +58,22 @@ func TestSubscribe(t *testing.T) {
 	mockPaho := mocks.NewMockClient(mockCtrl)
 	mockToken := mocks.NewMockToken(mockCtrl)
 
-	uacMqtt := &mqttClient{
-		pahoClient: mockPaho,
-		mqttConfig: &ConnectionConfig{
-			SubscribeTimeout: 5,
-		},
-	}
-
-	updateAgentClient := &updateAgentClient{
-		mqttClient: uacMqtt,
-	}
-
 	desiredStateClient := &desiredStateClient{
-		mqttClient: &mqttClient{
-			mqttPrefix: domainAsTopic("testDomain"),
-			mqttConfig: updateAgentClient.mqttConfig,
-			pahoClient: updateAgentClient.pahoClient,
-		},
+		mqttClient: newInternalClient("testDomain", &ConnectionConfig{
+			SubscribeTimeout: 5,
+		}, mockPaho),
 		domain: "testDomain",
 	}
-
 	t.Run("test_Subscribe_error_token_false", func(t *testing.T) {
-		mockPaho.EXPECT().SubscribeMultiple(map[string]byte{desiredStateClient.topic(suffixCurrentState): 1, desiredStateClient.topic(suffixDesiredStateFeedback): 1}, gomock.Any()).Return(mockToken).Times(1)
+		mockPaho.EXPECT().SubscribeMultiple(map[string]byte{desiredStateClient.topicCurrentState: 1, desiredStateClient.topicDesiredStateFeedback: 1}, gomock.Any()).Return(mockToken).Times(1)
 		mockToken.EXPECT().WaitTimeout(time.Duration(5000000)).Return(false).Times(1)
 		mockToken.EXPECT().Error().Times(1)
 
-		err := desiredStateClient.Subscribe(&dummyStateHandler{})
-		assert.NotNil(t, err)
+		assert.NotNil(t, desiredStateClient.Subscribe(&dummyStateHandler{}))
 	})
 
 	t.Run("test_Subscribe_correct_token_true", func(t *testing.T) {
-		mockPaho.EXPECT().SubscribeMultiple(map[string]byte{desiredStateClient.topic(suffixCurrentState): 1, desiredStateClient.topic(suffixDesiredStateFeedback): 1}, gomock.Any()).Return(mockToken).Times(1)
+		mockPaho.EXPECT().SubscribeMultiple(map[string]byte{desiredStateClient.topicCurrentState: 1, desiredStateClient.topicDesiredStateFeedback: 1}, gomock.Any()).Return(mockToken).Times(1)
 		mockToken.EXPECT().WaitTimeout(time.Duration(5000000)).Return(true).Times(1)
 
 		assert.Nil(t, desiredStateClient.stateHandler)
@@ -115,23 +89,10 @@ func TestUnsubscribe(t *testing.T) {
 	mockPaho := mocks.NewMockClient(mockCtrl)
 	mockToken := mocks.NewMockToken(mockCtrl)
 
-	uacMqtt := &mqttClient{
-		pahoClient: mockPaho,
-		mqttConfig: &ConnectionConfig{
-			UnsubscribeTimeout: 5,
-		},
-	}
-
-	updateAgentClient := &updateAgentClient{
-		mqttClient: uacMqtt,
-	}
-
 	desiredStateClient := &desiredStateClient{
-		mqttClient: &mqttClient{
-			mqttPrefix: domainAsTopic("testDomain"),
-			mqttConfig: updateAgentClient.mqttConfig,
-			pahoClient: updateAgentClient.pahoClient,
-		},
+		mqttClient: newInternalClient("testDomain", &ConnectionConfig{
+			UnsubscribeTimeout: 5,
+		}, mockPaho),
 		domain: "testDomain",
 	}
 
@@ -164,33 +125,25 @@ func TestPublishDesiredState(t *testing.T) {
 	mockPaho := mocks.NewMockClient(mockCtrl)
 	mockToken := mocks.NewMockToken(mockCtrl)
 
-	client := &mqttClient{
-		pahoClient: mockPaho,
-		mqttConfig: &ConnectionConfig{
+	desiredStateClient := NewDesiredStateClient("testDomain", &updateAgentClient{
+		mqttClient: newInternalClient("testDomain", &ConnectionConfig{
 			AcknowledgeTimeout: 5,
-		},
-	}
-
-	updateAgentClient := &updateAgentClient{
-		mqttClient: client,
-	}
-	desiredStateClient := NewDesiredStateClient("testDomain", updateAgentClient)
+		}, mockPaho),
+	})
 
 	t.Run("test_PublishDesiredState_correct_token_true", func(t *testing.T) {
 		mockPaho.EXPECT().Publish("testDomainupdate/desiredstate", uint8(1), false, []byte("testdesiredstate")).Return(mockToken).Times(1)
 		mockToken.EXPECT().WaitTimeout(time.Duration(5000000)).Return(true).Times(1)
 		mockToken.EXPECT().Error().Times(1)
 
-		err := desiredStateClient.PublishDesiredState([]byte("testdesiredstate"))
-		assert.Equal(t, nil, err)
+		assert.Equal(t, nil, desiredStateClient.PublishDesiredState([]byte("testdesiredstate")))
 	})
 
 	t.Run("test_PublishDesiredState_error_token_false", func(t *testing.T) {
 		mockPaho.EXPECT().Publish("testDomainupdate/desiredstate", uint8(1), false, []byte("testdesiredstate")).Return(mockToken).Times(1)
 		mockToken.EXPECT().WaitTimeout(time.Duration(5000000)).Return(false).Times(1)
 
-		err := desiredStateClient.PublishDesiredState([]byte("testdesiredstate"))
-		assert.Equal(t, fmt.Errorf("cannot publish to topic '%s' in '%vms' seconds", "testDomainupdate/desiredstate", 5), err)
+		assert.Equal(t, fmt.Errorf("cannot publish to topic '%s' in '%vms' seconds", "testDomainupdate/desiredstate", 5), desiredStateClient.PublishDesiredState([]byte("testdesiredstate")))
 	})
 }
 
@@ -202,12 +155,10 @@ func TestHandleMessage(t *testing.T) {
 	t.Run("test_handleMessage_handleCurrentState_err_nil", func(t *testing.T) {
 		stateHandler := &dummyStateHandler{}
 		desiredStateClient := &desiredStateClient{
-			mqttClient: &mqttClient{
-				mqttPrefix: "testprefix",
-			},
+			mqttClient:   newInternalClient("test", &ConnectionConfig{}, nil),
 			stateHandler: stateHandler,
 		}
-		mockMessage.EXPECT().Topic().Return("testprefix/currentstate").Times(1)
+		mockMessage.EXPECT().Topic().Return("testupdate/currentstate").Times(1)
 		mockMessage.EXPECT().Payload().Return([]byte("testCurrStateCall")).Times(1)
 
 		desiredStateClient.handleMessage(nil, mockMessage)
@@ -215,16 +166,13 @@ func TestHandleMessage(t *testing.T) {
 	})
 
 	t.Run("test_handleMessage_handleCurrentState_err_not_nil", func(t *testing.T) {
-		stateHandler := &dummyStateHandler{}
-		stateHandler.setCurrentStateError(fmt.Errorf("errNotNil"))
+		stateHandler := &dummyStateHandler{currentStateErr: fmt.Errorf("errNotNil")}
 
 		desiredStateClient := &desiredStateClient{
-			mqttClient: &mqttClient{
-				mqttPrefix: "testprefix",
-			},
+			mqttClient:   newInternalClient("test", &ConnectionConfig{}, nil),
 			stateHandler: stateHandler,
 		}
-		mockMessage.EXPECT().Topic().Return("testprefix/currentstate").Times(1)
+		mockMessage.EXPECT().Topic().Return("testupdate/currentstate").Times(1)
 		mockMessage.EXPECT().Payload().Return([]byte("testCurrStateCall")).Times(1)
 
 		desiredStateClient.handleMessage(nil, mockMessage)
@@ -235,12 +183,10 @@ func TestHandleMessage(t *testing.T) {
 		stateHandler := &dummyStateHandler{}
 
 		desiredStateClient := &desiredStateClient{
-			mqttClient: &mqttClient{
-				mqttPrefix: "testprefix",
-			},
+			mqttClient:   newInternalClient("test", &ConnectionConfig{}, nil),
 			stateHandler: stateHandler,
 		}
-		mockMessage.EXPECT().Topic().Return("testprefix/desiredstatefeedback").Times(1)
+		mockMessage.EXPECT().Topic().Return("testupdate/desiredstatefeedback").Times(1)
 		mockMessage.EXPECT().Payload().Return([]byte("testDesiredStateCall")).Times(1)
 
 		desiredStateClient.handleMessage(nil, mockMessage)
@@ -248,16 +194,13 @@ func TestHandleMessage(t *testing.T) {
 	})
 
 	t.Run("test_handleMessage_handleDesiredStateFeedback_err_not_nil", func(t *testing.T) {
-		stateHandler := &dummyStateHandler{}
-		stateHandler.setCurrentStateError(fmt.Errorf("errNotNil"))
+		stateHandler := &dummyStateHandler{currentStateErr: fmt.Errorf("errNotNil")}
 
 		desiredStateClient := &desiredStateClient{
-			mqttClient: &mqttClient{
-				mqttPrefix: "testprefix",
-			},
+			mqttClient:   newInternalClient("test", &ConnectionConfig{}, nil),
 			stateHandler: stateHandler,
 		}
-		mockMessage.EXPECT().Topic().Return("testprefix/desiredstatefeedback").Times(1)
+		mockMessage.EXPECT().Topic().Return("testupdate/desiredstatefeedback").Times(1)
 		mockMessage.EXPECT().Payload().Return([]byte("testDesiredStateCall")).Times(1)
 
 		desiredStateClient.handleMessage(nil, mockMessage)

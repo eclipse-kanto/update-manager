@@ -17,7 +17,7 @@
     "subscribeTimeout": 500,
     "unsubscribeTimeout": 500
   },
-  "domain": "testdomain",
+  "domain": "mydomain",
   "rebootEnabled": false,
   "rebootAfter": "1m",
   "reportFeedbackInterval": "2m",
@@ -27,17 +27,17 @@
     "self-update": {
       "name": "testSUname",
       "rebootRequired": false,
-      "readTimeout": "30s"
+      "readTimeout": "20s"
     },
     "containers": {
       "name": "testContainersName",
       "rebootRequired": true,
       "readTimeout": "30s"
     },
-    "safety-domain": {
-      "name": "testSDname",
+    "test-domain": {
+      "name": "testDomainName",
       "rebootRequired": true,
-      "readTimeout": "30s"
+      "readTimeout": "50s"
     }
   }
 }

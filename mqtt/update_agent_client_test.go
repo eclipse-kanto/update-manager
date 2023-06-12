@@ -17,10 +17,10 @@ import (
 	"testing"
 	"time"
 
-	mqttmocks "github.com/eclipse-kanto/update-manager/mqtt/mock"
+	mqttmocks "github.com/eclipse-kanto/update-manager/mqtt/mocks"
 	"github.com/eclipse-kanto/update-manager/test/mocks"
 
-	gomock "github.com/golang/mock/gomock"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -83,13 +83,9 @@ func TestDisconnect(t *testing.T) {
 	mockPaho := mqttmocks.NewMockClient(mockCtrl)
 	mockToken := mqttmocks.NewMockToken(mockCtrl)
 
-	client := &mqttClient{
-		mqttPrefix: "testTopic",
-		pahoClient: mockPaho,
-		mqttConfig: &ConnectionConfig{
-			UnsubscribeTimeout: 5,
-		},
-	}
+	client := newInternalClient("test", &ConnectionConfig{
+		UnsubscribeTimeout: 5,
+	}, mockPaho)
 
 	t.Run("test_Disconnect_waitTimeout_false_assert_handleDesiredState_and_getCurrentState_nil", func(t *testing.T) {
 		mockHandler := mocks.NewMockUpdateAgentHandler(mockCtrl)
@@ -98,7 +94,7 @@ func TestDisconnect(t *testing.T) {
 			handler:    mockHandler,
 		}
 
-		mockPaho.EXPECT().Unsubscribe("testTopic/desiredstate", "testTopic/desiredstate/command", "testTopic/currentstate/get").Return(mockToken).Times(1)
+		mockPaho.EXPECT().Unsubscribe("testupdate/desiredstate", "testupdate/desiredstate/command", "testupdate/currentstate/get").Return(mockToken).Times(1)
 		mockToken.EXPECT().WaitTimeout(time.Duration(5000000)).Return(false)
 		mockPaho.EXPECT().Disconnect(uint(10000))
 
@@ -114,7 +110,7 @@ func TestDisconnect(t *testing.T) {
 			handler:    mockHandler,
 		}
 
-		mockPaho.EXPECT().Unsubscribe("testTopic/desiredstate", "testTopic/desiredstate/command", "testTopic/currentstate/get").Return(mockToken).Times(1)
+		mockPaho.EXPECT().Unsubscribe("testupdate/desiredstate", "testupdate/desiredstate/command", "testupdate/currentstate/get").Return(mockToken).Times(1)
 		mockToken.EXPECT().WaitTimeout(time.Duration(5000000)).Return(true)
 		mockPaho.EXPECT().Disconnect(uint(10000))
 		mockToken.EXPECT().Error()
@@ -132,19 +128,15 @@ func TestPublishDesiredStateFeedback(t *testing.T) {
 	mockPaho := mqttmocks.NewMockClient(mockCtrl)
 	mockToken := mqttmocks.NewMockToken(mockCtrl)
 
-	client := &mqttClient{
-		mqttPrefix: "testTopic",
-		pahoClient: mockPaho,
-		mqttConfig: &ConnectionConfig{
-			AcknowledgeTimeout: 5,
-		},
-	}
+	client := newInternalClient("test", &ConnectionConfig{
+		UnsubscribeTimeout: 5,
+	}, mockPaho)
 
 	updateAgentClient := &updateAgentClient{
 		mqttClient: client,
 	}
 
-	mockPaho.EXPECT().Publish("testTopic/desiredstatefeedback", uint8(1), false, []byte("testdesiredstate")).Return(mockToken).Times(1)
+	mockPaho.EXPECT().Publish("testupdate/desiredstatefeedback", uint8(1), false, []byte("testdesiredstate")).Return(mockToken).Times(1)
 	publishDesiredStateFeedbackErr := updateAgentClient.PublishDesiredStateFeedback([]byte("testdesiredstate"))
 
 	assert.Equal(t, nil, publishDesiredStateFeedbackErr)
@@ -157,18 +149,14 @@ func TestPublishCurrentState(t *testing.T) {
 	mockPaho := mqttmocks.NewMockClient(mockCtrl)
 	mockToken := mqttmocks.NewMockToken(mockCtrl)
 
-	client := &mqttClient{
-		mqttPrefix: "testTopic",
-		pahoClient: mockPaho,
-		mqttConfig: &ConnectionConfig{
-			AcknowledgeTimeout: 5,
-		},
-	}
+	client := newInternalClient("test", &ConnectionConfig{
+		UnsubscribeTimeout: 5,
+	}, mockPaho)
 
 	updateAgentClient := &updateAgentClient{
 		mqttClient: client,
 	}
-	mockPaho.EXPECT().Publish("testTopic/currentstate", uint8(1), true, []byte("testdesiredstate")).Return(mockToken).Times(1)
+	mockPaho.EXPECT().Publish("testupdate/currentstate", uint8(1), true, []byte("testdesiredstate")).Return(mockToken).Times(1)
 	publishCurrentStateErr := updateAgentClient.PublishCurrentState([]byte("testdesiredstate"))
 	assert.Equal(t, nil, publishCurrentStateErr)
 }
@@ -201,14 +189,11 @@ func TestOnConnect(t *testing.T) {
 	mockPaho := mqttmocks.NewMockClient(mockCtrl)
 	mockToken := mqttmocks.NewMockToken(mockCtrl)
 
-	client := &mqttClient{
-		mqttPrefix: "testTopic",
-		pahoClient: mockPaho,
-		mqttConfig: &ConnectionConfig{
-			SubscribeTimeout:   5,
-			AcknowledgeTimeout: 5,
-		},
-	}
+	client := newInternalClient("test", &ConnectionConfig{
+		UnsubscribeTimeout: 5,
+		SubscribeTimeout:   5,
+		AcknowledgeTimeout: 5,
+	}, mockPaho)
 
 	t.Run("test_onConnect_getCurrentState", func(t *testing.T) {
 		mockHandler := mocks.NewMockUpdateAgentHandler(mockCtrl)
@@ -218,9 +203,9 @@ func TestOnConnect(t *testing.T) {
 			handler:    mockHandler,
 		}
 		topicsMap := map[string]byte{
-			"testTopic/currentstate/get":     1,
-			"testTopic/desiredstate":         1,
-			"testTopic/desiredstate/command": 1,
+			"testupdate/currentstate/get":     1,
+			"testupdate/desiredstate":         1,
+			"testupdate/desiredstate/command": 1,
 		}
 		mockPaho.EXPECT().SubscribeMultiple(topicsMap, gomock.Any()).Return(mockToken)
 		mockToken.EXPECT().WaitTimeout(time.Duration(5000000)).Return(false).Times(1)
@@ -239,11 +224,7 @@ func TestHandleDesiredStateRequest(t *testing.T) {
 	mockPaho := mqttmocks.NewMockClient(mockCtrl)
 	mockMessage := mqttmocks.NewMockMessage(mockCtrl)
 
-	client := &mqttClient{
-		mqttPrefix: "testTopic",
-		pahoClient: mockPaho,
-		mqttConfig: &ConnectionConfig{},
-	}
+	client := newInternalClient("test", &ConnectionConfig{}, mockPaho)
 
 	t.Run("test_handleDesiredStateRequest_handleDesiredStateErr_nil", func(t *testing.T) {
 		mockHandler := mocks.NewMockUpdateAgentHandler(mockCtrl)
@@ -253,7 +234,7 @@ func TestHandleDesiredStateRequest(t *testing.T) {
 			handler:    mockHandler,
 		}
 		mockMessage.EXPECT().Payload().Return([]byte("testDesiredStateCall")).Times(1)
-		mockMessage.EXPECT().Topic().Return("testTopic/desiredstate").Times(1)
+		mockMessage.EXPECT().Topic().Return("testupdate/desiredstate").Times(1)
 
 		updateAgentClient.handleStateRequest(mockPaho, mockMessage)
 	})
@@ -266,7 +247,7 @@ func TestHandleDesiredStateRequest(t *testing.T) {
 			handler:    mockHandler,
 		}
 		mockMessage.EXPECT().Payload().Return([]byte("testDesiredStateCall")).Times(1)
-		mockMessage.EXPECT().Topic().Return("testTopic/desiredstate").Times(1)
+		mockMessage.EXPECT().Topic().Return("testupdate/desiredstate").Times(1)
 
 		updateAgentClient.handleStateRequest(mockPaho, mockMessage)
 	})

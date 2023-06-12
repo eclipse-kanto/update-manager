@@ -15,12 +15,32 @@ package orchestration
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/eclipse-kanto/update-manager/api/types"
 	"github.com/eclipse-kanto/update-manager/api/util"
 	"github.com/eclipse-kanto/update-manager/logger"
 )
+
+type statusHandler func(*updateOrchestrator, string, string)
+
+var statusHandlers = map[types.StatusType]statusHandler{
+	types.StatusIdentified:                handleDomainIdentified,
+	types.StatusIdentificationFailed:      handleDomainIdentificationFailed,
+	types.StatusCompleted:                 handleDomainCompletedEvent,
+	types.StatusIncomplete:                handleDomainIncomplete,
+	types.BaselineStatusDownloading:       handleDomainDownloading,
+	types.BaselineStatusDownloadSuccess:   handleDomainDownloadSuccess,
+	types.BaselineStatusDownloadFailure:   handleDomainDownloadFailure,
+	types.BaselineStatusUpdating:          handleDomainUpdating,
+	types.BaselineStatusUpdateSuccess:     handleDomainUpdateSuccess,
+	types.BaselineStatusUpdateFailure:     handleDomainUpdateFailure,
+	types.BaselineStatusActivating:        handleDomainActivating,
+	types.BaselineStatusActivationSuccess: handleDomainActivationSuccess,
+	types.BaselineStatusActivationFailure: handleDomainActivationFailure,
+	types.BaselineStatusCleanup:           handleDomainCleanup,
+	types.BaselineStatusCleanupSuccess:    handleDomainCleanupSuccess,
+	types.BaselineStatusCleanupFailure:    handleDomainCleanupFailure,
+}
 
 func (orchestrator *updateOrchestrator) HandleDesiredStateFeedbackEvent(domain, activityID, baseline string, status types.StatusType, message string, actions []*types.Action) {
 	orchestrator.operationLock.Lock()
@@ -32,40 +52,12 @@ func (orchestrator *updateOrchestrator) HandleDesiredStateFeedbackEvent(domain, 
 
 	orchestrator.updateActions(domain, actions)
 
-	switch status {
-	case types.StatusIdentified:
-		orchestrator.handleDomainIdentified(domain)
-	case types.StatusIdentificationFailed:
-		orchestrator.handleDomainIdentificationFailed(domain, message)
-	case types.StatusCompleted:
-		orchestrator.handleDomainCompletedEvent(domain)
-	case types.StatusIncomplete:
-		orchestrator.handleDomainIncomplete(domain, message)
-	case types.BaselineStatusDownloading:
-		orchestrator.handleDomainDownloading(domain)
-	case types.BaselineStatusDownloadSuccess:
-		orchestrator.handleDomainDownloadSuccess(domain)
-	case types.BaselineStatusDownloadFailure:
-		orchestrator.handleDomainDownloadFailure(domain, message)
-	case types.BaselineStatusUpdating:
-		orchestrator.handleDomainUpdating(domain)
-	case types.BaselineStatusUpdateSuccess:
-		orchestrator.handleDomainUpdateSuccess(domain)
-	case types.BaselineStatusUpdateFailure:
-		orchestrator.handleDomainUpdateFailure(domain, message)
-	case types.BaselineStatusActivating:
-		orchestrator.handleDomainActivating(domain)
-	case types.BaselineStatusActivationSuccess:
-		orchestrator.handleDomainActivationSuccess(domain)
-	case types.BaselineStatusActivationFailure:
-		orchestrator.handleDomainActivationFailure(domain, message)
-	case types.BaselineStatusCleanup:
-		orchestrator.handleDomainCleanup(domain)
-	case types.BaselineStatusCleanupSuccess:
-		orchestrator.handleDomainCleanupSuccess(domain)
-	case types.BaselineStatusCleanupFailure:
-		orchestrator.handleDomainCleanupFailure(domain, message)
+	if handler, ok := statusHandlers[status]; !ok {
+		logger.Warn("received desired state feedback event for baseline [%s] and domain [%s] with unsupported status '%s'", baseline, domain, status)
+	} else {
+		handler(orchestrator, domain, message)
 	}
+
 }
 
 func (orchestrator *updateOrchestrator) validateActivity(domain, activityID, baseline string, status types.StatusType) bool {
@@ -81,19 +73,10 @@ func (orchestrator *updateOrchestrator) validateActivity(domain, activityID, bas
 		logger.Warn("received desired state feedback event for unexpected domain [%s]", domain)
 		return false
 	}
-	if status != types.StatusIdentified && status != types.StatusIdentificationFailed &&
-		status != types.StatusCompleted && status != types.StatusIncomplete &&
-		status != types.BaselineStatusDownloading && status != types.BaselineStatusDownloadSuccess && status != types.BaselineStatusDownloadFailure &&
-		status != types.BaselineStatusUpdating && status != types.BaselineStatusUpdateSuccess && status != types.BaselineStatusUpdateFailure &&
-		status != types.BaselineStatusActivating && status != types.BaselineStatusActivationSuccess && status != types.BaselineStatusActivationFailure &&
-		status != types.BaselineStatusCleanup && status != types.BaselineStatusCleanupSuccess && status != types.BaselineStatusCleanupFailure &&
-		status != types.BaselineStatusRollback && status != types.BaselineStatusRollbackSuccess && status != types.BaselineStatusRollbackFailure {
-		logger.Warn("received desired state feedback event for baseline [%s] and domain [%s] with unsupported status '%s'", baseline, domain, status)
-	}
 	return true
 }
 
-func (orchestrator *updateOrchestrator) handleDomainIdentified(domain string) {
+func handleDomainIdentified(orchestrator *updateOrchestrator, domain, message string) {
 	if !orchestrator.checkIdentificationStatus(domain) {
 		return
 	}
@@ -112,7 +95,7 @@ func (orchestrator *updateOrchestrator) handleDomainIdentified(domain string) {
 		return
 	}
 	orchestrator.notifyFeedback(types.StatusIdentified, "")
-	orchestrator.updateStatusRunning()
+	orchestrator.notifyFeedback(types.StatusRunning, "")
 	orchestrator.operation.status = types.StatusRunning
 	for domain := range orchestrator.operation.domains {
 		orchestrator.command(context.Background(), orchestrator.operation.activityID, domain, types.CommandDownload)
@@ -120,7 +103,7 @@ func (orchestrator *updateOrchestrator) handleDomainIdentified(domain string) {
 	orchestrator.operation.identDone <- true
 }
 
-func (orchestrator *updateOrchestrator) handleDomainIdentificationFailed(domain, errMsg string) {
+func handleDomainIdentificationFailed(orchestrator *updateOrchestrator, domain, message string) {
 	if !orchestrator.checkIdentificationStatus(domain) {
 		return
 	}
@@ -130,10 +113,10 @@ func (orchestrator *updateOrchestrator) handleDomainIdentificationFailed(domain,
 			return
 		}
 	}
-	orchestrator.updateStatusIdentificationFailed(domain, errMsg)
+	orchestrator.updateStatusIdentificationFailed(domain, message)
 }
 
-func (orchestrator *updateOrchestrator) handleDomainCompletedEvent(domain string) {
+func handleDomainCompletedEvent(orchestrator *updateOrchestrator, domain, message string) {
 	if orchestrator.operation.status != types.StatusRunning {
 		return
 	}
@@ -145,7 +128,7 @@ func (orchestrator *updateOrchestrator) handleDomainCompletedEvent(domain string
 	orchestrator.command(context.Background(), orchestrator.operation.activityID, domain, types.CommandCleanup)
 }
 
-func (orchestrator *updateOrchestrator) handleDomainIncomplete(domain, errMsg string) {
+func handleDomainIncomplete(orchestrator *updateOrchestrator, domain, message string) {
 	if orchestrator.operation.status != types.StatusRunning {
 		return
 	}
@@ -158,7 +141,7 @@ func (orchestrator *updateOrchestrator) handleDomainIncomplete(domain, errMsg st
 	orchestrator.command(context.Background(), orchestrator.operation.activityID, domain, types.CommandCleanup)
 }
 
-func (orchestrator *updateOrchestrator) handleDomainDownloadSuccess(domain string) {
+func handleDomainDownloadSuccess(orchestrator *updateOrchestrator, domain, message string) {
 	if orchestrator.operation.status != types.StatusRunning {
 		return
 	}
@@ -171,7 +154,7 @@ func (orchestrator *updateOrchestrator) handleDomainDownloadSuccess(domain strin
 	orchestrator.domainUpdateRunning()
 }
 
-func (orchestrator *updateOrchestrator) handleDomainDownloadFailure(domain string, errMsg string) {
+func handleDomainDownloadFailure(orchestrator *updateOrchestrator, domain, message string) {
 	if orchestrator.operation.status != types.StatusRunning {
 		return
 	}
@@ -184,7 +167,7 @@ func (orchestrator *updateOrchestrator) handleDomainDownloadFailure(domain strin
 	orchestrator.command(context.Background(), orchestrator.operation.activityID, domain, types.CommandCleanup)
 }
 
-func (orchestrator *updateOrchestrator) handleDomainDownloading(domain string) {
+func handleDomainDownloading(orchestrator *updateOrchestrator, domain, message string) {
 	if orchestrator.operation.status != types.StatusRunning {
 		return
 	}
@@ -195,7 +178,7 @@ func (orchestrator *updateOrchestrator) handleDomainDownloading(domain string) {
 	orchestrator.domainUpdateRunning()
 }
 
-func (orchestrator *updateOrchestrator) handleDomainUpdateSuccess(domain string) {
+func handleDomainUpdateSuccess(orchestrator *updateOrchestrator, domain, message string) {
 	if orchestrator.operation.status != types.StatusRunning {
 		return
 	}
@@ -208,7 +191,7 @@ func (orchestrator *updateOrchestrator) handleDomainUpdateSuccess(domain string)
 	orchestrator.domainUpdateRunning()
 }
 
-func (orchestrator *updateOrchestrator) handleDomainUpdateFailure(domain string, errMsg string) {
+func handleDomainUpdateFailure(orchestrator *updateOrchestrator, domain, message string) {
 	if orchestrator.operation.status != types.StatusRunning {
 		return
 	}
@@ -221,7 +204,7 @@ func (orchestrator *updateOrchestrator) handleDomainUpdateFailure(domain string,
 	orchestrator.command(context.Background(), orchestrator.operation.activityID, domain, types.CommandCleanup)
 }
 
-func (orchestrator *updateOrchestrator) handleDomainUpdating(domain string) {
+func handleDomainUpdating(orchestrator *updateOrchestrator, domain, message string) {
 	if orchestrator.operation.status != types.StatusRunning {
 		return
 	}
@@ -232,7 +215,7 @@ func (orchestrator *updateOrchestrator) handleDomainUpdating(domain string) {
 	orchestrator.domainUpdateRunning()
 }
 
-func (orchestrator *updateOrchestrator) handleDomainActivationSuccess(domain string) {
+func handleDomainActivationSuccess(orchestrator *updateOrchestrator, domain, message string) {
 	if orchestrator.operation.status != types.StatusRunning {
 		return
 	}
@@ -245,7 +228,7 @@ func (orchestrator *updateOrchestrator) handleDomainActivationSuccess(domain str
 	orchestrator.domainUpdateRunning()
 }
 
-func (orchestrator *updateOrchestrator) handleDomainActivationFailure(domain string, errMsg string) {
+func handleDomainActivationFailure(orchestrator *updateOrchestrator, domain, message string) {
 	if orchestrator.operation.status != types.StatusRunning {
 		return
 	}
@@ -258,7 +241,7 @@ func (orchestrator *updateOrchestrator) handleDomainActivationFailure(domain str
 	orchestrator.command(context.Background(), orchestrator.operation.activityID, domain, types.CommandCleanup)
 }
 
-func (orchestrator *updateOrchestrator) handleDomainActivating(domain string) {
+func handleDomainActivating(orchestrator *updateOrchestrator, domain, message string) {
 	if orchestrator.operation.status != types.StatusRunning {
 		return
 	}
@@ -269,7 +252,7 @@ func (orchestrator *updateOrchestrator) handleDomainActivating(domain string) {
 	orchestrator.domainUpdateRunning()
 }
 
-func (orchestrator *updateOrchestrator) handleDomainCleanupSuccess(domain string) {
+func handleDomainCleanupSuccess(orchestrator *updateOrchestrator, domain, message string) {
 	if orchestrator.operation.status != types.StatusRunning {
 		return
 	}
@@ -283,7 +266,7 @@ func (orchestrator *updateOrchestrator) handleDomainCleanupSuccess(domain string
 	orchestrator.domainUpdateCompleted(domain)
 }
 
-func (orchestrator *updateOrchestrator) handleDomainCleanupFailure(domain string, errMsg string) {
+func handleDomainCleanupFailure(orchestrator *updateOrchestrator, domain, message string) {
 	if orchestrator.operation.status != types.StatusRunning {
 		return
 	}
@@ -297,7 +280,7 @@ func (orchestrator *updateOrchestrator) handleDomainCleanupFailure(domain string
 	orchestrator.domainUpdateCompleted(domain)
 }
 
-func (orchestrator *updateOrchestrator) handleDomainCleanup(domain string) {
+func handleDomainCleanup(orchestrator *updateOrchestrator, domain, message string) {
 	if orchestrator.operation.status != types.StatusRunning {
 		return
 	}
@@ -339,10 +322,6 @@ func (orchestrator *updateOrchestrator) domainUpdateRunning() {
 	orchestrator.notifyFeedback(types.StatusRunning, "")
 }
 
-func (orchestrator *updateOrchestrator) updateStatusRunning() {
-	orchestrator.notifyFeedback(types.StatusRunning, "")
-}
-
 func (orchestrator *updateOrchestrator) updateStatusIdentificationFailed(domain, errMsg string) {
 	orchestrator.operation.status = types.StatusIdentificationFailed
 	orchestrator.operation.identErrMsg = fmt.Sprintf("[%s]: %s", domain, errMsg)
@@ -370,21 +349,12 @@ func (orchestrator *updateOrchestrator) updateActions(domain string, actions []*
 	orchestrator.actionsLock.Lock()
 	defer orchestrator.actionsLock.Unlock()
 
-	if logger.IsTraceEnabled() {
-		traceMsg := fmt.Sprintf("the current actions for domain [%s] are: %v", domain, orchestrator.toActionsString())
-		logger.Trace(traceMsg)
-	}
 	domainActions := orchestrator.operation.actions[domain]
 	if domainActions == nil {
 		orchestrator.operation.actions[domain] = map[string]*types.Action{}
 	}
 	for _, action := range actions {
 		orchestrator.operation.actions[domain][action.Component.ID] = action
-	}
-
-	if logger.IsTraceEnabled() {
-		traceMsg := fmt.Sprintf("the updated actions for domain [%s] are: %s", domain, orchestrator.toActionsString())
-		logger.Trace(traceMsg)
 	}
 }
 
@@ -399,18 +369,6 @@ func (orchestrator *updateOrchestrator) toActionsList() []*types.Action {
 		}
 	}
 	return actions
-}
-
-func (orchestrator *updateOrchestrator) toActionsString() string {
-	actionsString := "["
-	for _, domainActions := range orchestrator.operation.actions {
-		for _, domainAction := range domainActions {
-			actionString := fmt.Sprintf("{Component:{ID:%s Version:%s} Status:%s Progress:%v Message:%s}", domainAction.Component.ID, domainAction.Component.Version, domainAction.Status, domainAction.Progress, domainAction.Message)
-			actionsString = actionsString + actionString + " "
-		}
-	}
-	actionsString = strings.Trim(actionsString, " ") + "]"
-	return actionsString
 }
 
 func (orchestrator *updateOrchestrator) notifyFeedback(status types.StatusType, message string) {

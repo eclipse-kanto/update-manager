@@ -49,12 +49,10 @@ func TestNewUpdateAgent(t *testing.T) {
 	mockClient := mocks.NewMockUpdateAgentClient(mockCtr)
 	mockUpdateManager := mocks.NewMockUpdateManager(mockCtr)
 
-	returnAgent := NewUpdateAgent(mockClient, mockUpdateManager)
-
 	assert.Equal(t, &updateAgent{
 		client:  mockClient,
 		manager: mockUpdateManager,
-	}, returnAgent)
+	}, NewUpdateAgent(mockClient, mockUpdateManager))
 }
 
 func TestStart(t *testing.T) {
@@ -107,9 +105,7 @@ func TestStop(t *testing.T) {
 		mockUpdateManager.EXPECT().Dispose().Return(nil)
 		mockClient.EXPECT().Disconnect()
 
-		returnErr := updAgent.Stop()
-
-		assert.Equal(t, nil, returnErr)
+		assert.Nil(t, updAgent.Stop())
 		assert.Nil(t, updAgent.currentStateNotifier)
 	})
 	t.Run("test_err_not_nil_currentStateNotifier_nil", func(t *testing.T) {
@@ -117,9 +113,7 @@ func TestStop(t *testing.T) {
 
 		mockUpdateManager.EXPECT().Dispose().Return(fmt.Errorf("errNotNil"))
 
-		returnErr := updAgent.Stop()
-
-		assert.Equal(t, fmt.Errorf("errNotNil"), returnErr)
+		assert.Equal(t, fmt.Errorf("errNotNil"), updAgent.Stop())
 		assert.Nil(t, updAgent.currentStateNotifier)
 	})
 }
@@ -151,12 +145,11 @@ func TestGetCurrentState(t *testing.T) {
 	t.Run("test_no_activity_id_get_err_nil", func(t *testing.T) {
 		mockUpdateManager.EXPECT().Get(context.Background(), "").Return(inventory, nil)
 		currentStateBytes, err := updAgent.GetCurrentState(context.Background(), "")
+		assert.Nil(t, err)
 
 		expectedPayload := map[string]interface{}{"softwareNodes": []interface{}{map[string]interface{}{"id": "update-manager", "name": "Update Manager", "type": "APPLICATION", "version": "development"}}}
-		assert.Nil(t, err)
 		inventoryEnvelope := &types.Envelope{}
-		err = json.Unmarshal(currentStateBytes, inventoryEnvelope)
-		assert.Nil(t, err)
+		assert.Nil(t, json.Unmarshal(currentStateBytes, inventoryEnvelope))
 		assert.Equal(t, expectedPayload, inventoryEnvelope.Payload)
 	})
 
@@ -170,12 +163,11 @@ func TestGetCurrentState(t *testing.T) {
 		mockUpdateManager.EXPECT().Get(context.Background(), testActivityID).Return(inventory, nil)
 
 		currentStateBytes, err := updAgent.GetCurrentState(context.Background(), testActivityID)
+		assert.Nil(t, err)
 
 		expectedPayload := map[string]interface{}{"softwareNodes": []interface{}{map[string]interface{}{"id": "update-manager", "name": "Update Manager", "type": "APPLICATION", "version": "development"}}}
-		assert.Nil(t, err)
 		inventoryEnvelope := &types.Envelope{}
-		err = json.Unmarshal(currentStateBytes, inventoryEnvelope)
-		assert.Nil(t, err)
+		assert.Nil(t, json.Unmarshal(currentStateBytes, inventoryEnvelope))
 		assert.Equal(t, expectedPayload, inventoryEnvelope.Payload)
 	})
 
@@ -200,8 +192,7 @@ func TestHandleDesiredState(t *testing.T) {
 	}
 
 	t.Run("test_invalid_desired_state", func(t *testing.T) {
-		err := updAgent.HandleDesiredState([]byte("invalid-desired-state"))
-		assert.NotNil(t, err)
+		assert.NotNil(t, updAgent.HandleDesiredState([]byte("invalid-desired-state")))
 	})
 
 	t.Run("test_correct_desired_state", func(t *testing.T) {
@@ -217,8 +208,7 @@ func TestHandleDesiredState(t *testing.T) {
 			ch <- true
 			assert.Equal(t, desiredState, state)
 		})
-		err := updAgent.HandleDesiredState([]byte(dummyDesiredStateJSON))
-		assert.Nil(t, err)
+		assert.Nil(t, updAgent.HandleDesiredState([]byte(dummyDesiredStateJSON)))
 		<-ch
 	})
 }

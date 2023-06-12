@@ -108,7 +108,7 @@ func validate(lvl string, hasError bool, hasWarn bool, hasInfo bool, hasDebug bo
 
 // validateError validates for error logs.
 func validateError(log string, has bool, t *testing.T) {
-	// 1. Validate for Error function wihout additional parameters.
+	// 1. Validate for Error function without additional parameters.
 	Error("error log without parameters")
 	if has != search(log, t, ePrefix, "error log without parameters") {
 		t.Errorf("error entry mismatch [result: %v]", !has)
@@ -133,7 +133,7 @@ func validateError(log string, has bool, t *testing.T) {
 
 // validateWarn validates for warn logs.
 func validateWarn(log string, has bool, t *testing.T) {
-	// 1. Validate for Warn function wihout additional parameters.
+	// 1. Validate for Warn function without additional parameters.
 	Warn("warn log without parameters")
 	if has != search(log, t, wPrefix, "warn log without parameters") {
 		t.Errorf("warn entry mismatch [result: %v]", !has)
@@ -158,7 +158,7 @@ func validateWarn(log string, has bool, t *testing.T) {
 
 // validateInfo validates for info logs.
 func validateInfo(log string, has bool, t *testing.T) {
-	// 1. Validate for Info function wihout additional parameters.
+	// 1. Validate for Info function without additional parameters.
 	Info("info log without parameters")
 	if has != search(log, t, iPrefix, "info log without parameters") {
 		t.Errorf("info entry mismatch [result: %v]", !has)
@@ -183,7 +183,7 @@ func validateInfo(log string, has bool, t *testing.T) {
 
 // validateDebug validates for debug logs.
 func validateDebug(log string, has bool, t *testing.T) {
-	// 1. Validate for Debug function wihout additional parameters.
+	// 1. Validate for Debug function without additional parameters.
 	Debug("debug log without parameters")
 	if has != search(log, t, dPrefix, "debug log without parameters") {
 		t.Errorf("debug entry mismatch [result: %v]", !has)
@@ -208,7 +208,7 @@ func validateDebug(log string, has bool, t *testing.T) {
 
 // validateTrace validates for trace logs.
 func validateTrace(log string, has bool, t *testing.T) {
-	// 1. Validate for Trace function wihout additional parameters.
+	// 1. Validate for Trace function without additional parameters.
 	Trace("trace log without parameters")
 	if has != search(log, t, tPrefix, "trace log without parameters") {
 		t.Errorf("trace entry mismatch [result: %v]", !has)

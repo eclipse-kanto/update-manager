@@ -144,15 +144,13 @@ func TestParseConfigFilePath(t *testing.T) {
 	testPath := "/some/path/file"
 
 	t.Run("test_cfg_file_overridden", func(t *testing.T) {
-		actualPath := ParseConfigFilePath()
-		if actualPath != logFileDefault {
+		if ParseConfigFilePath() != logFileDefault {
 			t.Error("config file not set to default")
 		}
 	})
 	t.Run("test_cfg_file_default", func(t *testing.T) {
 		os.Args = []string{oldArgs[0], fmt.Sprintf("--%s=%s", configFileFlagID, testPath)}
-		actualPath := ParseConfigFilePath()
-		if actualPath != testPath {
+		if ParseConfigFilePath() != testPath {
 			t.Error("config file not overridden by environment variable")
 		}
 	})
@@ -161,7 +159,7 @@ func TestParseConfigFilePath(t *testing.T) {
 func TestParseDomainsFlag(t *testing.T) {
 	oldArgs := os.Args
 	defer func() { os.Args = oldArgs }()
-	testDomains := "testDomain"
+	testDomains := "myDomain"
 
 	t.Run("test_parse_domains_flag_1", func(t *testing.T) {
 		os.Args = []string{oldArgs[0], fmt.Sprintf("-%s=%s", domainsFlagID, testDomains)}
@@ -232,17 +230,17 @@ func TestParseFlags(t *testing.T) {
 			"self-update": {
 				Name:           "testSUname",
 				RebootRequired: false,
-				ReadTimeout:    "30s",
+				ReadTimeout:    "20s",
 			},
 			"containers": {
 				Name:           "testContainersName",
 				RebootRequired: true,
 				ReadTimeout:    "30s",
 			},
-			"safety-domain": {
-				Name:           "testSDname",
+			"test-domain": {
+				Name:           "testDomainName",
 				RebootRequired: true,
-				ReadTimeout:    "30s",
+				ReadTimeout:    "50s",
 			},
 		}
 
@@ -250,8 +248,7 @@ func TestParseFlags(t *testing.T) {
 		cfg := newDefaultConfig()
 		configFilePath := ParseConfigFilePath()
 		if configFilePath != "" {
-			err := LoadConfigFromFile(configFilePath, cfg)
-			assert.NoError(t, err)
+			assert.NoError(t, LoadConfigFromFile(configFilePath, cfg))
 		}
 		parseFlags(cfg, testVersion)
 		assert.Equal(t, expectedAgentsFromConfigFile, cfg.Agents)
@@ -284,7 +281,7 @@ func TestParseFlags(t *testing.T) {
 		oldArgs := os.Args
 		defer func() { os.Args = oldArgs }()
 
-		testDomainName := "testDomain"
+		testDomainName := "test-domain"
 		testDomainRTO := "5m"
 		testDomainRR := true
 		testAgents := make(map[string]*api.UpdateManagerConfig)
@@ -295,8 +292,8 @@ func TestParseFlags(t *testing.T) {
 		}
 		os.Args = []string{os.Args[0],
 			fmt.Sprintf("--%s=%s", domainsFlagID, testDomainName),
-			fmt.Sprintf("--%s=%s", "testDomain-read-timeout", testDomainRTO),
-			fmt.Sprintf("--%s=%v", "testDomain-reboot-required", testDomainRR)}
+			fmt.Sprintf("--%s=%s", "test-domain-read-timeout", testDomainRTO),
+			fmt.Sprintf("--%s=%v", "test-domain-reboot-required", testDomainRR)}
 		cfg := newDefaultConfig()
 		parseFlags(cfg, testVersion)
 		assert.Equal(t, testAgents, cfg.Agents)
@@ -318,10 +315,10 @@ func TestParseFlags(t *testing.T) {
 				RebootRequired: true,
 				ReadTimeout:    "30s",
 			},
-			"safety-domain": {
-				Name:           "testSDname",
+			"test-domain": {
+				Name:           "testDomainName",
 				RebootRequired: true,
-				ReadTimeout:    "30s",
+				ReadTimeout:    "50s",
 			},
 		}
 
@@ -330,8 +327,7 @@ func TestParseFlags(t *testing.T) {
 		cfg := newDefaultConfig()
 		configFilePath := ParseConfigFilePath()
 		if configFilePath != "" {
-			err := LoadConfigFromFile(configFilePath, cfg)
-			assert.NoError(t, err)
+			assert.NoError(t, LoadConfigFromFile(configFilePath, cfg))
 		}
 		parseFlags(cfg, testVersion)
 		assert.Equal(t, expectedAgentsFromConfigFile, cfg.Agents)
@@ -359,8 +355,7 @@ func TestParseFlags(t *testing.T) {
 		cfg := newDefaultConfig()
 		configFilePath := ParseConfigFilePath()
 		if configFilePath != "" {
-			err := LoadConfigFromFile(configFilePath, cfg)
-			assert.NoError(t, err)
+			assert.NoError(t, LoadConfigFromFile(configFilePath, cfg))
 		}
 		parseFlags(cfg, testVersion)
 		assert.Equal(t, expectedAgents, cfg.Agents)

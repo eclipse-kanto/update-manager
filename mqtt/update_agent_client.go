@@ -39,9 +39,30 @@ const (
 )
 
 type mqttClient struct {
-	mqttPrefix string
 	mqttConfig *ConnectionConfig
 	pahoClient pahomqtt.Client
+
+	// incoming topics
+	topicCurrentState         string
+	topicDesiredStateFeedback string
+	// outgoing topics
+	topicDesiredState        string
+	topicDesiredStateCommand string
+	topicCurrentStateGet     string
+}
+
+func newInternalClient(domain string, config *ConnectionConfig, pahoClient pahomqtt.Client) *mqttClient {
+	mqttPrefix := domainAsTopic(domain)
+	return &mqttClient{
+		mqttConfig: config,
+		pahoClient: pahoClient,
+
+		topicCurrentState:         mqttPrefix + suffixCurrentState,
+		topicCurrentStateGet:      mqttPrefix + suffixCurrentStateGet,
+		topicDesiredState:         mqttPrefix + suffixDesiredState,
+		topicDesiredStateCommand:  mqttPrefix + suffixDesiredStateCommand,
+		topicDesiredStateFeedback: mqttPrefix + suffixDesiredStateFeedback,
+	}
 }
 
 type updateAgentClient struct {
@@ -53,18 +74,11 @@ type updateAgentClient struct {
 // NewUpdateAgentClient instantiates a new UpdateAgentClient instance using the provided configuration options.
 func NewUpdateAgentClient(domain string, config *ConnectionConfig) api.UpdateAgentClient {
 	client := &updateAgentClient{
-		mqttClient: &mqttClient{
-			mqttPrefix: domainAsTopic(domain),
-			mqttConfig: config,
-		},
-		domain: domain,
+		mqttClient: newInternalClient(domain, config, nil),
+		domain:     domain,
 	}
 	client.pahoClient = newClient(config, client.onConnect)
 	return client
-}
-
-func (client *updateAgentClient) topic(topicSuffix string) string {
-	return client.mqttPrefix + topicSuffix
 }
 
 // Domain returns the name of the domain that is handled by this client.
@@ -105,42 +119,35 @@ func (client *updateAgentClient) onConnect(mqttClient pahomqtt.Client) {
 }
 
 func (client *updateAgentClient) subscribeStateTopics() error {
-	topicDesiredState := client.topic(suffixDesiredState)
-	topicDesiredStateCommand := client.topic(suffixDesiredStateCommand)
-	topicCurrentStateGet := client.topic(suffixCurrentStateGet)
-	topics := []string{topicDesiredState, topicDesiredStateCommand, topicCurrentStateGet}
+	topics := []string{client.topicDesiredState, client.topicDesiredStateCommand, client.topicCurrentStateGet}
 	topicsMap := map[string]byte{
-		topicDesiredState:        1,
-		topicDesiredStateCommand: 1,
-		topicCurrentStateGet:     1,
+		client.topicDesiredState:        1,
+		client.topicDesiredStateCommand: 1,
+		client.topicCurrentStateGet:     1,
 	}
 	logger.Debug("subscribing for '%s' topics", topics)
 	subscribeTimeout := convertToMilliseconds(client.mqttConfig.SubscribeTimeout)
 	token := client.pahoClient.SubscribeMultiple(topicsMap, client.handleStateRequest)
 	if !token.WaitTimeout(subscribeTimeout) {
-		return fmt.Errorf("cannot subscribe for topics '%s,%s,%s' in '%v' seconds", topicDesiredState, topicDesiredStateCommand, topicCurrentStateGet, subscribeTimeout)
+		return fmt.Errorf("cannot subscribe for topics '%s,%s,%s' in '%v' seconds", client.topicDesiredState, client.topicDesiredStateCommand, client.topicCurrentStateGet, subscribeTimeout)
 	}
 	return token.Error()
 }
 
 func (client *updateAgentClient) unsubscribeStateTopics() error {
-	topicDesiredState := client.topic(suffixDesiredState)
-	topicDesiredStateCommand := client.topic(suffixDesiredStateCommand)
-	topicCurrentStateGet := client.topic(suffixCurrentStateGet)
-	topics := []string{topicDesiredState, topicDesiredStateCommand, topicCurrentStateGet}
+	topics := []string{client.topicDesiredState, client.topicDesiredStateCommand, client.topicCurrentStateGet}
 	logger.Debug("unsubscribing from '%s' topics", client.Domain(), topics)
 	token := client.pahoClient.Unsubscribe(topics...)
 	unsubscribeTimeout := convertToMilliseconds(client.mqttConfig.UnsubscribeTimeout)
 	if !token.WaitTimeout(unsubscribeTimeout) {
-		return fmt.Errorf("cannot unsubscribe from topics '%s,%s,%s' in '%v' seconds", topicDesiredState, topicDesiredStateCommand, topicCurrentStateGet, unsubscribeTimeout)
+		return fmt.Errorf("cannot unsubscribe from topics '%s,%s,%s' in '%v' seconds", client.topicDesiredState, client.topicDesiredStateCommand, client.topicCurrentStateGet, unsubscribeTimeout)
 	}
 	return token.Error()
 }
 
 func (client *updateAgentClient) handleStateRequest(mqttClient pahomqtt.Client, message pahomqtt.Message) {
-	topicDesiredState := client.topic(suffixDesiredState)
 	topic := message.Topic()
-	if topic == topicDesiredState {
+	if topic == client.topicDesiredState {
 		logger.Debug("[%s] received desired state request", client.Domain())
 		desiredState := message.Payload()
 		if err := client.handler.HandleDesiredState(desiredState); err != nil {
@@ -148,8 +155,7 @@ func (client *updateAgentClient) handleStateRequest(mqttClient pahomqtt.Client, 
 		}
 		return
 	}
-	topicDesiredStateCommand := client.topic(suffixDesiredStateCommand)
-	if topic == topicDesiredStateCommand {
+	if topic == client.topicDesiredStateCommand {
 		logger.Trace("[%s] received desired state command request", client.Domain())
 		if err := client.handler.HandleDesiredStateCommand(message.Payload()); err != nil {
 			logger.ErrorErr(err, "[%s] error processing desired state command request", client.Domain())
@@ -184,13 +190,13 @@ func (client *updateAgentClient) PublishCurrentState(currentState []byte) error 
 	} else {
 		logger.Debug("[%s] publishing current state...", client.Domain())
 	}
-	return client.publish(client.topic(suffixCurrentState), true, currentState)
+	return client.publish(client.topicCurrentState, true, currentState)
 }
 
-// PublishCurrentState makes the client send the given raw bytes as desired state feedback message.
+// PublishDesiredStateFeedback makes the client send the given raw bytes as desired state feedback message.
 func (client *updateAgentClient) PublishDesiredStateFeedback(desiredStateFeedback []byte) error {
 	logger.Debug("[%s] publishing desired state feedback '%s'", client.Domain(), desiredStateFeedback)
-	return client.publish(client.topic(suffixDesiredStateFeedback), false, desiredStateFeedback)
+	return client.publish(client.topicDesiredStateFeedback, false, desiredStateFeedback)
 }
 
 func (client *updateAgentClient) publish(topic string, retained bool, message []byte) error {

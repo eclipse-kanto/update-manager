@@ -27,18 +27,8 @@ import (
 func TestNewDefaultConfig(t *testing.T) {
 
 	agentsDefault := map[string]*api.UpdateManagerConfig{
-		"self-update": {
-			Name:           "self-update",
-			RebootRequired: true,
-			ReadTimeout:    "1m",
-		},
 		"containers": {
 			Name:           "containers",
-			RebootRequired: false,
-			ReadTimeout:    "1m",
-		},
-		"safety-domain": {
-			Name:           "safety-domain",
 			RebootRequired: false,
 			ReadTimeout:    "1m",
 		},
@@ -105,17 +95,17 @@ func TestLoadConfigFromFile(t *testing.T) {
 			"self-update": {
 				Name:           "testSUname",
 				RebootRequired: false,
-				ReadTimeout:    "30s",
+				ReadTimeout:    "20s",
 			},
 			"containers": {
 				Name:           "testContainersName",
 				RebootRequired: true,
 				ReadTimeout:    "30s",
 			},
-			"safety-domain": {
-				Name:           "testSDname",
+			"test-domain": {
+				Name:           "testDomainName",
 				RebootRequired: true,
-				ReadTimeout:    "30s",
+				ReadTimeout:    "50s",
 			},
 		}
 
@@ -139,7 +129,7 @@ func TestLoadConfigFromFile(t *testing.T) {
 					SubscribeTimeout:   500,
 					UnsubscribeTimeout: 500,
 				},
-				Domain: "testdomain",
+				Domain: "mydomain",
 			},
 			Agents:                 expectedAgentValues,
 			RebootEnabled:          false,

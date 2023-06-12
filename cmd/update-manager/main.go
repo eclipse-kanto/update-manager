@@ -16,7 +16,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/eclipse-kanto/update-manager/cmd/app"
+	"github.com/eclipse-kanto/update-manager/cmd/update-manager/app"
 	"github.com/eclipse-kanto/update-manager/config"
 	"github.com/eclipse-kanto/update-manager/logger"
 	"github.com/eclipse-kanto/update-manager/mqtt"

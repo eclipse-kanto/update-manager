@@ -29,26 +29,18 @@ type desiredStateClient struct {
 
 // NewDesiredStateClient instantiates a new client for triggering MQTT requests.
 func NewDesiredStateClient(domain string, updateAgent api.UpdateAgentClient) api.DesiredStateClient {
-	client := updateAgent.(*updateAgentClient)
+	mqttClient := updateAgent.(*updateAgentClient).mqttClient
 	return &desiredStateClient{
-		mqttClient: &mqttClient{
-			mqttPrefix: domainAsTopic(domain),
-			mqttConfig: client.mqttConfig,
-			pahoClient: client.pahoClient,
-		},
-		domain: domain,
+		mqttClient: newInternalClient(domain, mqttClient.mqttConfig, mqttClient.pahoClient),
+		domain:     domain,
 	}
-}
-
-func (client *desiredStateClient) topic(topicSuffix string) string {
-	return client.mqttPrefix + topicSuffix
 }
 
 func (client *desiredStateClient) Domain() string {
 	return client.domain
 }
 
-// Subscribe makes a client subscription to the MQTT broker for the MTTP topics for desired state feedback and current state messages.
+// Subscribe makes a client subscription to the MQTT broker for the MQTT topics for desired state feedback and current state messages.
 func (client *desiredStateClient) Subscribe(stateHandler api.StateHandler) error {
 	client.stateHandler = stateHandler
 	if err := client.subscribe(); err != nil {
@@ -59,7 +51,7 @@ func (client *desiredStateClient) Subscribe(stateHandler api.StateHandler) error
 	return nil
 }
 
-// Unsubscribe removes the client subscription to the MQTT broker for the MTTP topics for desired state feedback and current state messages.
+// Unsubscribe removes the client subscription to the MQTT broker for the MQTT topics for desired state feedback and current state messages.
 func (client *desiredStateClient) Unsubscribe() error {
 	if err := client.unsubscribe(); err != nil {
 		return fmt.Errorf("[%s] error unsubscribing for DesiredStateFeedback/CurrentState messages: %w", client.Domain(), err)
@@ -71,8 +63,8 @@ func (client *desiredStateClient) Unsubscribe() error {
 
 func (client *desiredStateClient) subscribe() error {
 	topicFilters := make(map[string]byte)
-	topicFilters[client.topic(suffixCurrentState)] = 1
-	topicFilters[client.topic(suffixDesiredStateFeedback)] = 1
+	topicFilters[client.topicCurrentState] = 1
+	topicFilters[client.topicDesiredStateFeedback] = 1
 	logger.Debug("subscribing for '%v' topics", topicFilters)
 	subscribeTimeout := convertToMilliseconds(client.mqttConfig.SubscribeTimeout)
 	token := client.pahoClient.SubscribeMultiple(topicFilters, client.handleMessage)
@@ -83,13 +75,11 @@ func (client *desiredStateClient) subscribe() error {
 }
 
 func (client *desiredStateClient) unsubscribe() error {
-	topicCurrentState := client.topic(suffixCurrentState)
-	topicDesiredStateFeedback := client.topic(suffixDesiredStateFeedback)
-	logger.Debug("unsubscribing from '%s' & '%s' topics", topicCurrentState, topicDesiredStateFeedback)
-	token := client.pahoClient.Unsubscribe(topicCurrentState, topicDesiredStateFeedback)
+	logger.Debug("unsubscribing from '%s' & '%s' topics", client.topicCurrentState, client.topicDesiredStateFeedback)
+	token := client.pahoClient.Unsubscribe(client.topicCurrentState, client.topicDesiredStateFeedback)
 	unsubscribeTimeout := convertToMilliseconds(client.mqttConfig.UnsubscribeTimeout)
 	if !token.WaitTimeout(unsubscribeTimeout) {
-		return fmt.Errorf("cannot unsubscribe from topic '%s' & '%s' in '%v' seconds", topicCurrentState, topicDesiredStateFeedback, unsubscribeTimeout)
+		return fmt.Errorf("cannot unsubscribe from topic '%s' & '%s' in '%v' seconds", client.topicCurrentState, client.topicDesiredStateFeedback, unsubscribeTimeout)
 	}
 	return token.Error()
 }
@@ -97,11 +87,11 @@ func (client *desiredStateClient) unsubscribe() error {
 func (client *desiredStateClient) handleMessage(mqttClient pahomqtt.Client, message pahomqtt.Message) {
 	topic := message.Topic()
 	logger.Debug("[%s] received %s message", client.Domain(), topic)
-	if topic == client.topic(suffixCurrentState) {
+	if topic == client.topicCurrentState {
 		if err := client.stateHandler.HandleCurrentState(message.Payload()); err != nil {
 			logger.ErrorErr(err, "[%s] error processing current state message", client.Domain())
 		}
-	} else if topic == client.topic(suffixDesiredStateFeedback) {
+	} else if topic == client.topicDesiredStateFeedback {
 		if err := client.stateHandler.HandleDesiredStateFeedback(message.Payload()); err != nil {
 			logger.ErrorErr(err, "[%s] error processing desired state feedback message", client.Domain())
 		}
@@ -109,34 +99,31 @@ func (client *desiredStateClient) handleMessage(mqttClient pahomqtt.Client, mess
 }
 
 func (client *desiredStateClient) PublishDesiredState(desiredState []byte) error {
-	topicDesiredState := client.topic(suffixDesiredState)
-	logger.Debug("publishing desired state to topic '%s'", topicDesiredState)
-	token := client.pahoClient.Publish(topicDesiredState, 1, false, desiredState)
+	logger.Debug("publishing desired state to topic '%s'", client.topicDesiredState)
+	token := client.pahoClient.Publish(client.topicDesiredState, 1, false, desiredState)
 	acknowledgeTimeout := convertToMilliseconds(client.mqttConfig.AcknowledgeTimeout)
 	if !token.WaitTimeout(acknowledgeTimeout) {
-		return fmt.Errorf("cannot publish to topic '%s' in '%v' seconds", topicDesiredState, acknowledgeTimeout)
+		return fmt.Errorf("cannot publish to topic '%s' in '%v' seconds", client.topicDesiredState, acknowledgeTimeout)
 	}
 	return token.Error()
 }
 
 func (client *desiredStateClient) PublishDesiredStateCommand(desiredStateCommand []byte) error {
-	topicDesiredStateCommand := client.topic(suffixDesiredStateCommand)
-	logger.Debug("publishing desired state command to topic '%s'", topicDesiredStateCommand)
-	token := client.pahoClient.Publish(topicDesiredStateCommand, 1, false, desiredStateCommand)
+	logger.Debug("publishing desired state command to topic '%s'", client.topicDesiredStateCommand)
+	token := client.pahoClient.Publish(client.topicDesiredStateCommand, 1, false, desiredStateCommand)
 	acknowledgeTimeout := convertToMilliseconds(client.mqttConfig.AcknowledgeTimeout)
 	if !token.WaitTimeout(acknowledgeTimeout) {
-		return fmt.Errorf("cannot publish to topic '%s' in '%v' seconds", topicDesiredStateCommand, acknowledgeTimeout)
+		return fmt.Errorf("cannot publish to topic '%s' in '%v' seconds", client.topicDesiredStateCommand, acknowledgeTimeout)
 	}
 	return token.Error()
 }
 
 func (client *desiredStateClient) PublishGetCurrentState(currentState []byte) error {
-	topicCurrentStateGet := client.topic(suffixCurrentStateGet)
-	logger.Debug("publishing get current state request to topic '%s'", topicCurrentStateGet)
-	token := client.pahoClient.Publish(topicCurrentStateGet, 1, false, currentState)
+	logger.Debug("publishing get current state request to topic '%s'", client.topicCurrentStateGet)
+	token := client.pahoClient.Publish(client.topicCurrentStateGet, 1, false, currentState)
 	acknowledgeTimeout := convertToMilliseconds(client.mqttConfig.AcknowledgeTimeout)
 	if !token.WaitTimeout(acknowledgeTimeout) {
-		return fmt.Errorf("cannot publish to topic '%s' in '%v' seconds", topicCurrentStateGet, acknowledgeTimeout)
+		return fmt.Errorf("cannot publish to topic '%s' in '%v' seconds", client.topicCurrentStateGet, acknowledgeTimeout)
 	}
 	return token.Error()
 }

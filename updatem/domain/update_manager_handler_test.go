@@ -13,6 +13,7 @@
 package domain
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/eclipse-kanto/update-manager/api/types"
@@ -82,8 +83,7 @@ func TestNoActiveOperation(t *testing.T) {
 	eventCallback := mocks.NewMockUpdateManagerCallback(mockCtrl)
 
 	updateManager := createTestDomainUpdateManager(desiredStateClient, eventCallback)
-	err := updateManager.HandleDesiredStateFeedback(nil)
-	assert.Nil(t, err)
+	assert.Nil(t, updateManager.HandleDesiredStateFeedback(nil))
 }
 
 func TestHandleDesiredStateFeedback(t *testing.T) {
@@ -94,18 +94,15 @@ func TestHandleDesiredStateFeedback(t *testing.T) {
 	desiredStateClient.EXPECT().Domain().Return(testDomain).Times(6)
 
 	eventCallback := mocks.NewMockUpdateManagerCallback(mockCtrl)
-	eventCallback.EXPECT().HandleDesiredStateFeedbackEvent(testDomain, testActivityID, "", dummyStatus1, "dummy status 1", []*types.Action{})
-	eventCallback.EXPECT().HandleDesiredStateFeedbackEvent(testDomain, testActivityID, "", dummyStatus2, "dummy status 2", []*types.Action{})
-	eventCallback.EXPECT().HandleDesiredStateFeedbackEvent(testDomain, testActivityID, "", dummyStatus3, "dummy status 3", []*types.Action{})
+	for i, ds := range []types.StatusType{dummyStatus1, dummyStatus2, dummyStatus3} {
+		eventCallback.EXPECT().HandleDesiredStateFeedbackEvent(testDomain, testActivityID, "", ds, fmt.Sprintf("dummy status %d", i+1), []*types.Action{})
+	}
 
 	updateManager := createTestDomainUpdateManager(desiredStateClient, eventCallback)
 	updateManager.updateOperation = newUpdateOperation(testActivityID)
-	err := updateManager.HandleDesiredStateFeedback([]byte(feedbackDummyStatus1))
-	assert.Nil(t, err)
-	err = updateManager.HandleDesiredStateFeedback([]byte(feedbackDummyStatus2))
-	assert.Nil(t, err)
-	err = updateManager.HandleDesiredStateFeedback([]byte(feedbackDummyStatus3))
-	assert.Nil(t, err)
+	for _, ds := range []string{feedbackDummyStatus1, feedbackDummyStatus2, feedbackDummyStatus3} {
+		assert.Nil(t, updateManager.HandleDesiredStateFeedback([]byte(ds)))
+	}
 }
 
 func TestMismatchActivityID(t *testing.T) {
@@ -118,8 +115,7 @@ func TestMismatchActivityID(t *testing.T) {
 
 	updateManager := createTestDomainUpdateManager(desiredStateClient, eventCallback)
 	updateManager.updateOperation = newUpdateOperation(testActivityID)
-	err := updateManager.HandleDesiredStateFeedback([]byte(stateCompletedWrongActivityID))
-	assert.Nil(t, err)
+	assert.Nil(t, updateManager.HandleDesiredStateFeedback([]byte(stateCompletedWrongActivityID)))
 }
 
 func TestCurrentState(t *testing.T) {
@@ -131,6 +127,5 @@ func TestCurrentState(t *testing.T) {
 	eventCallback := mocks.NewMockUpdateManagerCallback(mockCtrl)
 
 	updateManager := createTestDomainUpdateManager(desiredStateClient, eventCallback)
-	err := updateManager.HandleCurrentState(nil)
-	assert.Nil(t, err)
+	assert.Nil(t, updateManager.HandleCurrentState(nil))
 }

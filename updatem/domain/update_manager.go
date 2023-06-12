@@ -167,7 +167,7 @@ func (updateManager *domainUpdateManager) setCurrentStateActivityID(activityID s
 
 func (updateManager *domainUpdateManager) Dispose() error {
 	if err := updateManager.desiredStateClient.Unsubscribe(); err != nil {
-		logger.ErrorErr(err, "[%s] cannot unsubscribe for events", updateManager.Name())
+		return errors.Wrap(err, fmt.Sprintf("cannot unsubscribe for events for domain %s", updateManager.Name()))
 	}
 	return nil
 }

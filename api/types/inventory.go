@@ -91,7 +91,7 @@ func ToCurrentStateBytes(activityID string, currentState *Inventory) ([]byte, er
 	return bytes, nil
 }
 
-// ToCurrentStateGetBytes returns the Envelope as raw bytes, setting activity ID and payload to the given parameters.
+// ToCurrentStateGetBytes returns the Envelope as raw bytes, setting activity ID to the given parameter and no payload.
 func ToCurrentStateGetBytes(activityID string) ([]byte, error) {
 	bytes, err := ToEnvelope(activityID, nil)
 	if err != nil {

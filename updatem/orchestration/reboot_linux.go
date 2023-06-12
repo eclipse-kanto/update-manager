@@ -38,7 +38,7 @@ const (
 // Second, it writes b to sysrg-trigger file (/proc/sysrq-trigger) to reboot the system.
 // If the update manager runs inside a container, the given system files shall be mounted from the host to the container.
 // It is possible to configure the paths to both files using ENVs FILE_SYS_RQ and FILE_SYS_RQ_TRIGGER.
-// If any of these ENVs is set to empty string, then syscall with be tries to perfoem the reboot.
+// If any of these ENVs is set to empty string, then syscall will be tried to perform the reboot.
 func (rebootManager *rebootManager) Reboot(timeout time.Duration) error {
 	logger.Debug("the system is about to reboot after successful update operation in '%s'", timeout)
 	<-time.After(timeout)
@@ -49,10 +49,10 @@ func (rebootManager *rebootManager) Reboot(timeout time.Duration) error {
 		return syscall.Reboot(syscall.LINUX_REBOOT_CMD_RESTART)
 	}
 	if err := os.WriteFile(fileSysRq, []byte("1"), 0644); err != nil {
-		return errors.Wrap(err, fmt.Sprintf("cannot reboot after successful update operation. cannot send signal to %v.", fileSysRq))
+		return errors.Wrap(err, fmt.Sprintf("cannot reboot after successful update operation. cannot send signal to %s.", fileSysRq))
 	}
 	if err := os.WriteFile(fileSysRqTrigger, []byte("b"), 0200); err != nil {
-		return errors.Wrap(err, fmt.Sprintf("cannot reboot after successful update operation. cannot send signal to %v.", fileSysRqTrigger))
+		return errors.Wrap(err, fmt.Sprintf("cannot reboot after successful update operation. cannot send signal to %s.", fileSysRqTrigger))
 	}
 	return nil
 }

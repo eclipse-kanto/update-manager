@@ -46,6 +46,11 @@ func NewUpdateOrchestrator(cfg *config.Config) api.UpdateOrchestrator {
 	}
 }
 
+// Apply is called by the update manager.
+// It triggers the update process with the given activity ID and desired state specification and orchestrates the process on the given domain update agents.
+// The method returns true if reboot is required after the operation is complete.
+// Whether reboot is necessary shall be determined by the domain update agents.
+// For example, usually container updates shall not need reboot, but if a new OS image is written on the device it may be activated on next reboot.
 func (orchestrator *updateOrchestrator) Apply(ctx context.Context, domainAgents map[string]api.UpdateManager,
 	activityID string, desiredState *types.DesiredState, desiredStateCallback api.DesiredStateFeedbackHandler) bool {
 	var applyErr error
@@ -58,8 +63,7 @@ func (orchestrator *updateOrchestrator) Apply(ctx context.Context, domainAgents 
 		orchestrator.disposeUpdateOperation()
 	}()
 
-	err := orchestrator.setupUpdateOperation(domainAgents, activityID, desiredState, desiredStateCallback)
-	if err != nil {
+	if err := orchestrator.setupUpdateOperation(domainAgents, activityID, desiredState, desiredStateCallback); err != nil {
 		logger.Error(err.Error())
 		applyErr = err
 		return false

@@ -30,9 +30,7 @@ const (
 	phaseTimeoutDefault           = "10m"
 	readTimeoutDefault            = "1m"
 
-	domainSelfUpdate   = "self-update"
-	domainContainers   = "containers"
-	domainSafetyDomain = "safety-domain"
+	domainContainers = "containers"
 )
 
 // Config represents the Update Manager configuration.
@@ -61,9 +59,7 @@ func newDefaultConfig() *Config {
 func newDefaultAgentsConfig() map[string]*api.UpdateManagerConfig {
 	agents := make(map[string]*api.UpdateManagerConfig)
 
-	addAgentConfig(agents, domainSelfUpdate)
 	addAgentConfig(agents, domainContainers)
-	addAgentConfig(agents, domainSafetyDomain)
 
 	return agents
 }
@@ -71,7 +67,7 @@ func newDefaultAgentsConfig() map[string]*api.UpdateManagerConfig {
 func addAgentConfig(config map[string]*api.UpdateManagerConfig, name string) {
 	config[name] = &api.UpdateManagerConfig{
 		Name:           name,
-		RebootRequired: name == domainSelfUpdate,
+		RebootRequired: false,
 		ReadTimeout:    readTimeoutDefault,
 	}
 }

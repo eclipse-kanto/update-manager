@@ -75,14 +75,6 @@ var dummyInventory *types.Inventory = &types.Inventory{
 	},
 }
 
-var domain *types.Domain = &types.Domain{
-	ID: testDomain,
-}
-
-var desiredState *types.DesiredState = &types.DesiredState{
-	Domains: []*types.Domain{domain},
-}
-
 var command *types.DesiredStateCommand = &types.DesiredStateCommand{
 	Baseline: "dummyBaseline",
 	Command:  "dummyCommand",
@@ -95,8 +87,7 @@ func TestUpdateManagerName(t *testing.T) {
 	desiredStateClient := mocks.NewMockDesiredStateClient(mockCtrl)
 	desiredStateClient.EXPECT().Domain().Return(testDomain)
 
-	updateManager := createTestDomainUpdateManager(desiredStateClient, nil)
-	assert.Equal(t, testDomain, updateManager.Name())
+	assert.Equal(t, testDomain, createTestDomainUpdateManager(desiredStateClient, nil).Name())
 }
 
 func TestGetCurrentState(t *testing.T) {
@@ -108,7 +99,6 @@ func TestGetCurrentState(t *testing.T) {
 
 	updateManager := createTestDomainUpdateManager(nil, eventCallback)
 	updateManager.readTimeout = time.Second
-	updateManager.currentState = &internalCurrentState{}
 
 	desiredStateClient := mocks.NewMockDesiredStateClient(mockCtrl)
 	desiredStateClient.EXPECT().PublishGetCurrentState(gomock.Any()).DoAndReturn(
@@ -142,7 +132,6 @@ func TestGetCurrentStateByActivityID(t *testing.T) {
 
 	updateManager := createTestDomainUpdateManager(nil, eventCallback)
 	updateManager.readTimeout = time.Second
-	updateManager.currentState = &internalCurrentState{}
 
 	desiredStateClient := mocks.NewMockDesiredStateClient(mockCtrl)
 	desiredStateClient.EXPECT().PublishGetCurrentState(gomock.Any()).DoAndReturn(
@@ -176,13 +165,11 @@ func TestGetCurrentStateInvalidPayload(t *testing.T) {
 
 	updateManager := createTestDomainUpdateManager(nil, eventCallback)
 	updateManager.readTimeout = time.Second
-	updateManager.currentState = &internalCurrentState{}
 
 	desiredStateClient := mocks.NewMockDesiredStateClient(mockCtrl)
 	desiredStateClient.EXPECT().PublishGetCurrentState(gomock.Any()).DoAndReturn(
 		func(bytes []byte) error {
 			var envelope *types.Envelope
-			var envelopeBytes []byte
 
 			envelope = &types.Envelope{
 				ActivityID: testActivityID,
@@ -198,7 +185,7 @@ func TestGetCurrentStateInvalidPayload(t *testing.T) {
 				Timestamp:  time.Now().UnixNano() / int64(time.Millisecond),
 				Payload:    dummyInventory,
 			}
-			envelopeBytes, _ = json.Marshal(envelope)
+			envelopeBytes, _ := json.Marshal(envelope)
 			assert.Nil(t, json.Unmarshal(bytes, envelope))
 			assert.Equal(t, testActivityID, envelope.ActivityID)
 			assert.Nil(t, updateManager.HandleCurrentState(envelopeBytes))
@@ -219,8 +206,6 @@ func TestGetCurrentStateTimeout(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	updateManager := createTestDomainUpdateManager(nil, nil)
-	updateManager.readTimeout = 0 * time.Second
-	updateManager.currentState = &internalCurrentState{}
 
 	desiredStateClient := mocks.NewMockDesiredStateClient(mockCtrl)
 	desiredStateClient.EXPECT().PublishGetCurrentState(gomock.Any())
@@ -241,7 +226,6 @@ func TestGetCurrentStateMismatchActivityID(t *testing.T) {
 
 	updateManager := createTestDomainUpdateManager(nil, eventCallback)
 	updateManager.readTimeout = time.Second
-	updateManager.currentState = &internalCurrentState{}
 
 	desiredStateClient := mocks.NewMockDesiredStateClient(mockCtrl)
 	desiredStateClient.EXPECT().PublishGetCurrentState(gomock.Any()).DoAndReturn(
@@ -271,8 +255,6 @@ func TestGetCurrentStateUpdateManagerTerminated(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	updateManager := createTestDomainUpdateManager(nil, nil)
-	updateManager.readTimeout = 0 * time.Second
-	updateManager.currentState = &internalCurrentState{}
 
 	desiredStateClient := mocks.NewMockDesiredStateClient(mockCtrl)
 	desiredStateClient.EXPECT().PublishGetCurrentState(gomock.Any())
@@ -293,8 +275,7 @@ func TestDisposeUpdateManager(t *testing.T) {
 	desiredStateClient := mocks.NewMockDesiredStateClient(mockCtrl)
 	desiredStateClient.EXPECT().Unsubscribe()
 
-	updateManager := createTestDomainUpdateManager(desiredStateClient, nil)
-	assert.Nil(t, updateManager.Dispose())
+	assert.Nil(t, createTestDomainUpdateManager(desiredStateClient, nil).Dispose())
 }
 
 func TestSetCallback(t *testing.T) {
@@ -395,7 +376,11 @@ func TestDesiredStateNotSent(t *testing.T) {
 	eventCallback.EXPECT().HandleDesiredStateFeedbackEvent(testDomain, testActivityID, "", types.StatusIncomplete, "error. cannot send desired state manifest to domain test-domain", []*types.Action{})
 
 	updateManager := createTestDomainUpdateManager(desiredStateClient, eventCallback)
-	updateManager.Apply(context.Background(), testActivityID, desiredState)
+	updateManager.Apply(context.Background(), testActivityID, &types.DesiredState{
+		Domains: []*types.Domain{
+			{ID: testDomain},
+		},
+	})
 }
 
 func createTestDomainUpdateManager(desiredStateClient api.DesiredStateClient, eventCallback api.UpdateManagerCallback) *domainUpdateManager {

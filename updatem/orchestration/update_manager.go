@@ -120,8 +120,7 @@ func (updateManager *aggregatedUpdateManager) Get(ctx context.Context, activityI
 func (updateManager *aggregatedUpdateManager) Dispose() error {
 	logger.Debug("disposing update agents...")
 	for _, agent := range updateManager.domainAgents {
-		err := agent.Dispose()
-		if err != nil {
+		if err := agent.Dispose(); err != nil {
 			logger.ErrorErr(err, "error disposing update agent %s", agent.Name())
 		}
 	}
