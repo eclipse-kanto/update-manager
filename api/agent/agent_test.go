@@ -14,8 +14,7 @@ package agent
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
+	"errors"
 	"testing"
 
 	"github.com/eclipse-kanto/update-manager/api/types"
@@ -25,22 +24,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const (
-	testActivityID = "testActivityId"
+const testActivityID = "testActivityId"
 
-	dummyDesiredStateJSON = `
-	{
-		"activityId": "testActivityId",
-		"payload": {
-			"domains": [
-				{
-					"id": "testDomain"
-				}
-			]
-		}
-	 }
-	`
-)
+var dummyDesiredState = &types.DesiredState{
+	Domains: []*types.Domain{
+		{ID: "testDomain"},
+	},
+}
 
 func TestNewUpdateAgent(t *testing.T) {
 	mockCtr := gomock.NewController(t)
@@ -67,23 +57,23 @@ func TestStart(t *testing.T) {
 		manager: mockUpdateManager,
 		ctx:     nil,
 	}
-	t.Run("test_err_nil", func(t *testing.T) {
+	t.Run("test_start_no_error", func(t *testing.T) {
 		mockUpdateManager.EXPECT().SetCallback(updAgent)
-		mockClient.EXPECT().Connect(gomock.Any()).Return(nil)
+		mockClient.EXPECT().Start(gomock.Any()).Return(nil)
 
 		returnErr := updAgent.Start(context.Background())
 
 		assert.Equal(t, context.Background(), updAgent.ctx)
-		assert.Equal(t, nil, returnErr)
+		assert.NoError(t, returnErr)
 	})
-	t.Run("test_err_not_nil", func(t *testing.T) {
+	t.Run("test_start_with_error", func(t *testing.T) {
 		mockUpdateManager.EXPECT().SetCallback(updAgent)
-		mockClient.EXPECT().Connect(gomock.Any()).Return(fmt.Errorf("errNotNil"))
+		mockClient.EXPECT().Start(gomock.Any()).Return(errors.New("start error"))
 
 		returnErr := updAgent.Start(context.Background())
 
 		assert.Equal(t, context.Background(), updAgent.ctx)
-		assert.Equal(t, fmt.Errorf("errNotNil"), returnErr)
+		assert.Error(t, returnErr)
 	})
 }
 
@@ -99,82 +89,16 @@ func TestStop(t *testing.T) {
 		manager: mockUpdateManager,
 	}
 
-	t.Run("test_err_nil_currentStateNotifier_nil", func(t *testing.T) {
-		updAgent.currentStateNotifier = nil
-
+	t.Run("test_dispose_no_error", func(t *testing.T) {
 		mockUpdateManager.EXPECT().Dispose().Return(nil)
-		mockClient.EXPECT().Disconnect()
+		mockClient.EXPECT().Stop()
 
-		assert.Nil(t, updAgent.Stop())
+		assert.NoError(t, updAgent.Stop())
+	})
+	t.Run("test_dispose_with_error", func(t *testing.T) {
+		mockUpdateManager.EXPECT().Dispose().Return(errors.New("dispose error"))
+		assert.Error(t, updAgent.Stop())
 		assert.Nil(t, updAgent.currentStateNotifier)
-	})
-	t.Run("test_err_not_nil_currentStateNotifier_nil", func(t *testing.T) {
-		updAgent.currentStateNotifier = nil
-
-		mockUpdateManager.EXPECT().Dispose().Return(fmt.Errorf("errNotNil"))
-
-		assert.Equal(t, fmt.Errorf("errNotNil"), updAgent.Stop())
-		assert.Nil(t, updAgent.currentStateNotifier)
-	})
-}
-
-func TestGetCurrentState(t *testing.T) {
-	mockCtr := gomock.NewController(t)
-	defer mockCtr.Finish()
-
-	mockUpdateManager := mocks.NewMockUpdateManager(mockCtr)
-
-	updAgent := &updateAgent{
-		manager: mockUpdateManager,
-		ctx:     context.Background(),
-	}
-
-	inventory := &types.Inventory{
-		SoftwareNodes: []*types.SoftwareNode{
-			{
-				InventoryNode: types.InventoryNode{
-					ID:      "update-manager",
-					Version: "development",
-					Name:    "Update Manager",
-				},
-				Type: "APPLICATION",
-			},
-		},
-	}
-
-	t.Run("test_no_activity_id_get_err_nil", func(t *testing.T) {
-		mockUpdateManager.EXPECT().Get(context.Background(), "").Return(inventory, nil)
-		currentStateBytes, err := updAgent.GetCurrentState(context.Background(), "")
-		assert.Nil(t, err)
-
-		expectedPayload := map[string]interface{}{"softwareNodes": []interface{}{map[string]interface{}{"id": "update-manager", "name": "Update Manager", "type": "APPLICATION", "version": "development"}}}
-		inventoryEnvelope := &types.Envelope{}
-		assert.Nil(t, json.Unmarshal(currentStateBytes, inventoryEnvelope))
-		assert.Equal(t, expectedPayload, inventoryEnvelope.Payload)
-	})
-
-	t.Run("test_no_activity_id_get_err_not_nil", func(t *testing.T) {
-		mockUpdateManager.EXPECT().Get(context.Background(), "").Return(nil, fmt.Errorf("cannot get current state"))
-		_, err := updAgent.GetCurrentState(context.Background(), "")
-		assert.NotNil(t, err)
-	})
-
-	t.Run("test_activity_id_not_empty_get_err_nil", func(t *testing.T) {
-		mockUpdateManager.EXPECT().Get(context.Background(), testActivityID).Return(inventory, nil)
-
-		currentStateBytes, err := updAgent.GetCurrentState(context.Background(), testActivityID)
-		assert.Nil(t, err)
-
-		expectedPayload := map[string]interface{}{"softwareNodes": []interface{}{map[string]interface{}{"id": "update-manager", "name": "Update Manager", "type": "APPLICATION", "version": "development"}}}
-		inventoryEnvelope := &types.Envelope{}
-		assert.Nil(t, json.Unmarshal(currentStateBytes, inventoryEnvelope))
-		assert.Equal(t, expectedPayload, inventoryEnvelope.Payload)
-	})
-
-	t.Run("test_activity_id_not_empty_get_err_not_nil", func(t *testing.T) {
-		mockUpdateManager.EXPECT().Get(context.Background(), testActivityID).Return(nil, fmt.Errorf("cannot get current state"))
-		_, err := updAgent.GetCurrentState(context.Background(), testActivityID)
-		assert.NotNil(t, err)
 	})
 }
 
@@ -191,24 +115,11 @@ func TestHandleDesiredState(t *testing.T) {
 		ctx:     context.Background(),
 	}
 
-	t.Run("test_invalid_desired_state", func(t *testing.T) {
-		assert.NotNil(t, updAgent.HandleDesiredState([]byte("invalid-desired-state")))
-	})
-
-	t.Run("test_correct_desired_state", func(t *testing.T) {
-		desiredState := &types.DesiredState{
-			Domains: []*types.Domain{
-				{
-					ID: "testDomain",
-				},
-			},
-		}
-		ch := make(chan bool, 1)
-		mockUpdateManager.EXPECT().Apply(context.Background(), testActivityID, gomock.Any()).DoAndReturn(func(ctx context.Context, activityID string, state *types.DesiredState) {
+	ch := make(chan bool, 1)
+	mockUpdateManager.EXPECT().Apply(context.Background(), testActivityID, dummyDesiredState).DoAndReturn(
+		func(ctx context.Context, activityID string, state *types.DesiredState) {
 			ch <- true
-			assert.Equal(t, desiredState, state)
 		})
-		assert.Nil(t, updAgent.HandleDesiredState([]byte(dummyDesiredStateJSON)))
-		<-ch
-	})
+	assert.NoError(t, updAgent.HandleDesiredState(testActivityID, 0, dummyDesiredState))
+	<-ch
 }

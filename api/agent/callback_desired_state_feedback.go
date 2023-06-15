@@ -46,12 +46,7 @@ func (agent *updateAgent) HandleDesiredStateFeedbackEvent(domain string, activit
 }
 
 func (agent *updateAgent) publishDesiredStateFeedback(activityID string, feedback *types.DesiredStateFeedback) {
-	desiredStateFeedbackBytes, err := types.ToDesiredStateFeedbackBytes(activityID, feedback)
-	if err != nil {
-		logger.ErrorErr(err, "cannot create payload for desired state feedback.")
-		return
-	}
-	if err := agent.client.PublishDesiredStateFeedback(desiredStateFeedbackBytes); err != nil {
+	if err := agent.client.SendDesiredStateFeedback(activityID, feedback); err != nil {
 		logger.ErrorErr(err, "cannot publish desired state feedback.")
 	}
 }

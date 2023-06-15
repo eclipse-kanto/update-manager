@@ -13,37 +13,23 @@
 package mqtt
 
 import (
-	"fmt"
+	"errors"
 	"testing"
-	"time"
 
-	"github.com/eclipse-kanto/update-manager/mqtt/mocks"
+	"github.com/eclipse-kanto/update-manager/api/types"
+	mqttmocks "github.com/eclipse-kanto/update-manager/mqtt/mocks"
+	"github.com/eclipse-kanto/update-manager/test/mocks"
 
+	pahomqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
 
-type dummyStateHandler struct {
-	feedbackPayload     []byte
-	feedbackErr         error
-	currentStatePayload []byte
-	currentStateErr     error
-}
-
-func (s *dummyStateHandler) HandleDesiredStateFeedback(bytes []byte) error {
-	s.feedbackPayload = bytes
-	return s.feedbackErr
-}
-
-func (s *dummyStateHandler) HandleCurrentState(bytes []byte) error {
-	s.currentStatePayload = bytes
-	return s.currentStateErr
-}
-
 func TestDomain(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
-	mockPaho := mocks.NewMockClient(mockCtrl)
+
+	mockPaho := mqttmocks.NewMockClient(mockCtrl)
 
 	updateAgentClient := &updateAgentClient{
 		mqttClient: newInternalClient("testDomain", &ConnectionConfig{}, mockPaho),
@@ -52,158 +38,245 @@ func TestDomain(t *testing.T) {
 	assert.Equal(t, "testDomain", NewDesiredStateClient("testDomain", updateAgentClient).Domain())
 }
 
-func TestSubscribe(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-	mockPaho := mocks.NewMockClient(mockCtrl)
-	mockToken := mocks.NewMockToken(mockCtrl)
-
-	desiredStateClient := &desiredStateClient{
-		mqttClient: newInternalClient("testDomain", &ConnectionConfig{
-			SubscribeTimeout: 5,
-		}, mockPaho),
-		domain: "testDomain",
-	}
-	t.Run("test_Subscribe_error_token_false", func(t *testing.T) {
-		mockPaho.EXPECT().SubscribeMultiple(map[string]byte{desiredStateClient.topicCurrentState: 1, desiredStateClient.topicDesiredStateFeedback: 1}, gomock.Any()).Return(mockToken).Times(1)
-		mockToken.EXPECT().WaitTimeout(time.Duration(5000000)).Return(false).Times(1)
-		mockToken.EXPECT().Error().Times(1)
-
-		assert.NotNil(t, desiredStateClient.Subscribe(&dummyStateHandler{}))
-	})
-
-	t.Run("test_Subscribe_correct_token_true", func(t *testing.T) {
-		mockPaho.EXPECT().SubscribeMultiple(map[string]byte{desiredStateClient.topicCurrentState: 1, desiredStateClient.topicDesiredStateFeedback: 1}, gomock.Any()).Return(mockToken).Times(1)
-		mockToken.EXPECT().WaitTimeout(time.Duration(5000000)).Return(true).Times(1)
-
-		assert.Nil(t, desiredStateClient.stateHandler)
-		assert.Nil(t, desiredStateClient.Subscribe(&dummyStateHandler{}))
-
-		assert.NotNil(t, desiredStateClient.stateHandler)
-	})
-}
-
-func TestUnsubscribe(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-	mockPaho := mocks.NewMockClient(mockCtrl)
-	mockToken := mocks.NewMockToken(mockCtrl)
-
-	desiredStateClient := &desiredStateClient{
-		mqttClient: newInternalClient("testDomain", &ConnectionConfig{
-			UnsubscribeTimeout: 5,
-		}, mockPaho),
-		domain: "testDomain",
+func TestDesiredStateClientStart(t *testing.T) {
+	tests := map[string]testCaseOutgoing{
+		"test_subscribe_ok":      {domain: "testdomain", isTimedOut: false},
+		"test_subscribe_timeout": {domain: "mydomain", isTimedOut: true},
 	}
 
-	t.Run("test_Unsubscribe_error_token_false", func(t *testing.T) {
-		mockPaho.EXPECT().Unsubscribe("testDomainupdate/currentstate", "testDomainupdate/desiredstatefeedback").Return(mockToken).Times(1)
-		mockToken.EXPECT().WaitTimeout(time.Duration(5000000)).Return(false).Times(1)
+	mockCtrl, mockPaho, mockToken := setupCommonMocks(t)
+	defer mockCtrl.Finish()
 
-		desiredStateClient.stateHandler = &dummyStateHandler{}
-		assert.NotNil(t, desiredStateClient.Unsubscribe())
+	mockStateHandler := mocks.NewMockStateHandler(mockCtrl)
 
-		assert.NotNil(t, desiredStateClient.stateHandler)
-		desiredStateClient.stateHandler = nil
-	})
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			desiredStateClient := &desiredStateClient{
+				mqttClient: newInternalClient(test.domain, mqttTestConfig, mockPaho),
+				domain:     test.domain,
+			}
+			mockPaho.EXPECT().SubscribeMultiple(map[string]byte{
+				test.domain + "update/currentstate":         1,
+				test.domain + "update/desiredstatefeedback": 1},
+				gomock.Any()).Return(mockToken)
+			setupMockToken(mockToken, mqttTestConfig.SubscribeTimeout, test.isTimedOut)
 
-	t.Run("test_Unsubscribe_correct_token_true", func(t *testing.T) {
-		mockPaho.EXPECT().Unsubscribe("testDomainupdate/currentstate", "testDomainupdate/desiredstatefeedback").Return(mockToken).Times(1)
-		mockToken.EXPECT().WaitTimeout(time.Duration(5000000)).Return(true).Times(1)
-		mockToken.EXPECT().Error().Times(1)
-
-		desiredStateClient.stateHandler = &dummyStateHandler{}
-		assert.Nil(t, desiredStateClient.Unsubscribe())
-
-		assert.Nil(t, desiredStateClient.stateHandler)
-	})
+			assertOutgoingResult(t, test.isTimedOut, desiredStateClient.Start(mockStateHandler))
+			if test.isTimedOut {
+				assert.Nil(t, desiredStateClient.stateHandler)
+			} else {
+				assert.Equal(t, mockStateHandler, desiredStateClient.stateHandler)
+			}
+		})
+	}
 }
 
-func TestPublishDesiredState(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
+func TestDesiredStateClientStop(t *testing.T) {
+	tests := map[string]testCaseOutgoing{
+		"test_unsubscribe_ok":      {domain: "testdomain", isTimedOut: false},
+		"test_unsubscribe_timeout": {domain: "mydomain", isTimedOut: true},
+	}
+
+	mockCtrl, mockPaho, mockToken := setupCommonMocks(t)
 	defer mockCtrl.Finish()
-	mockPaho := mocks.NewMockClient(mockCtrl)
-	mockToken := mocks.NewMockToken(mockCtrl)
 
-	desiredStateClient := NewDesiredStateClient("testDomain", &updateAgentClient{
-		mqttClient: newInternalClient("testDomain", &ConnectionConfig{
-			AcknowledgeTimeout: 5,
-		}, mockPaho),
-	})
+	mockStateHandler := mocks.NewMockStateHandler(mockCtrl)
 
-	t.Run("test_PublishDesiredState_correct_token_true", func(t *testing.T) {
-		mockPaho.EXPECT().Publish("testDomainupdate/desiredstate", uint8(1), false, []byte("testdesiredstate")).Return(mockToken).Times(1)
-		mockToken.EXPECT().WaitTimeout(time.Duration(5000000)).Return(true).Times(1)
-		mockToken.EXPECT().Error().Times(1)
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			desiredStateClient := &desiredStateClient{
+				mqttClient:   newInternalClient(test.domain, mqttTestConfig, mockPaho),
+				domain:       test.domain,
+				stateHandler: mockStateHandler,
+			}
+			mockPaho.EXPECT().Unsubscribe(test.domain+"update/currentstate", test.domain+"update/desiredstatefeedback").Return(mockToken)
+			setupMockToken(mockToken, mqttTestConfig.UnsubscribeTimeout, test.isTimedOut)
 
-		assert.Equal(t, nil, desiredStateClient.PublishDesiredState([]byte("testdesiredstate")))
-	})
-
-	t.Run("test_PublishDesiredState_error_token_false", func(t *testing.T) {
-		mockPaho.EXPECT().Publish("testDomainupdate/desiredstate", uint8(1), false, []byte("testdesiredstate")).Return(mockToken).Times(1)
-		mockToken.EXPECT().WaitTimeout(time.Duration(5000000)).Return(false).Times(1)
-
-		assert.Equal(t, fmt.Errorf("cannot publish to topic '%s' in '%vms' seconds", "testDomainupdate/desiredstate", 5), desiredStateClient.PublishDesiredState([]byte("testdesiredstate")))
-	})
+			assertOutgoingResult(t, test.isTimedOut, desiredStateClient.Stop())
+			if test.isTimedOut {
+				assert.Equal(t, mockStateHandler, desiredStateClient.stateHandler)
+			} else {
+				assert.Nil(t, desiredStateClient.stateHandler)
+			}
+		})
+	}
 }
 
-func TestHandleMessage(t *testing.T) {
+func TestSendDesiredState(t *testing.T) {
+	tests := map[string]testCaseOutgoing{
+		"test_send_desired_state_ok":    {domain: "testdomain", isTimedOut: false},
+		"test_send_desired_state_error": {domain: "mydomain", isTimedOut: true},
+	}
+
+	mockCtrl, mockPaho, mockToken := setupCommonMocks(t)
+	defer mockCtrl.Finish()
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			testDesiredState := &types.DesiredState{
+				Domains: []*types.Domain{
+					{ID: test.domain},
+				},
+			}
+			desiredStateClient := NewDesiredStateClient(test.domain, &updateAgentClient{
+				mqttClient: newInternalClient("testDomain", mqttTestConfig, mockPaho),
+			})
+			mockPaho.EXPECT().Publish(test.domain+"update/desiredstate", uint8(1), false, gomock.Any()).DoAndReturn(
+				func(topic string, qos byte, retained bool, payload interface{}) pahomqtt.Token {
+					desiresState := &types.DesiredState{}
+					envelope, err := types.FromEnvelope(payload.([]byte), desiresState)
+					assert.NoError(t, err)
+					assert.Equal(t, name, envelope.ActivityID)
+					assert.True(t, envelope.Timestamp > 0)
+					assert.Equal(t, testDesiredState, desiresState)
+					return mockToken
+				})
+			setupMockToken(mockToken, mqttTestConfig.AcknowledgeTimeout, test.isTimedOut)
+
+			assertOutgoingResult(t, test.isTimedOut, desiredStateClient.SendDesiredState(name, testDesiredState))
+		})
+	}
+}
+
+func TestSendDesiredStateCommand(t *testing.T) {
+	tests := map[string]testCaseOutgoing{
+		"test_send_desired_state_command_ok":    {domain: "testdomain", isTimedOut: false},
+		"test_send_desired_state_command_error": {domain: "mydomain", isTimedOut: true},
+	}
+
+	mockCtrl, mockPaho, mockToken := setupCommonMocks(t)
+	defer mockCtrl.Finish()
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			testDesiredStateCommand := &types.DesiredStateCommand{
+				Command:  types.CommandDownload,
+				Baseline: name,
+			}
+			desiredStateClient := NewDesiredStateClient(test.domain, &updateAgentClient{
+				mqttClient: newInternalClient(test.domain, mqttTestConfig, mockPaho),
+			})
+			mockPaho.EXPECT().Publish(test.domain+"update/desiredstate/command", uint8(1), false, gomock.Any()).DoAndReturn(
+				func(topic string, qos byte, retained bool, payload interface{}) pahomqtt.Token {
+					desiresStateCommand := &types.DesiredStateCommand{}
+					envelope, err := types.FromEnvelope(payload.([]byte), desiresStateCommand)
+					assert.NoError(t, err)
+					assert.Equal(t, name, envelope.ActivityID)
+					assert.True(t, envelope.Timestamp > 0)
+					assert.Equal(t, testDesiredStateCommand, desiresStateCommand)
+					return mockToken
+				})
+			setupMockToken(mockToken, mqttTestConfig.AcknowledgeTimeout, test.isTimedOut)
+
+			assertOutgoingResult(t, test.isTimedOut, desiredStateClient.SendDesiredStateCommand(name, testDesiredStateCommand))
+		})
+	}
+}
+
+func TestSendCurrentStateGet(t *testing.T) {
+	tests := map[string]testCaseOutgoing{
+		"test_send_current_state_get_ok":    {domain: "testdomain", isTimedOut: false},
+		"test_send_current_state_get_error": {domain: "mydomain", isTimedOut: true},
+	}
+
+	mockCtrl, mockPaho, mockToken := setupCommonMocks(t)
+	defer mockCtrl.Finish()
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			desiredStateClient := NewDesiredStateClient(test.domain, &updateAgentClient{
+				mqttClient: newInternalClient(test.domain, mqttTestConfig, mockPaho),
+			})
+			mockPaho.EXPECT().Publish(test.domain+"update/currentstate/get", uint8(1), false, gomock.Any()).DoAndReturn(
+				func(topic string, qos byte, retained bool, payload interface{}) pahomqtt.Token {
+					envelope, err := types.FromEnvelope(payload.([]byte), nil)
+					assert.NoError(t, err)
+					assert.Equal(t, name, envelope.ActivityID)
+					assert.True(t, envelope.Timestamp > 0)
+					assert.Nil(t, envelope.Payload)
+					return mockToken
+				})
+			setupMockToken(mockToken, mqttTestConfig.AcknowledgeTimeout, test.isTimedOut)
+
+			assertOutgoingResult(t, test.isTimedOut, desiredStateClient.SendCurrentStateGet(name))
+		})
+	}
+}
+
+func TestHandleCurrentStateMessage(t *testing.T) {
+	tests := map[string]testCaseIncoming{
+		"test_handle_current_state_ok":     {domain: "testdomain", handlerError: nil},
+		"test_handler_current_state_error": {domain: "mydomain", handlerError: errors.New("handler error")},
+	}
+
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
-	mockMessage := mocks.NewMockMessage(mockCtrl)
 
-	t.Run("test_handleMessage_handleCurrentState_err_nil", func(t *testing.T) {
-		stateHandler := &dummyStateHandler{}
-		desiredStateClient := &desiredStateClient{
-			mqttClient:   newInternalClient("test", &ConnectionConfig{}, nil),
-			stateHandler: stateHandler,
-		}
-		mockMessage.EXPECT().Topic().Return("testupdate/currentstate").Times(1)
-		mockMessage.EXPECT().Payload().Return([]byte("testCurrStateCall")).Times(1)
+	mockMessage := mqttmocks.NewMockMessage(mockCtrl)
 
-		desiredStateClient.handleMessage(nil, mockMessage)
-		assert.Equal(t, []byte("testCurrStateCall"), stateHandler.currentStatePayload)
-	})
+	testCurrentState := &types.Inventory{
+		SoftwareNodes: []*types.SoftwareNode{
+			{
+				InventoryNode: types.InventoryNode{
+					ID: "test-software-node",
+				},
+			},
+		},
+	}
 
-	t.Run("test_handleMessage_handleCurrentState_err_not_nil", func(t *testing.T) {
-		stateHandler := &dummyStateHandler{currentStateErr: fmt.Errorf("errNotNil")}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			testBytes, err := types.ToEnvelope(name, testCurrentState)
+			assert.NoError(t, err)
 
-		desiredStateClient := &desiredStateClient{
-			mqttClient:   newInternalClient("test", &ConnectionConfig{}, nil),
-			stateHandler: stateHandler,
-		}
-		mockMessage.EXPECT().Topic().Return("testupdate/currentstate").Times(1)
-		mockMessage.EXPECT().Payload().Return([]byte("testCurrStateCall")).Times(1)
+			stateHandler := mocks.NewMockStateHandler(mockCtrl)
+			stateHandler.EXPECT().HandleCurrentState(name, gomock.Any(), testCurrentState).Return(test.handlerError)
 
-		desiredStateClient.handleMessage(nil, mockMessage)
-		assert.Equal(t, []byte("testCurrStateCall"), stateHandler.currentStatePayload)
-	})
+			desiredStateClient := &desiredStateClient{
+				mqttClient:   newInternalClient(test.domain, &ConnectionConfig{}, nil),
+				domain:       test.domain,
+				stateHandler: stateHandler,
+			}
+			mockMessage.EXPECT().Topic().Return(test.domain + "update/currentstate")
+			mockMessage.EXPECT().Payload().Return(testBytes)
 
-	t.Run("test_handleMessage_handleDesiredStateFeedback_err_nil", func(t *testing.T) {
-		stateHandler := &dummyStateHandler{}
+			desiredStateClient.handleMessage(nil, mockMessage)
+		})
+	}
+}
 
-		desiredStateClient := &desiredStateClient{
-			mqttClient:   newInternalClient("test", &ConnectionConfig{}, nil),
-			stateHandler: stateHandler,
-		}
-		mockMessage.EXPECT().Topic().Return("testupdate/desiredstatefeedback").Times(1)
-		mockMessage.EXPECT().Payload().Return([]byte("testDesiredStateCall")).Times(1)
+func TestHandleDesiredStateFeedbackMessage(t *testing.T) {
+	tests := map[string]testCaseIncoming{
+		"test_handle_desired_state_feedback_ok":    {domain: "testdomain", handlerError: nil},
+		"test_handle_desired_state_feedback_error": {domain: "mydomain", handlerError: errors.New("handler error")},
+	}
 
-		desiredStateClient.handleMessage(nil, mockMessage)
-		assert.Equal(t, []byte("testDesiredStateCall"), stateHandler.feedbackPayload)
-	})
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
 
-	t.Run("test_handleMessage_handleDesiredStateFeedback_err_not_nil", func(t *testing.T) {
-		stateHandler := &dummyStateHandler{currentStateErr: fmt.Errorf("errNotNil")}
+	mockMessage := mqttmocks.NewMockMessage(mockCtrl)
 
-		desiredStateClient := &desiredStateClient{
-			mqttClient:   newInternalClient("test", &ConnectionConfig{}, nil),
-			stateHandler: stateHandler,
-		}
-		mockMessage.EXPECT().Topic().Return("testupdate/desiredstatefeedback").Times(1)
-		mockMessage.EXPECT().Payload().Return([]byte("testDesiredStateCall")).Times(1)
+	testFeedback := &types.DesiredStateFeedback{
+		Status: types.StatusIdentified,
+	}
 
-		desiredStateClient.handleMessage(nil, mockMessage)
-		assert.Equal(t, []byte("testDesiredStateCall"), stateHandler.feedbackPayload)
-	})
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			testBytes, err := types.ToEnvelope(name, testFeedback)
+			assert.NoError(t, err)
+
+			stateHandler := mocks.NewMockStateHandler(mockCtrl)
+			stateHandler.EXPECT().HandleDesiredStateFeedback(name, gomock.Any(), testFeedback).Return(test.handlerError)
+
+			desiredStateClient := &desiredStateClient{
+				mqttClient:   newInternalClient(test.domain, &ConnectionConfig{}, nil),
+				domain:       test.domain,
+				stateHandler: stateHandler,
+			}
+			mockMessage.EXPECT().Topic().Return(test.domain + "update/desiredstatefeedback")
+			mockMessage.EXPECT().Payload().Return(testBytes)
+
+			desiredStateClient.handleMessage(nil, mockMessage)
+		})
+	}
 }

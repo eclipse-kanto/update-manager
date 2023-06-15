@@ -69,7 +69,7 @@ func (agent *updateAgent) Start(ctx context.Context) error {
 	agent.manager.SetCallback(agent)
 
 	agent.ctx = ctx
-	if err := agent.client.Connect(agent); err != nil {
+	if err := agent.client.Start(agent); err != nil {
 		return err
 	}
 	logger.Debug("started update agent.")
@@ -88,7 +88,9 @@ func (agent *updateAgent) Stop() error {
 	if err := agent.manager.Dispose(); err != nil {
 		return err
 	}
-	agent.client.Disconnect()
+	if err := agent.client.Stop(); err != nil {
+		return err
+	}
 	logger.Debug("stopped update agent.")
 	return nil
 }
@@ -111,53 +113,34 @@ func (agent *updateAgent) stopCurrentStateStateNotifier() {
 	}
 }
 
-func (agent *updateAgent) GetCurrentState(ctx context.Context, activityID string) ([]byte, error) {
+func (agent *updateAgent) getCurrentState(ctx context.Context, activityID string) (*types.Inventory, error) {
 	if strings.HasPrefix(activityID, prefixInitCurrentStateID) {
 		agent.manager.WatchEvents(agent.ctx)
 	}
-	inventory, err := agent.manager.Get(ctx, activityID)
-	if err != nil {
-		return nil, err
-	}
-	currentStateBytes, err := types.ToCurrentStateBytes(activityID, inventory)
-	if err != nil {
-		return nil, err
-	}
-	agent.stopCurrentStateStateNotifier()
-	return currentStateBytes, nil
+	return agent.manager.Get(ctx, activityID)
 }
 
-func (agent *updateAgent) HandleDesiredState(desiredStateBytes []byte) error {
-	activityID, desiredState, err := types.FromDesiredStateBytes(desiredStateBytes)
-	if err != nil {
-		return err
-	}
-	logger.Debug("Received desired state request, activity-id=%s ", activityID)
+func (agent *updateAgent) HandleDesiredState(activityID string, timestamp int64, desiredState *types.DesiredState) error {
+	logger.Debug("Received desired state request: activity-id=%s, timestamp=%d", activityID, timestamp)
 	go agent.applyDesiredState(activityID, desiredState)
 	return nil
 }
 
-func (agent *updateAgent) HandleDesiredStateCommand(desiredStateCommandBytes []byte) error {
-	activityID, desiredStateCommand, err := types.FromDesiredStateCommandBytes(desiredStateCommandBytes)
-	if err != nil {
-		return err
-	}
-	logger.Debug("Received desired state command request, activity-id=%s, command=%s, baseline=%s", activityID, desiredStateCommand.Command, desiredStateCommand.Baseline)
+func (agent *updateAgent) HandleDesiredStateCommand(activityID string, timestamp int64, desiredStateCommand *types.DesiredStateCommand) error {
+	logger.Debug("Received desired state command request: activity-id=%s, timestamp=%d, command=%s, baseline=%s", activityID, timestamp, desiredStateCommand.Command, desiredStateCommand.Baseline)
 	go agent.commandDesiredState(activityID, desiredStateCommand)
 	return nil
 }
 
-func (agent *updateAgent) HandleCurrentStateGet(currentStateGetBytes []byte) error {
-	activityID, err := types.FromCurrentStateGetBytes(currentStateGetBytes)
+func (agent *updateAgent) HandleCurrentStateGet(activityID string, timestamp int64) error {
+	logger.Debug("Received current state get request: activity-id=%s, timestamp=%s", activityID, timestamp)
+	currentState, err := agent.getCurrentState(agent.ctx, activityID)
 	if err != nil {
 		return err
 	}
-	logger.Debug("Received current state get request, activity-id=%s, domain=%s", activityID, agent.manager.Name())
-	currentStateBytes, err := agent.GetCurrentState(agent.ctx, activityID)
-	if err != nil {
-		return err
-	}
-	if err = agent.client.PublishCurrentState(currentStateBytes); err != nil {
+	agent.stopCurrentStateStateNotifier()
+
+	if err := agent.client.SendCurrentState(activityID, currentState); err != nil {
 		return errors.Wrap(err, "cannot publish current state.")
 	}
 	return nil

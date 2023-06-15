@@ -24,6 +24,7 @@ import (
 
 	pahomqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/google/uuid"
+	"github.com/pkg/errors"
 )
 
 const prefixInitCurrentStateID = "initial-current-state-"
@@ -86,8 +87,8 @@ func (client *updateAgentClient) Domain() string {
 	return client.domain
 }
 
-// Connect connects the client to the MQTT broker.
-func (client *updateAgentClient) Connect(handler api.UpdateAgentHandler) error {
+// Start connects the client to the MQTT broker.
+func (client *updateAgentClient) Start(handler api.UpdateAgentHandler) error {
 	client.handler = handler
 	connectTimeout := convertToMilliseconds(client.mqttConfig.ConnectTimeout)
 	token := client.pahoClient.Connect()
@@ -97,8 +98,8 @@ func (client *updateAgentClient) Connect(handler api.UpdateAgentHandler) error {
 	return token.Error()
 }
 
-// Disconnect disconnects the client from the MQTT broker.
-func (client *updateAgentClient) Disconnect() {
+// Stop disconnects the client from the MQTT broker.
+func (client *updateAgentClient) Stop() error {
 	if err := client.unsubscribeStateTopics(); err != nil {
 		logger.WarnErr(err, "[%s] error unsubscribing for DesiredState/DesiredStateCommand/CurrentStateGet requests", client.Domain())
 	} else {
@@ -106,6 +107,7 @@ func (client *updateAgentClient) Disconnect() {
 	}
 	client.pahoClient.Disconnect(disconnectQuiesce)
 	client.handler = nil
+	return nil
 }
 
 func (client *updateAgentClient) onConnect(mqttClient pahomqtt.Client) {
@@ -149,21 +151,37 @@ func (client *updateAgentClient) handleStateRequest(mqttClient pahomqtt.Client, 
 	topic := message.Topic()
 	if topic == client.topicDesiredState {
 		logger.Debug("[%s] received desired state request", client.Domain())
-		desiredState := message.Payload()
-		if err := client.handler.HandleDesiredState(desiredState); err != nil {
+		desiredState := &types.DesiredState{}
+		envelope, err := types.FromEnvelope(message.Payload(), desiredState)
+		if err != nil {
+			logger.ErrorErr(err, "[%s] cannot parse desired state message", client.Domain())
+			return
+		}
+		if err := client.handler.HandleDesiredState(envelope.ActivityID, envelope.Timestamp, desiredState); err != nil {
 			logger.ErrorErr(err, "[%s] error processing desired state request", client.Domain())
 		}
 		return
 	}
 	if topic == client.topicDesiredStateCommand {
 		logger.Trace("[%s] received desired state command request", client.Domain())
-		if err := client.handler.HandleDesiredStateCommand(message.Payload()); err != nil {
+		desiredStateCommand := &types.DesiredStateCommand{}
+		envelope, err := types.FromEnvelope(message.Payload(), desiredStateCommand)
+		if err != nil {
+			logger.ErrorErr(err, "[%s] cannot parse desired state command message", client.Domain())
+			return
+		}
+		if err := client.handler.HandleDesiredStateCommand(envelope.ActivityID, envelope.Timestamp, desiredStateCommand); err != nil {
 			logger.ErrorErr(err, "[%s] error processing desired state command request", client.Domain())
 		}
 		return
 	}
 	logger.Trace("[%s] received current state get request", client.Domain())
-	if err := client.handler.HandleCurrentStateGet(message.Payload()); err != nil {
+	envelope, err := types.FromEnvelope(message.Payload(), nil)
+	if err != nil {
+		logger.ErrorErr(err, "[%s] cannot parse current state get message", client.Domain())
+		return
+	}
+	if err := client.handler.HandleCurrentStateGet(envelope.ActivityID, envelope.Timestamp); err != nil {
 		logger.ErrorErr(err, "[%s] error processing current state get request", client.Domain())
 	}
 }
@@ -171,32 +189,35 @@ func (client *updateAgentClient) handleStateRequest(mqttClient pahomqtt.Client, 
 func (client *updateAgentClient) getAndPublishCurrentState() {
 	currentTime := time.Now().UnixNano() / int64(time.Millisecond)
 	activityID := prefixInitCurrentStateID + strconv.FormatInt(int64(currentTime), 10)
-	currentStateGet, err := types.ToCurrentStateGetBytes(activityID)
-	if err != nil {
-		logger.ErrorErr(err, "[%s] error getting initial current state", client.Domain())
-		return
-	}
-	if err := client.handler.HandleCurrentStateGet(currentStateGet); err != nil {
+	if err := client.handler.HandleCurrentStateGet(activityID, currentTime); err != nil {
 		logger.ErrorErr(err, "[%s] error processing initial current state get request", client.Domain())
 	} else {
 		logger.Debug("[%s] initial current state get request successfully processed", client.Domain())
 	}
 }
 
-// PublishCurrentState makes the client send the given raw bytes as current state message.
-func (client *updateAgentClient) PublishCurrentState(currentState []byte) error {
+// SendCurrentState makes the client create envelope raw bytes with the given activityID and current state inventory and send the raw bytes as current state message.
+func (client *updateAgentClient) SendCurrentState(activityID string, currentState *types.Inventory) error {
+	currentStateBytes, err := types.ToEnvelope(activityID, currentState)
+	if err != nil {
+		return errors.Wrapf(err, "[%s] cannot marshal current state message", client.Domain())
+	}
 	if logger.IsTraceEnabled() {
 		logger.Trace("[%s] publishing current state '%s'....", client.Domain(), currentState)
 	} else {
 		logger.Debug("[%s] publishing current state...", client.Domain())
 	}
-	return client.publish(client.topicCurrentState, true, currentState)
+	return client.publish(client.topicCurrentState, true, currentStateBytes)
 }
 
-// PublishDesiredStateFeedback makes the client send the given raw bytes as desired state feedback message.
-func (client *updateAgentClient) PublishDesiredStateFeedback(desiredStateFeedback []byte) error {
-	logger.Debug("[%s] publishing desired state feedback '%s'", client.Domain(), desiredStateFeedback)
-	return client.publish(client.topicDesiredStateFeedback, false, desiredStateFeedback)
+// SendDesiredStateFeedback makes the client send the given raw bytes as desired state feedback message.
+func (client *updateAgentClient) SendDesiredStateFeedback(activityID string, desiredStateFeedback *types.DesiredStateFeedback) error {
+	desiredStateFeedbackBytes, err := types.ToEnvelope(activityID, desiredStateFeedback)
+	if err != nil {
+		return errors.Wrapf(err, "[%s] cannot marshal desired state feedback message", client.Domain())
+	}
+	logger.Debug("[%s] publishing desired state feedback '%s'", client.Domain(), desiredStateFeedbackBytes)
+	return client.publish(client.topicDesiredStateFeedback, false, desiredStateFeedbackBytes)
 }
 
 func (client *updateAgentClient) publish(topic string, retained bool, message []byte) error {

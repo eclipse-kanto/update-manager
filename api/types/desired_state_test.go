@@ -119,10 +119,11 @@ func TestFromDesiredStateBytes(t *testing.T) {
 		}
 	}`
 
-	activityID, desiredState, err := FromDesiredStateBytes([]byte(spec))
+	desiredState := &DesiredState{}
+	envelope, err := FromEnvelope([]byte(spec), desiredState)
 	assert.NoError(t, err)
 
-	assert.Equal(t, "random-activity-id", activityID)
+	assert.Equal(t, "random-activity-id", envelope.ActivityID)
 
 	// assert baselines
 	assert.Equal(t, 2, len(desiredState.Baselines))

@@ -75,14 +75,7 @@ func (updateManager *domainUpdateManager) Apply(ctx context.Context, activityID 
 	updateManager.updateOperation = newUpdateOperation(activityID)
 	logger.Debug("[%s] processing desired state specification - start", domainName)
 
-	desiredStateBytes, err := types.ToEnvelope(activityID, desiredState)
-	if err != nil {
-		errMessage := fmt.Sprintf("invalid desired state manifest for domain %s", domainName)
-		updateManager.eventCallback.HandleDesiredStateFeedbackEvent(domainName, activityID, "", types.StatusIncomplete, errMessage, []*types.Action{})
-		return
-	}
-
-	if err := updateManager.desiredStateClient.PublishDesiredState(desiredStateBytes); err != nil {
+	if err := updateManager.desiredStateClient.SendDesiredState(activityID, desiredState); err != nil {
 		errMessage := fmt.Sprintf("%s. cannot send desired state manifest to domain %s", err.Error(), domainName)
 		updateManager.eventCallback.HandleDesiredStateFeedbackEvent(domainName, activityID, "", types.StatusIncomplete, errMessage, []*types.Action{})
 		return
@@ -107,12 +100,7 @@ func (updateManager *domainUpdateManager) Command(ctx context.Context, activityI
 		logger.Warn("[%s] activity id mismatch for desired state command request - expecting %s, received %s", domainName, updateManager.updateOperation.activityID, activityID)
 		return
 	}
-	commandBytes, err := types.ToDesiredStateCommandBytes(activityID, command)
-	if err != nil {
-		logger.Error(err.Error())
-		return
-	}
-	if err := updateManager.desiredStateClient.PublishDesiredStateCommand(commandBytes); err != nil {
+	if err := updateManager.desiredStateClient.SendDesiredStateCommand(activityID, command); err != nil {
 		errMessage := fmt.Sprintf("%s. cannot send desired state command to domain %s", err.Error(), domainName)
 		updateManager.eventCallback.HandleDesiredStateFeedbackEvent(domainName, activityID, "", types.StatusIncomplete, errMessage, []*types.Action{})
 		return
@@ -134,12 +122,7 @@ func (updateManager *domainUpdateManager) Get(ctx context.Context, activityID st
 	updateManager.setCurrentStateActivityID(activityID)
 	defer updateManager.setCurrentStateActivityID("")
 
-	var bytes []byte
-	var err error
-	if bytes, err = types.ToEnvelope(activityID, nil); err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("cannot serialize envelope with activityID '%s' for domain %s", activityID, domainName))
-	}
-	if err := updateManager.desiredStateClient.PublishGetCurrentState(bytes); err != nil {
+	if err := updateManager.desiredStateClient.SendCurrentStateGet(activityID); err != nil {
 		return nil, errors.Wrap(err, fmt.Sprintf("cannot send get current state request for domain %s", domainName))
 	}
 	select {
@@ -165,14 +148,14 @@ func (updateManager *domainUpdateManager) setCurrentStateActivityID(activityID s
 }
 
 func (updateManager *domainUpdateManager) Dispose() error {
-	if err := updateManager.desiredStateClient.Unsubscribe(); err != nil {
+	if err := updateManager.desiredStateClient.Stop(); err != nil {
 		return errors.Wrap(err, fmt.Sprintf("cannot unsubscribe for events for domain %s", updateManager.Name()))
 	}
 	return nil
 }
 
 func (updateManager *domainUpdateManager) WatchEvents(ctx context.Context) {
-	if err := updateManager.desiredStateClient.Subscribe(updateManager); err != nil {
+	if err := updateManager.desiredStateClient.Start(updateManager); err != nil {
 		logger.ErrorErr(err, "[%s] cannot subscribe for events", updateManager.Name())
 	}
 }

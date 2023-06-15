@@ -13,20 +13,61 @@
 package agent
 
 import (
-	"encoding/json"
-	"fmt"
+	"errors"
 	"testing"
 
 	"github.com/eclipse-kanto/update-manager/api/types"
 	"github.com/eclipse-kanto/update-manager/test/mocks"
 
 	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestHandleDesiredStateFeedbackEvent(t *testing.T) {
 	mockCtr := gomock.NewController(t)
 	defer mockCtr.Finish()
+
+	tests := map[string]struct {
+		status    types.StatusType
+		message   string
+		actions   []*types.Action
+		sendError error
+	}{
+		"test_feedback_without_actions": {
+			status:  types.StatusCompleted,
+			message: "operation completed",
+			actions: []*types.Action{},
+		},
+		"test_feedback_without_actions_send_error": {
+			status:    types.StatusIdentifying,
+			message:   "identifying...",
+			actions:   []*types.Action{},
+			sendError: errors.New("send error"),
+		},
+		"test_feedback_with_actions": {
+			status:  types.StatusIdentified,
+			message: "actions identified",
+			actions: []*types.Action{
+				{
+					Component: &types.Component{ID: "mydomain:mycomponent", Version: "1.2.3"},
+					Status:    types.ActionStatusIdentified,
+					Message:   "actions identified",
+				},
+			},
+		},
+		"test_feedback_with_actions_send_error": {
+			status:  types.StatusIncompleteInconsistent,
+			message: "incomplete, inconsistent",
+			actions: []*types.Action{
+				{
+					Component: &types.Component{ID: "mydomain:mycomponent", Version: "1.2.3"},
+					Status:    types.ActionStatusUpdateFailure,
+					Message:   "update failed",
+					Progress:  50,
+				},
+			},
+			sendError: errors.New("send error"),
+		},
+	}
 
 	mockClient := mocks.NewMockUpdateAgentClient(mockCtr)
 
@@ -34,65 +75,14 @@ func TestHandleDesiredStateFeedbackEvent(t *testing.T) {
 		client: mockClient,
 	}
 
-	t.Run("test_actions_nil_publishDesiredState_no_err", func(t *testing.T) {
-		mockClient.EXPECT().PublishDesiredStateFeedback(gomock.Any()).DoAndReturn(func(bytes []byte) error {
-			feedbackEnvelope := &types.Envelope{}
-			assert.Nil(t, json.Unmarshal(bytes, feedbackEnvelope))
-			expectedFeedback := map[string]interface{}{"message": "operation completed", "status": "COMPLETED"}
-			assert.Equal(t, testActivityID, feedbackEnvelope.ActivityID)
-			assert.Equal(t, expectedFeedback, feedbackEnvelope.Payload)
-			return nil
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			mockClient.EXPECT().SendDesiredStateFeedback(testActivityID, &types.DesiredStateFeedback{
+				Status:  test.status,
+				Message: test.message,
+				Actions: test.actions,
+			}).Return(test.sendError)
+			updAgent.HandleDesiredStateFeedbackEvent("", testActivityID, "", test.status, test.message, test.actions)
 		})
-		updAgent.HandleDesiredStateFeedbackEvent("", testActivityID, "", types.StatusCompleted, "operation completed", []*types.Action{})
-	})
-
-	t.Run("test_actions_nil_publishDesiredState_err", func(t *testing.T) {
-		mockClient.EXPECT().PublishDesiredStateFeedback(gomock.Any()).DoAndReturn(func(bytes []byte) error {
-			feedbackEnvelope := &types.Envelope{}
-			assert.Nil(t, json.Unmarshal(bytes, feedbackEnvelope))
-			expectedFeedback := map[string]interface{}{"message": "operation completed", "status": "COMPLETED"}
-			assert.Equal(t, testActivityID, feedbackEnvelope.ActivityID)
-			assert.Equal(t, expectedFeedback, feedbackEnvelope.Payload)
-			return fmt.Errorf("cannot publish message")
-		})
-		updAgent.HandleDesiredStateFeedbackEvent("", testActivityID, "", types.StatusCompleted, "operation completed", []*types.Action{})
-	})
-
-	t.Run("test_actions_not_nil_publishDesiredState_no_err", func(t *testing.T) {
-		actions := []*types.Action{
-			{
-				Component: &types.Component{},
-				Status:    types.ActionStatusUpdateSuccess,
-				Message:   "update success",
-			},
-		}
-		mockClient.EXPECT().PublishDesiredStateFeedback(gomock.Any()).DoAndReturn(func(bytes []byte) error {
-			feedbackEnvelope := &types.Envelope{}
-			assert.Nil(t, json.Unmarshal(bytes, feedbackEnvelope))
-			expectedFeedback := map[string]interface{}{"actions": []interface{}{map[string]interface{}{"component": map[string]interface{}{}, "message": "update success", "status": "UPDATE_SUCCESS"}}, "message": "operation completed", "status": "COMPLETED"}
-			assert.Equal(t, testActivityID, feedbackEnvelope.ActivityID)
-			assert.Equal(t, expectedFeedback, feedbackEnvelope.Payload)
-			return nil
-		})
-		updAgent.HandleDesiredStateFeedbackEvent("", testActivityID, "", types.StatusCompleted, "operation completed", actions)
-	})
-
-	t.Run("test_actions_not_nil_publishDesiredState_err", func(t *testing.T) {
-		actions := []*types.Action{
-			{
-				Component: &types.Component{},
-				Status:    types.ActionStatusUpdateSuccess,
-				Message:   "update success",
-			},
-		}
-		mockClient.EXPECT().PublishDesiredStateFeedback(gomock.Any()).DoAndReturn(func(bytes []byte) error {
-			feedbackEnvelope := &types.Envelope{}
-			assert.Nil(t, json.Unmarshal(bytes, feedbackEnvelope))
-			expectedFeedback := map[string]interface{}{"actions": []interface{}{map[string]interface{}{"component": map[string]interface{}{}, "message": "update success", "status": "UPDATE_SUCCESS"}}, "message": "operation completed", "status": "COMPLETED"}
-			assert.Equal(t, testActivityID, feedbackEnvelope.ActivityID)
-			assert.Equal(t, expectedFeedback, feedbackEnvelope.Payload)
-			return fmt.Errorf("cannot publish message")
-		})
-		updAgent.HandleDesiredStateFeedbackEvent("", testActivityID, "", types.StatusCompleted, "operation completed", actions)
-	})
+	}
 }

@@ -23,14 +23,8 @@ func (agent *updateAgent) HandleCurrentStateEvent(name string, activityID string
 
 	logger.Debug("handle current state event for domain and activityId '%s' - '%s'", name, activityID)
 
-	currentStateBytes, err := types.ToCurrentStateBytes(activityID, currentState)
-	if err != nil {
-		logger.ErrorErr(err, "cannot serialize current state.")
-		return
-	}
-
 	if agent.currentStateReportDelay == 0 {
-		agent.publishCurrentState(currentStateBytes)
+		agent.publishCurrentState(activityID, currentState)
 		return
 	}
 
@@ -39,17 +33,17 @@ func (agent *updateAgent) HandleCurrentStateEvent(name string, activityID string
 			agent.currentStateNotifier.stop()
 			agent.currentStateNotifier = nil
 		}
-		agent.publishCurrentState(currentStateBytes)
+		agent.publishCurrentState(activityID, currentState)
 		return
 	}
 	if agent.currentStateNotifier == nil {
 		agent.currentStateNotifier = newCurrentStateNotifier(agent.currentStateReportDelay, agent)
 	}
-	agent.currentStateNotifier.set(currentStateBytes)
+	agent.currentStateNotifier.set(activityID, currentState)
 }
 
-func (agent *updateAgent) publishCurrentState(currentStateBytes []byte) {
-	err := agent.client.PublishCurrentState(currentStateBytes)
+func (agent *updateAgent) publishCurrentState(activityID string, currentState *types.Inventory) {
+	err := agent.client.SendCurrentState(activityID, currentState)
 	if err != nil {
 		logger.ErrorErr(err, "cannot publish current state.")
 	}

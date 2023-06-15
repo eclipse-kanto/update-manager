@@ -14,6 +14,7 @@ package domain
 
 import (
 	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/eclipse-kanto/update-manager/api/types"
@@ -23,109 +24,108 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const feedbackDummyStatus1 = `
-{
-	"activityId": "testActivityId",
-	"payload": {
-		"status": "DUMMY_STATUS_1",
-		"message": "dummy status 1",
-		"actions":[
-		]
-	}
-  }
-`
-const feedbackDummyStatus2 = `
-{
-	"activityId": "testActivityId",
-	"payload": {
-		"status": "DUMMY_STATUS_2",
-		"message": "dummy status 2",
-		"actions":[
-		]
-	}
-  }
-`
-
-const feedbackDummyStatus3 = `
-{
-	"activityId": "testActivityId",
-	"payload": {
-		"status": "DUMMY_STATUS_3",
-		"message": "dummy status 3",
-		"actions":[
-		]
-	}
-  }
-`
-
-const stateCompletedWrongActivityID = `
-{
-	"activityId": "wrongActivityId",
-	"payload": {
-		"status": "COMPLETED",
-		"message": "completed operation",
-		"actions":[
-		]
-	}
-  }
-`
-
-const dummyStatus1 types.StatusType = "DUMMY_STATUS_1"
-const dummyStatus2 types.StatusType = "DUMMY_STATUS_2"
-const dummyStatus3 types.StatusType = "DUMMY_STATUS_3"
-
-func TestNoActiveOperation(t *testing.T) {
+func TestHandleDesiredStateFeedbackNoActiveOperation(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
 	desiredStateClient := mocks.NewMockDesiredStateClient(mockCtrl)
 	desiredStateClient.EXPECT().Domain().Return(testDomain)
 	eventCallback := mocks.NewMockUpdateManagerCallback(mockCtrl)
-
 	updateManager := createTestDomainUpdateManager(desiredStateClient, eventCallback)
-	assert.Nil(t, updateManager.HandleDesiredStateFeedback(nil))
+
+	assert.Nil(t, updateManager.HandleDesiredStateFeedback("", 0, nil))
 }
 
 func TestHandleDesiredStateFeedback(t *testing.T) {
+	testStatus := []types.StatusType{types.StatusCompleted, types.StatusIncomplete, types.StatusRunning}
+
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
 	desiredStateClient := mocks.NewMockDesiredStateClient(mockCtrl)
-	desiredStateClient.EXPECT().Domain().Return(testDomain).Times(6)
-
+	desiredStateClient.EXPECT().Domain().Return(testDomain).AnyTimes()
 	eventCallback := mocks.NewMockUpdateManagerCallback(mockCtrl)
-	for i, ds := range []types.StatusType{dummyStatus1, dummyStatus2, dummyStatus3} {
-		eventCallback.EXPECT().HandleDesiredStateFeedbackEvent(testDomain, testActivityID, "", ds, fmt.Sprintf("dummy status %d", i+1), []*types.Action{})
+	for i, status := range testStatus {
+		eventCallback.EXPECT().HandleDesiredStateFeedbackEvent(testDomain, testActivityID, fmt.Sprintf("baseline%d", i), status, fmt.Sprintf("desired state operation %s", status), []*types.Action{})
 	}
 
 	updateManager := createTestDomainUpdateManager(desiredStateClient, eventCallback)
 	updateManager.updateOperation = newUpdateOperation(testActivityID)
-	for _, ds := range []string{feedbackDummyStatus1, feedbackDummyStatus2, feedbackDummyStatus3} {
-		assert.Nil(t, updateManager.HandleDesiredStateFeedback([]byte(ds)))
+
+	for i, status := range testStatus {
+		assert.Nil(t, updateManager.HandleDesiredStateFeedback(testActivityID, 0, &types.DesiredStateFeedback{
+			Baseline: "baseline" + strconv.Itoa(i),
+			Status:   status,
+			Message:  "desired state operation " + string(status),
+			Actions:  []*types.Action{},
+		}))
 	}
 }
 
-func TestMismatchActivityID(t *testing.T) {
+func TestHandleDesiredStateFeedbackMismatchActivityID(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
 	desiredStateClient := mocks.NewMockDesiredStateClient(mockCtrl)
-	eventCallback := mocks.NewMockUpdateManagerCallback(mockCtrl)
 	desiredStateClient.EXPECT().Domain().Return(testDomain).Times(2)
+	eventCallback := mocks.NewMockUpdateManagerCallback(mockCtrl)
 
 	updateManager := createTestDomainUpdateManager(desiredStateClient, eventCallback)
 	updateManager.updateOperation = newUpdateOperation(testActivityID)
-	assert.Nil(t, updateManager.HandleDesiredStateFeedback([]byte(stateCompletedWrongActivityID)))
+	assert.Nil(t, updateManager.HandleDesiredStateFeedback("wrongActivityID", 0, nil))
 }
 
-func TestCurrentState(t *testing.T) {
+func TestHandleCurrentState(t *testing.T) {
+	tests := map[string]struct {
+		oldTimestamp int64
+		newTimestamp int64
+		oldInventory *types.Inventory
+		newInventory *types.Inventory
+		ignoreUpdate bool
+	}{
+		"initial-current-state": {
+			newInventory: dummyInventory,
+		},
+		"newer-current-state": {
+			oldTimestamp: 12345,
+			newTimestamp: 54321,
+			oldInventory: simpleInventory,
+			newInventory: dummyInventory,
+		},
+		"current-state-with-older-timestamp": {
+			oldTimestamp: 54321,
+			newTimestamp: 12345,
+			oldInventory: simpleInventory,
+			newInventory: dummyInventory,
+			ignoreUpdate: true,
+		},
+	}
+
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
 	desiredStateClient := mocks.NewMockDesiredStateClient(mockCtrl)
-	desiredStateClient.EXPECT().Domain().Return(testDomain)
+	desiredStateClient.EXPECT().Domain().Return(testDomain).AnyTimes()
 	eventCallback := mocks.NewMockUpdateManagerCallback(mockCtrl)
 
-	updateManager := createTestDomainUpdateManager(desiredStateClient, eventCallback)
-	assert.Nil(t, updateManager.HandleCurrentState(nil))
+	for name, test := range tests {
+		t.Log(name)
+
+		if !test.ignoreUpdate {
+			eventCallback.EXPECT().HandleCurrentStateEvent(testDomain, "", test.newInventory)
+		}
+
+		updateManager := createTestDomainUpdateManager(desiredStateClient, eventCallback)
+		updateManager.currentState.inventory = test.oldInventory
+		updateManager.currentState.timestamp = test.oldTimestamp
+
+		assert.Nil(t, updateManager.HandleCurrentState("", test.newTimestamp, test.newInventory))
+		if test.ignoreUpdate {
+			assert.Equal(t, test.oldInventory, updateManager.currentState.inventory)
+			assert.Equal(t, test.oldTimestamp, updateManager.currentState.timestamp)
+		} else {
+			assert.Equal(t, test.newInventory, updateManager.currentState.inventory)
+			assert.Equal(t, test.newTimestamp, updateManager.currentState.timestamp)
+		}
+	}
 }

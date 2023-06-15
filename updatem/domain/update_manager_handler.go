@@ -17,63 +17,47 @@ import (
 	"github.com/eclipse-kanto/update-manager/logger"
 )
 
-func (updateManager *domainUpdateManager) HandleDesiredStateFeedback(desiredStateFeedback []byte) error {
+func (updateManager *domainUpdateManager) HandleDesiredStateFeedback(activityID string, timestamp int64, desiredStateFeedback *types.DesiredStateFeedback) error {
 	updateManager.desiredStateLock.Lock()
 	defer updateManager.desiredStateLock.Unlock()
 
 	if updateManager.updateOperation == nil {
-		logger.Debug("[%s] ignoring received desired state feedback: %s", updateManager.Name(), desiredStateFeedback)
+		logger.Debug("[%s] ignoring received desired state feedback: %v", updateManager.Name(), desiredStateFeedback)
 		return nil
 	}
 
-	logger.Debug("[%s] received desired state feedback: %s", updateManager.Name(), desiredStateFeedback)
-	envelope, err := types.FromEnvelope(desiredStateFeedback, &types.DesiredStateFeedback{})
-	if err != nil {
-		return err
-	}
+	logger.Debug("[%s] received desired state feedback: %v", updateManager.Name(), desiredStateFeedback)
 
-	ds := envelope.Payload.(*types.DesiredStateFeedback)
-	if updateManager.updateOperation.activityID != envelope.ActivityID {
+	if updateManager.updateOperation.activityID != activityID {
 		logger.Warn("[%s] activity id mismatch for received desired state feedback event  - expecting %s, received %s",
-			updateManager.Name(), updateManager.updateOperation.activityID, envelope.ActivityID)
+			updateManager.Name(), updateManager.updateOperation.activityID, activityID)
 		return nil
 	}
 
-	updateManager.eventCallback.HandleDesiredStateFeedbackEvent(updateManager.Name(), envelope.ActivityID, ds.Baseline, ds.Status, ds.Message, ds.Actions)
+	updateManager.eventCallback.HandleDesiredStateFeedbackEvent(updateManager.Name(), activityID, desiredStateFeedback.Baseline, desiredStateFeedback.Status, desiredStateFeedback.Message, desiredStateFeedback.Actions)
 	return nil
 }
 
-func (updateManager *domainUpdateManager) HandleCurrentState(currentState []byte) error {
-	if currentState == nil {
-		logger.Warn("[%s] received empty current state, ignoring it", updateManager.Name())
-		return nil
-	}
-
-	logger.Debug("[%s] received current state: %s", updateManager.Name(), currentState)
-	envelope, err := types.FromEnvelope(currentState, &types.Inventory{})
-	if err != nil {
-		return err
-	}
-
+func (updateManager *domainUpdateManager) HandleCurrentState(activityID string, timestamp int64, inventory *types.Inventory) error {
 	updateManager.currentStateLock.Lock()
 	defer updateManager.currentStateLock.Unlock()
 
-	inventory := envelope.Payload.(*types.Inventory)
-	if updateManager.currentState.inventory != nil && (envelope.Timestamp < updateManager.currentState.timestamp) {
-		logger.Warn("[%d] received current state event with outdated timestamp - expecting %s, received %s",
-			updateManager.currentState.timestamp, envelope.Timestamp)
+	logger.Debug("[%s] received current state event: %v", updateManager.Name(), inventory)
+
+	if updateManager.currentState.inventory != nil && (timestamp < updateManager.currentState.timestamp) {
+		logger.Warn("[%s] received current state event with outdated timestamp - last known %s, received %s",
+			updateManager.Name(), updateManager.currentState.timestamp, timestamp)
 		return nil
 	}
-	updateManager.updateCurrentState(envelope.ActivityID, envelope.Timestamp, inventory)
-	return nil
-}
 
-func (updateManager *domainUpdateManager) updateCurrentState(activityID string, timestamp int64, newInventory *types.Inventory) {
-	updateManager.currentState.inventory = newInventory
+	// update current state
+	updateManager.currentState.inventory = inventory
 	updateManager.currentState.timestamp = timestamp
-	updateManager.eventCallback.HandleCurrentStateEvent(updateManager.Name(), activityID, newInventory)
+	updateManager.eventCallback.HandleCurrentStateEvent(updateManager.Name(), activityID, inventory)
 
 	if activityID != "" && activityID == updateManager.currentState.expActivityID {
 		updateManager.currentState.receiveChan <- true
 	}
+
+	return nil
 }

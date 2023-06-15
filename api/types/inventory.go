@@ -12,8 +12,6 @@
 
 package types
 
-import "github.com/pkg/errors"
-
 // Inventory defines the payload holding an inventory graph.
 type Inventory struct {
 	HardwareNodes []*HardwareNode `json:"hardwareNodes,omitempty"`
@@ -62,40 +60,3 @@ const (
 	// SoftwareTypeContainer represents a container software type
 	SoftwareTypeContainer SoftwareType = "CONTAINER"
 )
-
-// FromCurrentStateBytes receives Envelope as raw bytes and converts them to Inventory instance.
-func FromCurrentStateBytes(bytes []byte) (string, *Inventory, error) {
-	payloadCurrentState := &Inventory{}
-	envelope, err := FromEnvelope(bytes, payloadCurrentState)
-	if err != nil {
-		return "", nil, errors.Wrap(err, "cannot unmarshal current state")
-	}
-	return envelope.ActivityID, payloadCurrentState, nil
-}
-
-// FromCurrentStateGetBytes receives Envelope as raw bytes and converts them and returns the activityId.
-func FromCurrentStateGetBytes(bytes []byte) (string, error) {
-	envelope, err := FromEnvelope(bytes, nil)
-	if err != nil {
-		return "", errors.Wrap(err, "cannot unmarshal current state get")
-	}
-	return envelope.ActivityID, nil
-}
-
-// ToCurrentStateBytes returns the Envelope as raw bytes, setting activity ID and payload to the given parameters.
-func ToCurrentStateBytes(activityID string, currentState *Inventory) ([]byte, error) {
-	bytes, err := ToEnvelope(activityID, currentState)
-	if err != nil {
-		return nil, errors.Wrap(err, "cannot marshal current state")
-	}
-	return bytes, nil
-}
-
-// ToCurrentStateGetBytes returns the Envelope as raw bytes, setting activity ID to the given parameter and no payload.
-func ToCurrentStateGetBytes(activityID string) ([]byte, error) {
-	bytes, err := ToEnvelope(activityID, nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "cannot marshal current state get")
-	}
-	return bytes, nil
-}

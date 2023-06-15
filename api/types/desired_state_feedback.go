@@ -12,8 +12,6 @@
 
 package types
 
-import "github.com/pkg/errors"
-
 // StatusType defines values for status within the desired state feedback
 type StatusType string
 
@@ -123,13 +121,4 @@ type Action struct {
 	Status    ActionStatusType `json:"status,omitempty"`
 	Progress  uint8            `json:"progress,omitempty"`
 	Message   string           `json:"message,omitempty"`
-}
-
-// ToDesiredStateFeedbackBytes returns the Envelope as raw bytes, setting activity ID and payload to the given parameters.
-func ToDesiredStateFeedbackBytes(activityID string, feedback *DesiredStateFeedback) ([]byte, error) {
-	bytes, err := ToEnvelope(activityID, feedback)
-	if err != nil {
-		return nil, errors.Wrap(err, "cannot marshal desired state feedback")
-	}
-	return bytes, nil
 }

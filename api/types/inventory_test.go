@@ -60,7 +60,7 @@ func TestToCurrentStateBytes(t *testing.T) {
 			},
 		},
 	}
-	currentStateBytes, err := ToCurrentStateBytes("", currentState)
+	currentStateBytes, err := ToEnvelope("", currentState)
 	assert.NoError(t, err)
 
 	currentStateEnvelope := &Envelope{

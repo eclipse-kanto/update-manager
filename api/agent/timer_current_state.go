@@ -15,6 +15,8 @@ package agent
 import (
 	"sync"
 	"time"
+
+	"github.com/eclipse-kanto/update-manager/api/types"
 )
 
 type currentStateNotifier struct {
@@ -24,7 +26,8 @@ type currentStateNotifier struct {
 
 	agent *updateAgent
 
-	currentStateBytes []byte
+	activityID   string
+	currentState *types.Inventory
 }
 
 func newCurrentStateNotifier(interval time.Duration, agent *updateAgent) *currentStateNotifier {
@@ -34,11 +37,12 @@ func newCurrentStateNotifier(interval time.Duration, agent *updateAgent) *curren
 	}
 }
 
-func (t *currentStateNotifier) set(currentStateBytes []byte) {
+func (t *currentStateNotifier) set(activityID string, currentState *types.Inventory) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 
-	t.currentStateBytes = currentStateBytes
+	t.activityID = activityID
+	t.currentState = currentState
 	if t.internalTimer == nil {
 		t.internalTimer = time.AfterFunc(t.interval, t.notifyEvent)
 	}
@@ -48,7 +52,8 @@ func (t *currentStateNotifier) stop() {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 
-	t.currentStateBytes = nil
+	t.activityID = ""
+	t.currentState = nil
 	if t.internalTimer != nil {
 		t.internalTimer.Stop()
 		t.internalTimer = nil
@@ -63,5 +68,5 @@ func (t *currentStateNotifier) notifyEvent() {
 		return
 	}
 	t.internalTimer = nil
-	t.agent.publishCurrentState(t.currentStateBytes)
+	t.agent.publishCurrentState(t.activityID, t.currentState)
 }

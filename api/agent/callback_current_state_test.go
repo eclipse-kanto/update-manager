@@ -13,7 +13,6 @@
 package agent
 
 import (
-	"encoding/json"
 	"testing"
 	"time"
 
@@ -21,7 +20,6 @@ import (
 	"github.com/eclipse-kanto/update-manager/test/mocks"
 
 	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestHandleCurrentStateEvent(t *testing.T) {
@@ -43,17 +41,12 @@ func TestHandleCurrentStateEvent(t *testing.T) {
 
 	t.Run("test_no_activity_id_without_delay", func(t *testing.T) {
 		mockClient := mocks.NewMockUpdateAgentClient(mockCtr)
-		mockClient.EXPECT().PublishCurrentState(gomock.Any()).DoAndReturn(func(bytes []byte) error {
-			inventoryEnvelope := &types.Envelope{}
-			assert.Nil(t, json.Unmarshal(bytes, inventoryEnvelope))
-			expectedPayload := map[string]interface{}{"softwareNodes": []interface{}{map[string]interface{}{"id": "update-manager", "name": "Update Manager", "type": "APPLICATION", "version": "development"}}}
-			assert.Equal(t, "", inventoryEnvelope.ActivityID)
-			assert.Equal(t, expectedPayload, inventoryEnvelope.Payload)
-			return nil
-		})
+		mockClient.EXPECT().SendCurrentState("", inventory)
+
 		updAgent := &updateAgent{
 			client: mockClient,
 		}
+
 		updAgent.HandleCurrentStateEvent("testDomain", "", inventory)
 	})
 
@@ -61,22 +54,22 @@ func TestHandleCurrentStateEvent(t *testing.T) {
 		mockClient := mocks.NewMockUpdateAgentClient(mockCtr)
 		updAgent := &updateAgent{
 			client:                  mockClient,
-			currentStateReportDelay: time.Minute,
+			currentStateReportDelay: time.Second,
 		}
+
+		ch := make(chan bool, 1)
+		mockClient.EXPECT().SendCurrentState("", inventory).DoAndReturn(
+			func(activityID string, inventory *types.Inventory) error {
+				ch <- true
+				return nil
+			})
 		updAgent.HandleCurrentStateEvent("testDomain", "", inventory)
-		updAgent.stopCurrentStateStateNotifier()
+		<-ch
 	})
 
 	t.Run("test_activity_id_not_empty", func(t *testing.T) {
 		mockClient := mocks.NewMockUpdateAgentClient(mockCtr)
-		mockClient.EXPECT().PublishCurrentState(gomock.Any()).DoAndReturn(func(bytes []byte) error {
-			inventoryEnvelope := &types.Envelope{}
-			assert.Nil(t, json.Unmarshal(bytes, inventoryEnvelope))
-			expectedPayload := map[string]interface{}{"softwareNodes": []interface{}{map[string]interface{}{"id": "update-manager", "name": "Update Manager", "type": "APPLICATION", "version": "development"}}}
-			assert.Equal(t, testActivityID, inventoryEnvelope.ActivityID)
-			assert.Equal(t, expectedPayload, inventoryEnvelope.Payload)
-			return nil
-		})
+		mockClient.EXPECT().SendCurrentState(testActivityID, inventory)
 		updAgent := &updateAgent{
 			client:                  mockClient,
 			currentStateReportDelay: time.Minute,

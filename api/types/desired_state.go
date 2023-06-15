@@ -14,8 +14,6 @@ package types
 
 import (
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 // CommandType defines command names for desired state command requests
@@ -77,35 +75,6 @@ type ComponentWithConfig struct {
 type KeyValuePair struct {
 	Key   string `json:"key,omitempty"`
 	Value string `json:"value,omitempty"`
-}
-
-// FromDesiredStateBytes receives Envelope as raw bytes and converts them to Desired State instance.
-func FromDesiredStateBytes(bytes []byte) (string, *DesiredState, error) {
-	payloadState := &DesiredState{}
-	envelope, err := FromEnvelope(bytes, payloadState)
-	if err != nil {
-		return "", nil, errors.Wrap(err, "cannot unmarshal state")
-	}
-	return envelope.ActivityID, payloadState, nil
-}
-
-// FromDesiredStateCommandBytes receives Envelope as raw bytes and converts them to Desired State Command instance.
-func FromDesiredStateCommandBytes(bytes []byte) (string, *DesiredStateCommand, error) {
-	payloadStateCommand := &DesiredStateCommand{}
-	envelope, err := FromEnvelope(bytes, payloadStateCommand)
-	if err != nil {
-		return "", nil, errors.Wrap(err, "cannot unmarshal state command")
-	}
-	return envelope.ActivityID, payloadStateCommand, nil
-}
-
-// ToDesiredStateCommandBytes returns the Envelope as raw bytes, setting activity ID and payload to the given parameters.
-func ToDesiredStateCommandBytes(activityID string, command *DesiredStateCommand) ([]byte, error) {
-	bytes, err := ToEnvelope(activityID, command)
-	if err != nil {
-		return nil, errors.Wrap(err, "cannot marshal desired state command")
-	}
-	return bytes, nil
 }
 
 // SplitPerDomains splits the full desired state into several desired states for each domain

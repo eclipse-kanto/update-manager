@@ -16,9 +16,11 @@ import (
 	"fmt"
 
 	"github.com/eclipse-kanto/update-manager/api"
+	"github.com/eclipse-kanto/update-manager/api/types"
 	"github.com/eclipse-kanto/update-manager/logger"
 
 	pahomqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/pkg/errors"
 )
 
 type desiredStateClient struct {
@@ -41,7 +43,7 @@ func (client *desiredStateClient) Domain() string {
 }
 
 // Subscribe makes a client subscription to the MQTT broker for the MQTT topics for desired state feedback and current state messages.
-func (client *desiredStateClient) Subscribe(stateHandler api.StateHandler) error {
+func (client *desiredStateClient) Start(stateHandler api.StateHandler) error {
 	client.stateHandler = stateHandler
 	if err := client.subscribe(); err != nil {
 		client.stateHandler = nil
@@ -52,7 +54,7 @@ func (client *desiredStateClient) Subscribe(stateHandler api.StateHandler) error
 }
 
 // Unsubscribe removes the client subscription to the MQTT broker for the MQTT topics for desired state feedback and current state messages.
-func (client *desiredStateClient) Unsubscribe() error {
+func (client *desiredStateClient) Stop() error {
 	if err := client.unsubscribe(); err != nil {
 		return fmt.Errorf("[%s] error unsubscribing for DesiredStateFeedback/CurrentState messages: %w", client.Domain(), err)
 	}
@@ -88,19 +90,35 @@ func (client *desiredStateClient) handleMessage(mqttClient pahomqtt.Client, mess
 	topic := message.Topic()
 	logger.Debug("[%s] received %s message", client.Domain(), topic)
 	if topic == client.topicCurrentState {
-		if err := client.stateHandler.HandleCurrentState(message.Payload()); err != nil {
+		currentState := &types.Inventory{}
+		envelope, err := types.FromEnvelope(message.Payload(), currentState)
+		if err != nil {
+			logger.ErrorErr(err, "[%s] cannot parse current state message", client.Domain())
+			return
+		}
+		if err := client.stateHandler.HandleCurrentState(envelope.ActivityID, envelope.Timestamp, currentState); err != nil {
 			logger.ErrorErr(err, "[%s] error processing current state message", client.Domain())
 		}
 	} else if topic == client.topicDesiredStateFeedback {
-		if err := client.stateHandler.HandleDesiredStateFeedback(message.Payload()); err != nil {
+		desiredstatefeedback := &types.DesiredStateFeedback{}
+		envelope, err := types.FromEnvelope(message.Payload(), desiredstatefeedback)
+		if err != nil {
+			logger.ErrorErr(err, "[%s] cannot parse desired state feedback message", client.Domain())
+			return
+		}
+		if err := client.stateHandler.HandleDesiredStateFeedback(envelope.ActivityID, envelope.Timestamp, desiredstatefeedback); err != nil {
 			logger.ErrorErr(err, "[%s] error processing desired state feedback message", client.Domain())
 		}
 	}
 }
 
-func (client *desiredStateClient) PublishDesiredState(desiredState []byte) error {
+func (client *desiredStateClient) SendDesiredState(activityID string, desiredState *types.DesiredState) error {
 	logger.Debug("publishing desired state to topic '%s'", client.topicDesiredState)
-	token := client.pahoClient.Publish(client.topicDesiredState, 1, false, desiredState)
+	desiredStateBytes, err := types.ToEnvelope(activityID, desiredState)
+	if err != nil {
+		return errors.Wrapf(err, "cannot marshal desired state message for activity-id %s", activityID)
+	}
+	token := client.pahoClient.Publish(client.topicDesiredState, 1, false, desiredStateBytes)
 	acknowledgeTimeout := convertToMilliseconds(client.mqttConfig.AcknowledgeTimeout)
 	if !token.WaitTimeout(acknowledgeTimeout) {
 		return fmt.Errorf("cannot publish to topic '%s' in '%v' seconds", client.topicDesiredState, acknowledgeTimeout)
@@ -108,9 +126,13 @@ func (client *desiredStateClient) PublishDesiredState(desiredState []byte) error
 	return token.Error()
 }
 
-func (client *desiredStateClient) PublishDesiredStateCommand(desiredStateCommand []byte) error {
+func (client *desiredStateClient) SendDesiredStateCommand(activityID string, desiredStateCommand *types.DesiredStateCommand) error {
 	logger.Debug("publishing desired state command to topic '%s'", client.topicDesiredStateCommand)
-	token := client.pahoClient.Publish(client.topicDesiredStateCommand, 1, false, desiredStateCommand)
+	desiredStateCommandBytes, err := types.ToEnvelope(activityID, desiredStateCommand)
+	if err != nil {
+		return errors.Wrapf(err, "cannot marshal desired state command message for activity-id %s", activityID)
+	}
+	token := client.pahoClient.Publish(client.topicDesiredStateCommand, 1, false, desiredStateCommandBytes)
 	acknowledgeTimeout := convertToMilliseconds(client.mqttConfig.AcknowledgeTimeout)
 	if !token.WaitTimeout(acknowledgeTimeout) {
 		return fmt.Errorf("cannot publish to topic '%s' in '%v' seconds", client.topicDesiredStateCommand, acknowledgeTimeout)
@@ -118,9 +140,13 @@ func (client *desiredStateClient) PublishDesiredStateCommand(desiredStateCommand
 	return token.Error()
 }
 
-func (client *desiredStateClient) PublishGetCurrentState(currentState []byte) error {
+func (client *desiredStateClient) SendCurrentStateGet(activityID string) error {
 	logger.Debug("publishing get current state request to topic '%s'", client.topicCurrentStateGet)
-	token := client.pahoClient.Publish(client.topicCurrentStateGet, 1, false, currentState)
+	currentStateGetBytes, err := types.ToEnvelope(activityID, nil)
+	if err != nil {
+		return errors.Wrapf(err, "cannot marshal current state get message for activity-id %s", activityID)
+	}
+	token := client.pahoClient.Publish(client.topicCurrentStateGet, 1, false, currentStateGetBytes)
 	acknowledgeTimeout := convertToMilliseconds(client.mqttConfig.AcknowledgeTimeout)
 	if !token.WaitTimeout(acknowledgeTimeout) {
 		return fmt.Errorf("cannot publish to topic '%s' in '%v' seconds", client.topicCurrentStateGet, acknowledgeTimeout)

@@ -52,7 +52,7 @@ func TestToDesiredStateFeedbackBytes(t *testing.T) {
 			},
 		},
 	}
-	feedbackBytes, err := ToDesiredStateFeedbackBytes("test-activity-id", feedback)
+	feedbackBytes, err := ToEnvelope("test-activity-id", feedback)
 	assert.NoError(t, err)
 
 	feedbackEnvelope := &Envelope{
