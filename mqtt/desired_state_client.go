@@ -42,7 +42,7 @@ func (client *desiredStateClient) Domain() string {
 	return client.domain
 }
 
-// Subscribe makes a client subscription to the MQTT broker for the MQTT topics for desired state feedback and current state messages.
+// Start makes a client subscription to the MQTT broker for the MQTT topics for desired state feedback and current state messages.
 func (client *desiredStateClient) Start(stateHandler api.StateHandler) error {
 	client.stateHandler = stateHandler
 	if err := client.subscribe(); err != nil {
@@ -53,7 +53,7 @@ func (client *desiredStateClient) Start(stateHandler api.StateHandler) error {
 	return nil
 }
 
-// Unsubscribe removes the client subscription to the MQTT broker for the MQTT topics for desired state feedback and current state messages.
+// Stop removes the client subscription to the MQTT broker for the MQTT topics for desired state feedback and current state messages.
 func (client *desiredStateClient) Stop() error {
 	if err := client.unsubscribe(); err != nil {
 		return fmt.Errorf("[%s] error unsubscribing for DesiredStateFeedback/CurrentState messages: %w", client.Domain(), err)

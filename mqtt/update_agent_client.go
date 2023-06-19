@@ -210,7 +210,7 @@ func (client *updateAgentClient) SendCurrentState(activityID string, currentStat
 	return client.publish(client.topicCurrentState, true, currentStateBytes)
 }
 
-// SendDesiredStateFeedback makes the client send the given raw bytes as desired state feedback message.
+// SendDesiredStateFeedback makes the client create envelope raw bytes with the given activityID and desired state feedback and send the raw bytes as desired state feedback message.
 func (client *updateAgentClient) SendDesiredStateFeedback(activityID string, desiredStateFeedback *types.DesiredStateFeedback) error {
 	desiredStateFeedbackBytes, err := types.ToEnvelope(activityID, desiredStateFeedback)
 	if err != nil {
@@ -241,7 +241,7 @@ func convertToMilliseconds(value int64) time.Duration {
 
 func newClient(config *ConnectionConfig, onConnect pahomqtt.OnConnectHandler) pahomqtt.Client {
 	clientOptions := pahomqtt.NewClientOptions().
-		SetClientID(uuid.New().String()). // TODO fixed ClientID ???
+		SetClientID(uuid.New().String()).
 		AddBroker(config.BrokerURL).
 		SetKeepAlive(convertToMilliseconds(config.KeepAlive)).
 		SetCleanSession(true).
