@@ -242,15 +242,15 @@ func convertToMilliseconds(value int64) time.Duration {
 func newClient(config *ConnectionConfig, onConnect pahomqtt.OnConnectHandler) pahomqtt.Client {
 	clientOptions := pahomqtt.NewClientOptions().
 		SetClientID(uuid.New().String()).
-		AddBroker(config.BrokerURL).
+		AddBroker(config.Broker).
 		SetKeepAlive(convertToMilliseconds(config.KeepAlive)).
 		SetCleanSession(true).
 		SetAutoReconnect(true).
 		SetProtocolVersion(4).
 		SetConnectTimeout(convertToMilliseconds(config.ConnectTimeout)).
 		SetOnConnectHandler(onConnect).
-		SetUsername(config.ClientUsername).
-		SetPassword(config.ClientPassword)
+		SetUsername(config.Username).
+		SetPassword(config.Password)
 
 	return pahomqtt.NewClient(clientOptions)
 }

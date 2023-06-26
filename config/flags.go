@@ -38,16 +38,16 @@ func SetupFlags(flagSet *flag.FlagSet, cfg *BaseConfig) {
 	flagSet.IntVar(&cfg.Log.LogFileCount, "log-file-count", int(EnvToInt("LOG_FILE_COUNT", int64(cfg.Log.LogFileCount))), "Set the maximum number of old log files to retain")
 	flagSet.IntVar(&cfg.Log.LogFileMaxAge, "log-file-max-age", int(EnvToInt("LOG_FILE_MAX_AGE", int64(cfg.Log.LogFileMaxAge))), "Set the maximum number of days to retain old log files based on the timestamp encoded in their filename")
 
-	// init mqtt client flags
-	flagSet.StringVar(&cfg.MQTT.BrokerURL, "mqtt-conn-broker", EnvToString("MQTT_CONN_BROKER", cfg.MQTT.BrokerURL), "Specify the MQTT broker URL to connect to")
-	flagSet.Int64Var(&cfg.MQTT.KeepAlive, "mqtt-conn-keep-alive", EnvToInt("MQTT_CONN_KEEP_ALIVE", cfg.MQTT.KeepAlive), "Specify the keep alive duration for the MQTT requests in milliseconds")
-	flagSet.Int64Var(&cfg.MQTT.DisconnectTimeout, "mqtt-conn-disconnect-timeout", EnvToInt("MQTT_CONN_DISCONNECT_TIMEOUT", cfg.MQTT.DisconnectTimeout), "Specify the disconnection timeout for the MQTT connection in milliseconds")
-	flagSet.StringVar(&cfg.MQTT.ClientUsername, "mqtt-conn-client-username", EnvToString("MQTT_CONN_CLIENT_USERNAME", cfg.MQTT.ClientUsername), "Specify the MQTT client username to authenticate with")
-	flagSet.StringVar(&cfg.MQTT.ClientPassword, "mqtt-conn-client-password", EnvToString("MQTT_CONN_CLIENT_PASSWORD", cfg.MQTT.ClientPassword), "Specify the MQTT client password to authenticate with")
-	flagSet.Int64Var(&cfg.MQTT.ConnectTimeout, "mqtt-conn-connect-timeout", EnvToInt("MQTT_CONN_CONNECT_TIMEOUT", cfg.MQTT.ConnectTimeout), "Specify the connect timeout for the MQTT in milliseconds")
-	flagSet.Int64Var(&cfg.MQTT.AcknowledgeTimeout, "mqtt-conn-ack-timeout", EnvToInt("MQTT_CONN_ACK_TIMEOUT", cfg.MQTT.AcknowledgeTimeout), "Specify the acknowledgement timeout for the MQTT requests in milliseconds")
-	flagSet.Int64Var(&cfg.MQTT.SubscribeTimeout, "mqtt-conn-sub-timeout", EnvToInt("MQTT_CONN_SUB_TIMEOUT", cfg.MQTT.SubscribeTimeout), "Specify the subscribe timeout for the MQTT requests in milliseconds")
-	flagSet.Int64Var(&cfg.MQTT.UnsubscribeTimeout, "mqtt-conn-unsub-timeout", EnvToInt("MQTT_CONN_UNSUB_TIMEOUT", cfg.MQTT.UnsubscribeTimeout), "Specify the unsubscribe timeout for the MQTT requests in milliseconds")
+	// init connection flags
+	flagSet.StringVar(&cfg.MQTT.Broker, "mqtt-conn-broker", EnvToString("MQTT_CONN_BROKER", cfg.MQTT.Broker), "Address of the MQTT server/broker that the update manager will connect for the communication, the format is: scheme://host:port")
+	flagSet.Int64Var(&cfg.MQTT.KeepAlive, "mqtt-conn-keep-alive", EnvToInt("MQTT_CONN_KEEP_ALIVE", cfg.MQTT.KeepAlive), "Keep alive duration in milliseconds for the MQTT requests")
+	flagSet.Int64Var(&cfg.MQTT.DisconnectTimeout, "mqtt-conn-disconnect-timeout", EnvToInt("MQTT_CONN_DISCONNECT_TIMEOUT", cfg.MQTT.DisconnectTimeout), "Disconnect timeout in milliseconds for the MQTT server/broker")
+	flagSet.StringVar(&cfg.MQTT.Username, "mqtt-conn-username", EnvToString("MQTT_CONN_USERNAME", cfg.MQTT.Username), "Username that is a part of the credentials")
+	flagSet.StringVar(&cfg.MQTT.Password, "mqtt-conn-password", EnvToString("MQTT_CONN_PASSWORD", cfg.MQTT.Password), "Password that is a part of the credentials")
+	flagSet.Int64Var(&cfg.MQTT.ConnectTimeout, "mqtt-conn-connect-timeout", EnvToInt("MQTT_CONN_CONNECT_TIMEOUT", cfg.MQTT.ConnectTimeout), "Connect timeout in milliseconds for the MQTT server/broker")
+	flagSet.Int64Var(&cfg.MQTT.AcknowledgeTimeout, "mqtt-conn-ack-timeout", EnvToInt("MQTT_CONN_ACK_TIMEOUT", cfg.MQTT.AcknowledgeTimeout), "Acknowledge timeout in milliseconds for the MQTT requests")
+	flagSet.Int64Var(&cfg.MQTT.SubscribeTimeout, "mqtt-conn-sub-timeout", EnvToInt("MQTT_CONN_SUB_TIMEOUT", cfg.MQTT.SubscribeTimeout), "Subscribe timeout in milliseconds for the MQTT requests")
+	flagSet.Int64Var(&cfg.MQTT.UnsubscribeTimeout, "mqtt-conn-unsub-timeout", EnvToInt("MQTT_CONN_UNSUB_TIMEOUT", cfg.MQTT.UnsubscribeTimeout), "Unsubscribe timeout in milliseconds for the MQTT requests")
 
 	flagSet.StringVar(&cfg.Domain, "domain", EnvToString("DOMAIN", cfg.Domain), "Specify the Domain of this update agent, used as MQTT topic prefix.")
 }

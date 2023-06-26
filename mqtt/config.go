@@ -14,11 +14,11 @@ package mqtt
 
 const (
 	// default mqtt connection config
-	defaultBrokerURL          = "tcp://localhost:1883"
+	defaultBroker             = "tcp://localhost:1883"
 	defaultKeepAlive          = 20000
 	defaultDisconnectTimeout  = 250
-	defaultClientUsername     = ""
-	defaultClientPassword     = ""
+	defaultUsername           = ""
+	defaultPassword           = ""
 	defaultConnectTimeout     = 30000
 	defaultAcknowledgeTimeout = 15000
 	defaultSubscribeTimeout   = 15000
@@ -27,11 +27,11 @@ const (
 
 // ConnectionConfig represents the mqtt client connection config
 type ConnectionConfig struct {
-	BrokerURL          string `json:"brokerUrl,omitempty"`
+	Broker             string `json:"broker,omitempty"`
 	KeepAlive          int64  `json:"keepAlive,omitempty"`
 	DisconnectTimeout  int64  `json:"disconnectTimeout,omitempty"`
-	ClientUsername     string `json:"clientUsername,omitempty"`
-	ClientPassword     string `json:"clientPassword,omitempty"`
+	Username           string `json:"username,omitempty"`
+	Password           string `json:"password,omitempty"`
 	ConnectTimeout     int64  `json:"connectTimeout,omitempty"`
 	AcknowledgeTimeout int64  `json:"acknowledgeTimeout,omitempty"`
 	SubscribeTimeout   int64  `json:"subscribeTimeout,omitempty"`
@@ -41,11 +41,11 @@ type ConnectionConfig struct {
 // NewDefaultConfig returns a default mqtt client connection config instance
 func NewDefaultConfig() *ConnectionConfig {
 	return &ConnectionConfig{
-		BrokerURL:          defaultBrokerURL,
+		Broker:             defaultBroker,
 		KeepAlive:          defaultKeepAlive,
 		DisconnectTimeout:  defaultDisconnectTimeout,
-		ClientUsername:     defaultClientUsername,
-		ClientPassword:     defaultClientPassword,
+		Username:           defaultUsername,
+		Password:           defaultPassword,
 		ConnectTimeout:     defaultConnectTimeout,
 		AcknowledgeTimeout: defaultAcknowledgeTimeout,
 		SubscribeTimeout:   defaultSubscribeTimeout,

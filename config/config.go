@@ -23,7 +23,7 @@ import (
 // BaseConfig represents the common, reusable configuration that holds logger options and MQTT connection parameters.
 type BaseConfig struct {
 	Log    *logger.LogConfig      `json:"log,omitempty"`
-	MQTT   *mqtt.ConnectionConfig `json:"mqtt,omitempty"`
+	MQTT   *mqtt.ConnectionConfig `json:"connection,omitempty"`
 	Domain string                 `json:"domain,omitempty"`
 }
 

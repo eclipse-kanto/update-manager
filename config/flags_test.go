@@ -65,12 +65,12 @@ func TestSetupFlags(t *testing.T) {
 			flag:         "mqtt-conn-disconnect-timeout",
 			expectedType: reflect.Int.String(),
 		},
-		"test_flags_mqtt_conn_client_username": {
-			flag:         "mqtt-conn-client-username",
+		"test_flags_mqtt_conn_username": {
+			flag:         "mqtt-conn-username",
 			expectedType: reflect.String.String(),
 		},
-		"test_flags_mqtt-conn-client-password": {
-			flag:         "mqtt-conn-client-password",
+		"test_flags_mqtt-conn-password": {
+			flag:         "mqtt-conn-password",
 			expectedType: reflect.String.String(),
 		},
 		"test_flags_mqtt-conn-connect-timeout": {
