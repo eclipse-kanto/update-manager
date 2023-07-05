@@ -1,6 +1,6 @@
 ### Current State Representation
 
-The cloud backend (or any OTA update system) needs to keep track of the current state of the device. This current state information is relevant as input for the context pipeline for compiling future desired states and acts as an indicator of problems in applying a given desired state, if the current state is differs from the desired state, which may not be reached. 
+The cloud backend (or any OTA update system) needs to keep track of the current state of the device. This current state information is relevant as input for the context pipeline for compiling future desired states and acts as an indicator of problems in applying a given desired state, if the current state differs from the desired state, which may not be reached.
 
 For representing the current state of the device, the approach of a holistic inventory of hardware and software nodes will be applied. This model is using a graph structure consisting of three element types - hardware nodes, software nodes, associations.
 
@@ -49,7 +49,7 @@ The list of the supported software types :
 
 The diagram below represents the Device Inventory graph and the links between the software and hardware nodes.
 
-The software nodes are organized in the graph at different levels. At the root level stands the main Update Manager software node, which represents the Update Manager component. At the second level are placed the root nodes for each supported domain agent, which are linked with associations to the Update Manager node. At the last level in the hierachy are placed the domain-specific software nodes, representing the domain components. These software nodes can be modeled the in a tree-based structure if the internal domain-specific representation is more complex.
+The software nodes are organized in the graph at different levels. At the root level stands the main Update Manager software node, which represents the Update Manager component. At the second level are placed the root nodes for each supported domain agent, which are linked with associations to the Update Manager node. At the last level in the hierarchy are placed the domain-specific software nodes, representing the domain components. These software nodes can be modeled the in a tree-based structure if the internal domain-specific representation is more complex.
 
 The hardware nodes do not follow any strict hierarchy and can be linked to any hardware or software node. Any cycles between the noded are not allowed and prevented.
 
