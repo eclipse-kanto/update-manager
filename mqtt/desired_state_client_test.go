@@ -14,6 +14,7 @@ package mqtt
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/eclipse-kanto/update-manager/api/types"
@@ -205,8 +206,9 @@ func TestSendCurrentStateGet(t *testing.T) {
 
 func TestHandleCurrentStateMessage(t *testing.T) {
 	tests := map[string]testCaseIncoming{
-		"test_handle_current_state_ok":     {domain: "testdomain", handlerError: nil},
-		"test_handler_current_state_error": {domain: "mydomain", handlerError: errors.New("handler error")},
+		"test_handle_current_state_ok":         {domain: "testdomain", handlerError: nil},
+		"test_handler_current_state_error":     {domain: "mydomain", handlerError: errors.New("handler error")},
+		"test_handle_current_state_json_error": {domain: "testdomain", handlerError: nil},
 	}
 
 	mockCtrl := gomock.NewController(t)
@@ -226,11 +228,11 @@ func TestHandleCurrentStateMessage(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			testBytes, err := types.ToEnvelope(name, testCurrentState)
-			assert.NoError(t, err)
+
+			testBytes, expectedCalls := testBytesToEnvelope(t, name, testCurrentState)
 
 			stateHandler := mocks.NewMockStateHandler(mockCtrl)
-			stateHandler.EXPECT().HandleCurrentState(name, gomock.Any(), testCurrentState).Return(test.handlerError)
+			stateHandler.EXPECT().HandleCurrentState(name, gomock.Any(), testCurrentState).Times(expectedCalls).Return(test.handlerError)
 
 			desiredStateClient := &desiredStateClient{
 				mqttClient:   newInternalClient(test.domain, &ConnectionConfig{}, nil),
@@ -247,8 +249,9 @@ func TestHandleCurrentStateMessage(t *testing.T) {
 
 func TestHandleDesiredStateFeedbackMessage(t *testing.T) {
 	tests := map[string]testCaseIncoming{
-		"test_handle_desired_state_feedback_ok":    {domain: "testdomain", handlerError: nil},
-		"test_handle_desired_state_feedback_error": {domain: "mydomain", handlerError: errors.New("handler error")},
+		"test_handle_desired_state_feedback_ok":         {domain: "testdomain", handlerError: nil},
+		"test_handle_desired_state_feedback_error":      {domain: "mydomain", handlerError: errors.New("handler error")},
+		"test_handle_desired_state_feedback_json_error": {domain: "testdomain", handlerError: nil},
 	}
 
 	mockCtrl := gomock.NewController(t)
@@ -262,11 +265,10 @@ func TestHandleDesiredStateFeedbackMessage(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			testBytes, err := types.ToEnvelope(name, testFeedback)
-			assert.NoError(t, err)
+			testBytes, expectedCalls := testBytesToEnvelope(t, name, testFeedback)
 
 			stateHandler := mocks.NewMockStateHandler(mockCtrl)
-			stateHandler.EXPECT().HandleDesiredStateFeedback(name, gomock.Any(), testFeedback).Return(test.handlerError)
+			stateHandler.EXPECT().HandleDesiredStateFeedback(name, gomock.Any(), testFeedback).Times(expectedCalls).Return(test.handlerError)
 
 			desiredStateClient := &desiredStateClient{
 				mqttClient:   newInternalClient(test.domain, &ConnectionConfig{}, nil),
@@ -279,4 +281,17 @@ func TestHandleDesiredStateFeedbackMessage(t *testing.T) {
 			desiredStateClient.handleMessage(nil, mockMessage)
 		})
 	}
+}
+
+// In case of JSON error test return invalid []byte and change the expected number of tested method calls
+func testBytesToEnvelope(t *testing.T, name string, payload interface{}) ([]byte, int) {
+	var err error
+	testBytes := []byte{}
+	expectedCalls := 0
+	if !strings.Contains(name, "json_error") {
+		testBytes, err = types.ToEnvelope(name, payload)
+		assert.NoError(t, err)
+		expectedCalls = 1
+	}
+	return testBytes, expectedCalls
 }
