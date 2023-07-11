@@ -187,3 +187,188 @@ func TestFromDesiredStateBytes(t *testing.T) {
 	assert.Equal(t, "os-image", selfupdate.Components[0].ID)
 	assert.Equal(t, "1.10-alpha", selfupdate.Components[0].Version)
 }
+
+func TestSplitPerDomains(t *testing.T) {
+	t.Run("test_split_per_domains", func(t *testing.T) {
+		desiredState := &DesiredState{
+			Domains: []*Domain{
+				{
+					ID: "TestDomain1",
+				},
+				{
+					ID: "TestDomain2",
+				},
+			},
+			Baselines: []*Baseline{
+				{
+					Title:         "TestBaseline 1",
+					Description:   "TestDescription 1",
+					Preconditions: "TestPrecondition 1",
+					Components: []string{
+						"TestDomain1:Component1",
+						"TestDomain1:Component2",
+					},
+				},
+				{
+					Title:         "TestBaseline 3",
+					Description:   "TestDescription 3",
+					Preconditions: "TestPrecondition 3",
+					Components: []string{
+						"TestDomain1:Component3",
+						"TestDomain1:Component3",
+					},
+				},
+				{
+					Title:         "TestBaseline 2",
+					Description:   "TestDescription 2",
+					Preconditions: "TestPrecondition 2",
+					Components: []string{
+						"TestDomain2:Component3",
+					},
+				},
+			},
+		}
+		expected := map[string]*DesiredState{}
+		expected["TestDomain1"] = &DesiredState{
+			Domains: []*Domain{
+				{
+					ID: "TestDomain1",
+				},
+			},
+
+			Baselines: []*Baseline{
+				{
+					Title:         "TestBaseline 1",
+					Description:   "TestDescription 1",
+					Preconditions: "TestPrecondition 1",
+					Components: []string{
+						"TestDomain1:Component1",
+						"TestDomain1:Component2",
+					},
+				},
+				{
+					Title:         "TestBaseline 3",
+					Description:   "TestDescription 3",
+					Preconditions: "TestPrecondition 3",
+					Components: []string{
+						"TestDomain1:Component3",
+						"TestDomain1:Component3",
+					},
+				},
+			},
+		}
+		expected["TestDomain2"] = &DesiredState{
+			Domains: []*Domain{
+				{
+					ID: "TestDomain2",
+				},
+			},
+
+			Baselines: []*Baseline{
+				{
+					Title:         "TestBaseline 2",
+					Description:   "TestDescription 2",
+					Preconditions: "TestPrecondition 2",
+					Components: []string{
+						"TestDomain2:Component3",
+					},
+				},
+			},
+		}
+		result := desiredState.SplitPerDomains()
+		assert.Equal(t, len(expected), len(result))
+		for i, ds := range result {
+			assert.Equal(t, expected[i].Domains, ds.Domains)
+			assert.Equal(t, expected[i].Baselines, ds.Baselines)
+		}
+	})
+	t.Run("test_split_per_domains_nil_domains", func(t *testing.T) {
+		desiredState := &DesiredState{
+			Baselines: []*Baseline{
+				{
+					Title:         "TestBaseline 1",
+					Description:   "TestDescription 1",
+					Preconditions: "TestPrecondition 1",
+					Components: []string{
+						"TestDomain1:Component1",
+						"TestDomain1:Component2",
+					},
+				},
+				{
+					Title:         "TestBaseline 3",
+					Description:   "TestDescription 3",
+					Preconditions: "TestPrecondition 3",
+					Components: []string{
+						"TestDomain1:Component3",
+						"TestDomain1:Component3",
+					},
+				},
+				{
+					Title:         "TestBaseline 2",
+					Description:   "TestDescription 2",
+					Preconditions: "TestPrecondition 2",
+					Components: []string{
+						"TestDomain2:Component3",
+					},
+				},
+			},
+		}
+		expected := map[string]*DesiredState{}
+		result := desiredState.SplitPerDomains()
+		assert.Equal(t, 0, 0)
+		assert.Equal(t, expected, result)
+
+	})
+}
+
+func TestGetBaselinesForDomain(t *testing.T) {
+	desiredState := &DesiredState{
+		Baselines: []*Baseline{
+			{
+				Title:         "TestBaseline 1",
+				Description:   "TestDescription 1",
+				Preconditions: "TestPrecondition 1",
+				Components: []string{
+					"TestDomain1:Component1",
+					"TestDomain1:Component2",
+				},
+			},
+			{
+				Title:         "TestBaseline 2",
+				Description:   "TestDescription 2",
+				Preconditions: "TestPrecondition 2",
+				Components: []string{
+					"TestDomain2:Component3",
+				},
+			},
+		},
+	}
+
+	expected := []*Baseline{
+		{
+			Title:         "TestBaseline 1",
+			Description:   "TestDescription 1",
+			Preconditions: "TestPrecondition 1",
+			Components: []string{
+				"TestDomain1:Component1",
+				"TestDomain1:Component2",
+			},
+		},
+	}
+
+	t.Run("test_get_baselines_for_domain_no_err", func(t *testing.T) {
+		result := desiredState.GetBaselinesForDomain("TestDomain1")
+		assert.Equal(t, len(expected), len(result))
+		for i, baseline := range result {
+			assert.Equal(t, expected[i].Title, baseline.Title)
+			assert.Equal(t, expected[i].Description, baseline.Description)
+			assert.Equal(t, expected[i].Preconditions, baseline.Preconditions)
+			assert.Equal(t, expected[i].Components, baseline.Components)
+		}
+	})
+
+	t.Run("test_get_baselines_for_domain_invalid_domain_err", func(t *testing.T) {
+		result := desiredState.GetBaselinesForDomain("InvalidDomain")
+		assert.Nil(t, result, "Result should be nil")
+	})
+}
