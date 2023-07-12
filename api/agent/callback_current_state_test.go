@@ -13,6 +13,8 @@
 package agent
 
 import (
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
 
@@ -70,6 +72,32 @@ func TestHandleCurrentStateEvent(t *testing.T) {
 	t.Run("test_activity_id_not_empty", func(t *testing.T) {
 		mockClient := mocks.NewMockUpdateAgentClient(mockCtr)
 		mockClient.EXPECT().SendCurrentState(testActivityID, inventory)
+		updAgent := &updateAgent{
+			client:                  mockClient,
+			currentStateReportDelay: time.Minute,
+		}
+		updAgent.HandleCurrentStateEvent("testDomain", testActivityID, inventory)
+	})
+
+	t.Run("test_current_state_notifier_not_nil", func(t *testing.T) {
+		mockClient := mocks.NewMockUpdateAgentClient(mockCtr)
+		mockClient.EXPECT().SendCurrentState(testActivityID, inventory).Return(nil)
+		csNotifier := &currentStateNotifier{
+			internalTimer: time.AfterFunc(time.Millisecond, nil),
+		}
+		updAgent := &updateAgent{
+			client:                  mockClient,
+			currentStateReportDelay: time.Minute,
+			currentStateNotifier:    csNotifier,
+		}
+		updAgent.HandleCurrentStateEvent("testDomain", testActivityID, inventory)
+		assert.Nil(t, updAgent.currentStateNotifier)
+	})
+
+	t.Run("test_current_state_send_error", func(t *testing.T) {
+		mockClient := mocks.NewMockUpdateAgentClient(mockCtr)
+		mockClient.EXPECT().SendCurrentState(testActivityID, inventory).Return(errors.New("send current state error"))
+
 		updAgent := &updateAgent{
 			client:                  mockClient,
 			currentStateReportDelay: time.Minute,
