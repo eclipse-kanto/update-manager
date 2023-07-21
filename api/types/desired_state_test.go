@@ -189,45 +189,45 @@ func TestFromDesiredStateBytes(t *testing.T) {
 }
 
 func TestSplitPerDomains(t *testing.T) {
+	desiredState := &DesiredState{
+		Domains: []*Domain{
+			{
+				ID: "TestDomain1",
+			},
+			{
+				ID: "TestDomain2",
+			},
+		},
+		Baselines: []*Baseline{
+			{
+				Title:         "TestBaseline 1",
+				Description:   "TestDescription 1",
+				Preconditions: "TestPrecondition 1",
+				Components: []string{
+					"TestDomain1:Component1",
+					"TestDomain1:Component2",
+				},
+			},
+			{
+				Title:         "TestBaseline 3",
+				Description:   "TestDescription 3",
+				Preconditions: "TestPrecondition 3",
+				Components: []string{
+					"TestDomain1:Component3",
+					"TestDomain1:Component3",
+				},
+			},
+			{
+				Title:         "TestBaseline 2",
+				Description:   "TestDescription 2",
+				Preconditions: "TestPrecondition 2",
+				Components: []string{
+					"TestDomain2:Component3",
+				},
+			},
+		},
+	}
 	t.Run("test_split_per_domains", func(t *testing.T) {
-		desiredState := &DesiredState{
-			Domains: []*Domain{
-				{
-					ID: "TestDomain1",
-				},
-				{
-					ID: "TestDomain2",
-				},
-			},
-			Baselines: []*Baseline{
-				{
-					Title:         "TestBaseline 1",
-					Description:   "TestDescription 1",
-					Preconditions: "TestPrecondition 1",
-					Components: []string{
-						"TestDomain1:Component1",
-						"TestDomain1:Component2",
-					},
-				},
-				{
-					Title:         "TestBaseline 3",
-					Description:   "TestDescription 3",
-					Preconditions: "TestPrecondition 3",
-					Components: []string{
-						"TestDomain1:Component3",
-						"TestDomain1:Component3",
-					},
-				},
-				{
-					Title:         "TestBaseline 2",
-					Description:   "TestDescription 2",
-					Preconditions: "TestPrecondition 2",
-					Components: []string{
-						"TestDomain2:Component3",
-					},
-				},
-			},
-		}
 		expected := map[string]*DesiredState{}
 		expected["TestDomain1"] = &DesiredState{
 			Domains: []*Domain{
@@ -283,40 +283,8 @@ func TestSplitPerDomains(t *testing.T) {
 		}
 	})
 	t.Run("test_split_per_domains_nil_domains", func(t *testing.T) {
-		desiredState := &DesiredState{
-			Baselines: []*Baseline{
-				{
-					Title:         "TestBaseline 1",
-					Description:   "TestDescription 1",
-					Preconditions: "TestPrecondition 1",
-					Components: []string{
-						"TestDomain1:Component1",
-						"TestDomain1:Component2",
-					},
-				},
-				{
-					Title:         "TestBaseline 3",
-					Description:   "TestDescription 3",
-					Preconditions: "TestPrecondition 3",
-					Components: []string{
-						"TestDomain1:Component3",
-						"TestDomain1:Component3",
-					},
-				},
-				{
-					Title:         "TestBaseline 2",
-					Description:   "TestDescription 2",
-					Preconditions: "TestPrecondition 2",
-					Components: []string{
-						"TestDomain2:Component3",
-					},
-				},
-			},
-		}
-		expected := map[string]*DesiredState{}
-		result := desiredState.SplitPerDomains()
-		assert.Equal(t, 0, 0)
-		assert.Equal(t, expected, result)
+		desiredState.Domains = nil
+		assert.Equal(t, map[string]*DesiredState{}, desiredState.SplitPerDomains())
 
 	})
 }

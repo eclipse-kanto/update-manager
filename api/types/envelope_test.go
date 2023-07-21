@@ -13,73 +13,57 @@ package types
 
 import (
 	"encoding/json"
+	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func TestToEnvelope(t *testing.T) {
-	testActivityID := "testActivityID"
-	testPayload := &Inventory{
-		HardwareNodes: []*HardwareNode{
-			{
-				InventoryNode: InventoryNode{
-					ID:      "hardware-node-id",
-					Version: "1.0.0",
-					Name:    "Hardware Node",
-					Parameters: []*KeyValuePair{
-						{
-							Key:   "x",
-							Value: "y",
-						},
+var testPayload = &Inventory{
+	HardwareNodes: []*HardwareNode{
+		{
+			InventoryNode: InventoryNode{
+				ID:      "hardware-node-id",
+				Version: "1.0.0",
+				Name:    "Hardware Node",
+				Parameters: []*KeyValuePair{
+					{
+						Key:   "x",
+						Value: "y",
 					},
 				},
-				Addressable: true,
 			},
+			Addressable: true,
 		},
-	}
+	},
+}
 
-	expected, err1 := json.Marshal(&Envelope{
+func TestToEnvelope(t *testing.T) {
+	testActivityID := "testActivityID"
+
+	expected, err := json.Marshal(&Envelope{
 		ActivityID: testActivityID,
 		Timestamp:  time.Now().UnixNano() / int64(time.Millisecond),
 		Payload:    testPayload,
 	})
-	assert.NoError(t, err1)
+	require.NoError(t, err)
 
 	actual, err := ToEnvelope(testActivityID, testPayload)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, expected, actual)
 }
 
 func TestFromEnvelope(t *testing.T) {
-	testPayload := &Inventory{
-		HardwareNodes: []*HardwareNode{
-			{
-				InventoryNode: InventoryNode{
-					ID:      "hardware-node-id",
-					Version: "1.0.0",
-					Name:    "Hardware Node",
-					Parameters: []*KeyValuePair{
-						{
-							Key:   "x",
-							Value: "y",
-						},
-					},
-				},
-				Addressable: true,
-			},
-		},
-	}
 
 	t.Run("test_from_envelope_ok", func(t *testing.T) {
 		payloadToBytes, err := json.Marshal(testPayload)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		expected := &Envelope{
 			Payload: testPayload,
 		}
 		actual, err := FromEnvelope(payloadToBytes, testPayload)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, expected, actual)
 	})
 
