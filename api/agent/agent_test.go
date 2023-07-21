@@ -135,11 +135,9 @@ func TestHandleDesiredState(t *testing.T) {
 	mockCtr := gomock.NewController(t)
 	defer mockCtr.Finish()
 
-	mockClient := mocks.NewMockUpdateAgentClient(mockCtr)
 	mockUpdateManager := mocks.NewMockUpdateManager(mockCtr)
-
 	updAgent := &updateAgent{
-		client:  mockClient,
+		client:  mocks.NewMockUpdateAgentClient(mockCtr),
 		manager: mockUpdateManager,
 		ctx:     context.Background(),
 	}
@@ -157,11 +155,9 @@ func TestHandleDesiredStateCommand(t *testing.T) {
 	mockCtr := gomock.NewController(t)
 	defer mockCtr.Finish()
 
-	mockClient := mocks.NewMockUpdateAgentClient(mockCtr)
 	mockUpdateManager := mocks.NewMockUpdateManager(mockCtr)
-
 	updAgent := &updateAgent{
-		client:  mockClient,
+		client:  mocks.NewMockUpdateAgentClient(mockCtr),
 		manager: mockUpdateManager,
 		ctx:     context.Background(),
 	}
