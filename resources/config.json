@@ -1,1 +1,13 @@
-{"log": {"logFile": "/var/log/update-manager/update-manager.log"},"domain": "device","agents": {"containers": {"name": "containers","rebootRequired": false,"readTimeout": "30s"}}}
+{
+    "log": {
+        "logFile": "/var/log/update-manager/update-manager.log"
+    },
+    "domain": "device",
+    "agents": {
+        "containers": {
+            "name": "containers",
+            "rebootRequired": false,
+            "readTimeout": "30s"
+        }
+    }
+}
