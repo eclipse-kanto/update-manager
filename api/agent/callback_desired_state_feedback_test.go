@@ -181,7 +181,6 @@ func TestHandleDesiredStateFeedbackEvent(t *testing.T) {
 	})
 
 	t.Run("test_status_identifying", func(t *testing.T) {
-
 		updAgent := &updateAgent{
 			client: mockClient,
 		}
