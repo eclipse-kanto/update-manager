@@ -13,8 +13,6 @@
 package agent
 
 import (
-	"github.com/pkg/errors"
-	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
 
@@ -22,24 +20,13 @@ import (
 	"github.com/eclipse-kanto/update-manager/test/mocks"
 
 	"github.com/golang/mock/gomock"
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestHandleCurrentStateEvent(t *testing.T) {
 	mockCtr := gomock.NewController(t)
 	defer mockCtr.Finish()
-
-	inventory := &types.Inventory{
-		SoftwareNodes: []*types.SoftwareNode{
-			{
-				InventoryNode: types.InventoryNode{
-					ID:      "update-manager",
-					Version: "development",
-					Name:    "Update Manager",
-				},
-				Type: "APPLICATION",
-			},
-		},
-	}
 
 	t.Run("test_no_activity_id_without_delay", func(t *testing.T) {
 		mockClient := mocks.NewMockUpdateAgentClient(mockCtr)
@@ -56,7 +43,7 @@ func TestHandleCurrentStateEvent(t *testing.T) {
 		mockClient := mocks.NewMockUpdateAgentClient(mockCtr)
 		updAgent := &updateAgent{
 			client:                  mockClient,
-			currentStateReportDelay: time.Second,
+			currentStateReportDelay: interval,
 		}
 
 		ch := make(chan bool, 1)
@@ -74,7 +61,7 @@ func TestHandleCurrentStateEvent(t *testing.T) {
 		mockClient.EXPECT().SendCurrentState(testActivityID, inventory)
 		updAgent := &updateAgent{
 			client:                  mockClient,
-			currentStateReportDelay: time.Minute,
+			currentStateReportDelay: interval,
 		}
 		updAgent.HandleCurrentStateEvent("testDomain", testActivityID, inventory)
 	})
@@ -87,7 +74,7 @@ func TestHandleCurrentStateEvent(t *testing.T) {
 		}
 		updAgent := &updateAgent{
 			client:                  mockClient,
-			currentStateReportDelay: time.Minute,
+			currentStateReportDelay: interval,
 			currentStateNotifier:    csNotifier,
 		}
 		updAgent.HandleCurrentStateEvent("testDomain", testActivityID, inventory)
@@ -100,7 +87,7 @@ func TestHandleCurrentStateEvent(t *testing.T) {
 
 		updAgent := &updateAgent{
 			client:                  mockClient,
-			currentStateReportDelay: time.Minute,
+			currentStateReportDelay: interval,
 		}
 		updAgent.HandleCurrentStateEvent("testDomain", testActivityID, inventory)
 	})

@@ -13,10 +13,8 @@
 package agent
 
 import (
-	"testing"
-	"time"
-
 	"github.com/eclipse-kanto/update-manager/test/mocks"
+	"testing"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -29,12 +27,11 @@ func TestWithCurrentStateReportDelay(t *testing.T) {
 	mockClient := mocks.NewMockUpdateAgentClient(mockCtr)
 	mockUpdateManager := mocks.NewMockUpdateManager(mockCtr)
 
-	delay := 1 * time.Second
-	actualAgent := NewUpdateAgent(mockClient, mockUpdateManager, WithCurrentStateReportDelay(delay))
+	actualAgent := NewUpdateAgent(mockClient, mockUpdateManager, WithCurrentStateReportDelay(interval))
 	expAgent := &updateAgent{
 		client:                  mockClient,
 		manager:                 mockUpdateManager,
-		currentStateReportDelay: delay,
+		currentStateReportDelay: interval,
 	}
 	assert.Equal(t, expAgent, actualAgent)
 }
@@ -46,7 +43,6 @@ func TestWithDesiredStateFeedbackReportInterval(t *testing.T) {
 	mockClient := mocks.NewMockUpdateAgentClient(mockCtr)
 	mockUpdateManager := mocks.NewMockUpdateManager(mockCtr)
 
-	interval := 1 * time.Second
 	actualAgent := NewUpdateAgent(mockClient, mockUpdateManager, WithDesiredStateFeedbackReportInterval(interval))
 	expAgent := &updateAgent{
 		client:                             mockClient,

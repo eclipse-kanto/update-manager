@@ -14,7 +14,6 @@ package agent
 
 import (
 	"errors"
-	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
 
@@ -22,7 +21,12 @@ import (
 	"github.com/eclipse-kanto/update-manager/test/mocks"
 
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 )
+
+var actions = []*types.Action{{
+	Component: &types.Component{ID: "mydomain:mycomponent", Version: "1.2.3"},
+}}
 
 func TestHandleDesiredStateFeedbackEvent(t *testing.T) {
 	mockCtr := gomock.NewController(t)
@@ -48,13 +52,7 @@ func TestHandleDesiredStateFeedbackEvent(t *testing.T) {
 		"test_feedback_with_actions": {
 			status:  types.StatusIdentified,
 			message: "actions identified",
-			actions: []*types.Action{
-				{
-					Component: &types.Component{ID: "mydomain:mycomponent", Version: "1.2.3"},
-					Status:    types.ActionStatusIdentified,
-					Message:   "actions identified",
-				},
-			},
+			actions: configureActions(types.ActionStatusIdentified, "actions identified"),
 		},
 		"test_feedback_with_actions_send_error": {
 			status:  types.StatusIncompleteInconsistent,
@@ -89,13 +87,6 @@ func TestHandleDesiredStateFeedbackEvent(t *testing.T) {
 	}
 
 	t.Run("test_feedback_dsFeedbackNotifier_not_nil", func(t *testing.T) {
-		actions := []*types.Action{
-			{
-				Component: &types.Component{},
-				Status:    types.ActionStatusUpdateSuccess,
-				Message:   "update success",
-			},
-		}
 		updAgent := &updateAgent{
 			client: mockClient,
 		}
@@ -103,7 +94,7 @@ func TestHandleDesiredStateFeedbackEvent(t *testing.T) {
 			expectedFeedback := &types.DesiredStateFeedback{
 				Status:  types.StatusCompleted,
 				Message: "operation completed",
-				Actions: actions,
+				Actions: configureActions(types.ActionStatusUpdateSuccess, "update success"),
 			}
 			assert.Equal(t, testActivityID, activityID)
 			assert.Equal(t, expectedFeedback, feedback)
@@ -121,13 +112,6 @@ func TestHandleDesiredStateFeedbackEvent(t *testing.T) {
 	})
 
 	t.Run("test_feedback_interval_invalid", func(t *testing.T) {
-		actions := []*types.Action{
-			{
-				Component: &types.Component{},
-				Status:    types.ActionStatusDownloading,
-				Message:   "downloading",
-			},
-		}
 		updAgent := &updateAgent{
 			client: mockClient,
 		}
@@ -138,13 +122,6 @@ func TestHandleDesiredStateFeedbackEvent(t *testing.T) {
 	})
 
 	t.Run("test_feedback_actions_status_running_no_err", func(t *testing.T) {
-		actions := []*types.Action{
-			{
-				Component: &types.Component{},
-				Status:    types.ActionStatusDownloading,
-				Message:   "downloading",
-			},
-		}
 		updAgent := &updateAgent{
 			client: mockClient,
 		}
@@ -152,25 +129,18 @@ func TestHandleDesiredStateFeedbackEvent(t *testing.T) {
 			expectedFeedback := &types.DesiredStateFeedback{
 				Status:  types.StatusRunning,
 				Message: "",
-				Actions: actions,
+				Actions: configureActions(types.ActionStatusDownloading, "downloading"),
 			}
 			assert.Equal(t, testActivityID, activityID)
 			assert.Equal(t, expectedFeedback, feedback)
 			return nil
 		})
-		updAgent.desiredStateFeedbackReportInterval = time.Millisecond
+		updAgent.desiredStateFeedbackReportInterval = interval
 		updAgent.HandleDesiredStateFeedbackEvent("", testActivityID, "", types.StatusRunning, "operation running", actions)
 		updAgent.desiredStateFeedbackNotifier.internalTimer.Stop()
 	})
 
 	t.Run("test_feedback_actions_status_running_multiple_events_timer_recreation_ok", func(t *testing.T) {
-		actions := []*types.Action{
-			{
-				Component: &types.Component{},
-				Status:    types.ActionStatusDownloading,
-				Message:   "downloading",
-			},
-		}
 		updAgent := &updateAgent{
 			client: mockClient,
 		}
@@ -178,13 +148,13 @@ func TestHandleDesiredStateFeedbackEvent(t *testing.T) {
 			expectedFeedback := &types.DesiredStateFeedback{
 				Status:  types.StatusRunning,
 				Message: "",
-				Actions: actions,
+				Actions: configureActions(types.ActionStatusDownloading, "downloading"),
 			}
 			assert.Equal(t, testActivityID, activityID)
 			assert.Equal(t, expectedFeedback, feedback)
 			return nil
 		})
-		updAgent.desiredStateFeedbackReportInterval = time.Second
+		updAgent.desiredStateFeedbackReportInterval = interval
 		updAgent.HandleDesiredStateFeedbackEvent("", testActivityID, "", types.StatusRunning, "operation running", actions)
 		timer1 := updAgent.desiredStateFeedbackNotifier.internalTimer
 		updAgent.HandleDesiredStateFeedbackEvent("", testActivityID, "", types.StatusRunning, "operation running", actions)
@@ -194,13 +164,6 @@ func TestHandleDesiredStateFeedbackEvent(t *testing.T) {
 	})
 
 	t.Run("test_status_incomplete", func(t *testing.T) {
-		actions := []*types.Action{
-			{
-				Component: &types.Component{},
-				Status:    types.ActionStatusDownloading,
-				Message:   "downloading",
-			},
-		}
 		updAgent := &updateAgent{
 			client: mockClient,
 		}
@@ -208,7 +171,7 @@ func TestHandleDesiredStateFeedbackEvent(t *testing.T) {
 			expectedFeedback := &types.DesiredStateFeedback{
 				Status:  types.StatusIncomplete,
 				Message: "downloading",
-				Actions: actions,
+				Actions: configureActions(types.ActionStatusDownloading, "downloading"),
 			}
 			assert.Equal(t, testActivityID, activityID)
 			assert.Equal(t, expectedFeedback, feedback)
@@ -218,13 +181,7 @@ func TestHandleDesiredStateFeedbackEvent(t *testing.T) {
 	})
 
 	t.Run("test_status_identifying", func(t *testing.T) {
-		actions := []*types.Action{
-			{
-				Component: &types.Component{},
-				Status:    types.ActionStatusActivating,
-				Message:   "activating",
-			},
-		}
+
 		updAgent := &updateAgent{
 			client: mockClient,
 		}
@@ -232,7 +189,7 @@ func TestHandleDesiredStateFeedbackEvent(t *testing.T) {
 			expectedFeedback := &types.DesiredStateFeedback{
 				Status:  types.StatusIdentifying,
 				Message: "identifying",
-				Actions: actions,
+				Actions: configureActions(types.ActionStatusActivating, "activating"),
 			}
 			assert.Equal(t, testActivityID, activityID)
 			assert.Equal(t, expectedFeedback, feedback)
@@ -240,4 +197,10 @@ func TestHandleDesiredStateFeedbackEvent(t *testing.T) {
 		})
 		updAgent.HandleDesiredStateFeedbackEvent("", testActivityID, "", types.StatusIdentifying, "identifying", actions)
 	})
+}
+
+func configureActions(status types.ActionStatusType, message string) []*types.Action {
+	actions[0].Status = status
+	actions[0].Message = message
+	return actions
 }

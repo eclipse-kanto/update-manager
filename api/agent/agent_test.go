@@ -26,8 +26,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const testActivityID = "testActivityId"
-
 var dummyDesiredState = &types.DesiredState{
 	Domains: []*types.Domain{
 		{ID: "testDomain"},
@@ -162,18 +160,17 @@ func TestHandleDesiredStateCommand(t *testing.T) {
 		ctx:     context.Background(),
 	}
 
-	t.Run("test_correct_desired_state_command", func(t *testing.T) {
-		dsCommand := &types.DesiredStateCommand{
-			Command: types.CommandUpdate,
-		}
-		ch := make(chan bool, 1)
-		mockUpdateManager.EXPECT().Command(context.Background(), testActivityID, dummyDesiredStateCommand).DoAndReturn(func(ctx context.Context, activityID string, command *types.DesiredStateCommand) {
-			ch <- true
-			assert.True(t, reflect.DeepEqual(dsCommand, command))
-		})
-		assert.NoError(t, updAgent.HandleDesiredStateCommand(testActivityID, 0, dummyDesiredStateCommand))
-		<-ch
+	dsCommand := &types.DesiredStateCommand{
+		Command: types.CommandUpdate,
+	}
+	ch := make(chan bool, 1)
+	mockUpdateManager.EXPECT().Command(context.Background(), testActivityID, dummyDesiredStateCommand).DoAndReturn(func(ctx context.Context, activityID string, command *types.DesiredStateCommand) {
+		ch <- true
+		assert.True(t, reflect.DeepEqual(dsCommand, command))
 	})
+	assert.NoError(t, updAgent.HandleDesiredStateCommand(testActivityID, 0, dummyDesiredStateCommand))
+	<-ch
+
 }
 
 func TestHandleCurrentStateGet(t *testing.T) {
@@ -187,19 +184,6 @@ func TestHandleCurrentStateGet(t *testing.T) {
 		client:  mockClient,
 		manager: mockUpdateManager,
 		ctx:     context.Background(),
-	}
-
-	inventory := &types.Inventory{
-		SoftwareNodes: []*types.SoftwareNode{
-			{
-				InventoryNode: types.InventoryNode{
-					ID:      "update-manager",
-					Version: "development",
-					Name:    "Update Manager",
-				},
-				Type: "APPLICATION",
-			},
-		},
 	}
 
 	activityID := prefixInitCurrentStateID + testActivityID
