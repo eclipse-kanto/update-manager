@@ -14,7 +14,7 @@ package agent
 
 import (
 	"time"
-	
+
 	"github.com/eclipse-kanto/update-manager/api/types"
 )
 
