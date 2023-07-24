@@ -25,20 +25,8 @@ const (
 	StatusIdentified StatusType = "IDENTIFIED"
 	// StatusIdentificationFailed denotes some or all of the required actions failed to be identified.
 	StatusIdentificationFailed StatusType = "IDENTIFICATION_FAILED"
-	// StatusDownloadCompleted denotes that identified actions are downloaded successfully.
-	StatusDownloadCompleted StatusType = "DOWNLOAD_COMPLETED"
-	// StatusDownloadFailed denotes that not all of the identified actions are downloaded successfully.
-	StatusDownloadFailed StatusType = "DOWNLOAD_FAILED"
 	// StatusRunning denotes that identified actions are currently executing.
 	StatusRunning StatusType = "RUNNING"
-	// StatusUpdateCompleted denotes that identified actions are updated successfully.
-	StatusUpdateCompleted StatusType = "UPDATE_COMPLETED"
-	// StatusUpdateFailed denotes that not all identified actions are updated successfully.
-	StatusUpdateFailed StatusType = "UPDATE_FAILED"
-	// StatusActivationCompleted denotes that identified actions are activated successfully.
-	StatusActivationCompleted StatusType = "ACTIVATION_COMPLETED"
-	// StatusActivationFailed denotes that not all identified actions are activated successfully.
-	StatusActivationFailed StatusType = "ACTIVATION_FAILED"
 	// StatusCompleted denotes that identified actions completed successfully.
 	StatusCompleted StatusType = "COMPLETED"
 	// StatusIncomplete denotes that not all of the identified actions completed successfully.

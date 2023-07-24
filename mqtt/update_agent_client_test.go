@@ -32,8 +32,9 @@ type testCaseOutgoing struct {
 }
 
 type testCaseIncoming struct {
-	domain       string
-	handlerError error
+	domain          string
+	handlerError    error
+	expectedJSONErr bool
 }
 
 var mqttTestConfig = &ConnectionConfig{
@@ -254,8 +255,9 @@ func TestOnConnect(t *testing.T) {
 
 func TestHandleDesiredStateMessage(t *testing.T) {
 	tests := map[string]testCaseIncoming{
-		"test_handle_desired_state_ok":    {domain: "testdomain", handlerError: nil},
-		"test_handle_desired_state_error": {domain: "mydomain", handlerError: errors.New("handler error")},
+		"test_handle_desired_state_ok":         {domain: "testdomain", handlerError: nil, expectedJSONErr: false},
+		"test_handle_desired_state_error":      {domain: "mydomain", handlerError: errors.New("handler error"), expectedJSONErr: false},
+		"test_handle_desired_state_json_error": {domain: "testdomain", handlerError: nil, expectedJSONErr: true},
 	}
 
 	mockCtrl := gomock.NewController(t)
@@ -270,11 +272,10 @@ func TestHandleDesiredStateMessage(t *testing.T) {
 					{ID: test.domain},
 				},
 			}
-			testBytes, err := types.ToEnvelope(name, testDesiredState)
-			assert.NoError(t, err)
+			testBytes, expectedCalls := testBytesToEnvelope(t, name, testDesiredState, test.expectedJSONErr)
 
 			mockHandler := mocks.NewMockUpdateAgentHandler(mockCtrl)
-			mockHandler.EXPECT().HandleDesiredState(name, gomock.Any(), testDesiredState).Return(test.handlerError)
+			mockHandler.EXPECT().HandleDesiredState(name, gomock.Any(), testDesiredState).Times(expectedCalls).Return(test.handlerError)
 
 			updateAgentClient := &updateAgentClient{
 				mqttClient: newInternalClient(test.domain, mqttTestConfig, nil),
@@ -291,8 +292,9 @@ func TestHandleDesiredStateMessage(t *testing.T) {
 
 func TestHandleDesiredStateCommandMessage(t *testing.T) {
 	tests := map[string]testCaseIncoming{
-		"test_handle_desired_state_command_ok":    {domain: "testdomain", handlerError: nil},
-		"test_handle_desired_state_command_error": {domain: "mydomain", handlerError: errors.New("handler error")},
+		"test_handle_desired_state_command_ok":         {domain: "testdomain", handlerError: nil, expectedJSONErr: false},
+		"test_handle_desired_state_command_error":      {domain: "mydomain", handlerError: errors.New("handler error"), expectedJSONErr: false},
+		"test_handle_desired_state_command_json_error": {domain: "testdomain", handlerError: nil, expectedJSONErr: true},
 	}
 
 	mockCtrl := gomock.NewController(t)
@@ -306,11 +308,10 @@ func TestHandleDesiredStateCommandMessage(t *testing.T) {
 				Baseline: test.domain,
 				Command:  types.CommandUpdate,
 			}
-			testBytes, err := types.ToEnvelope(name, testDesiredStateCommand)
-			assert.NoError(t, err)
+			testBytes, expectedCalls := testBytesToEnvelope(t, name, testDesiredStateCommand, test.expectedJSONErr)
 
 			mockHandler := mocks.NewMockUpdateAgentHandler(mockCtrl)
-			mockHandler.EXPECT().HandleDesiredStateCommand(name, gomock.Any(), testDesiredStateCommand).Return(test.handlerError)
+			mockHandler.EXPECT().HandleDesiredStateCommand(name, gomock.Any(), testDesiredStateCommand).Times(expectedCalls).Return(test.handlerError)
 
 			updateAgentClient := &updateAgentClient{
 				mqttClient: newInternalClient(test.domain, mqttTestConfig, nil),
@@ -327,8 +328,9 @@ func TestHandleDesiredStateCommandMessage(t *testing.T) {
 
 func TestHandleCurrentStateGetMessage(t *testing.T) {
 	tests := map[string]testCaseIncoming{
-		"test_handle_current_state_get_ok":    {domain: "testdomain", handlerError: nil},
-		"test_handle_current_state_get_error": {domain: "mydomain", handlerError: errors.New("handler error")},
+		"test_handle_current_state_get_ok":         {domain: "testdomain", handlerError: nil, expectedJSONErr: false},
+		"test_handle_current_state_get_error":      {domain: "mydomain", handlerError: errors.New("handler error"), expectedJSONErr: false},
+		"test_handle_current_state_get_json_error": {domain: "testdomain", handlerError: nil, expectedJSONErr: true},
 	}
 
 	mockCtrl := gomock.NewController(t)
@@ -338,11 +340,10 @@ func TestHandleCurrentStateGetMessage(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			testBytes, err := types.ToEnvelope(name, nil)
-			assert.NoError(t, err)
+			testBytes, expectedCalls := testBytesToEnvelope(t, name, nil, test.expectedJSONErr)
 
 			mockHandler := mocks.NewMockUpdateAgentHandler(mockCtrl)
-			mockHandler.EXPECT().HandleCurrentStateGet(name, gomock.Any()).Return(test.handlerError)
+			mockHandler.EXPECT().HandleCurrentStateGet(name, gomock.Any()).Times(expectedCalls).Return(test.handlerError)
 
 			updateAgentClient := &updateAgentClient{
 				mqttClient: newInternalClient(test.domain, mqttTestConfig, nil),
