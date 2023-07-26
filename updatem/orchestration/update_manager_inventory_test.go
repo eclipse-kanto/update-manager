@@ -13,12 +13,16 @@
 package orchestration
 
 import (
+	"context"
+	"fmt"
 	"reflect"
 	"strconv"
+	"sync"
 	"testing"
 
 	"github.com/eclipse-kanto/update-manager/api/types"
-
+	"github.com/eclipse-kanto/update-manager/test/mocks"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -453,6 +457,86 @@ func TestAggregateDomainsInventory(t *testing.T) {
 
 		})
 	}
+}
+
+func TestUpdateInventoryForDomain(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	ctx := context.Background()
+	activityID := "activity123"
+	agent := mocks.NewMockUpdateManager(mockCtrl)
+
+	t.Run("test_successful_Get_err_nil_inventory_not_nil", func(t *testing.T) {
+		var wg sync.WaitGroup
+		domainsInventory := make(map[string]*types.Inventory)
+
+		testInventory := &types.Inventory{
+			Associations: []*types.Association{
+				{
+					SourceID: "testSourceId",
+					TargetID: "testTargetId",
+				},
+			},
+		}
+		agent.EXPECT().Get(ctx, activityID).Return(testInventory, nil)
+		agent.EXPECT().Name().Return("testName").Times(2)
+
+		wg.Add(1)
+		updateInventoryForDomain(ctx, &wg, activityID, agent, domainsInventory)
+		wg.Wait()
+		assert.Equal(t, testInventory, domainsInventory["testName"])
+	})
+
+	t.Run("test_Get_err_notNil_testInventory_nil", func(t *testing.T) {
+		var wg sync.WaitGroup
+		domainsInventory := make(map[string]*types.Inventory)
+
+		agent.EXPECT().Get(ctx, activityID).Return(nil, fmt.Errorf("errNotNil"))
+		agent.EXPECT().Name().Return("testName").Times(1)
+
+		wg.Add(1)
+		updateInventoryForDomain(ctx, &wg, activityID, agent, domainsInventory)
+		wg.Wait()
+
+		assert.Nil(t, domainsInventory["testName"])
+		assert.Empty(t, domainsInventory)
+	})
+
+	t.Run("test_Get_err_nil_inventory_nil", func(t *testing.T) {
+		var wg sync.WaitGroup
+		domainsInventory := make(map[string]*types.Inventory)
+
+		agent.EXPECT().Get(ctx, activityID).Return(nil, nil)
+		agent.EXPECT().Name().Return("testName").Times(1)
+
+		wg.Add(1)
+		updateInventoryForDomain(ctx, &wg, activityID, agent, domainsInventory)
+		wg.Wait()
+
+		assert.Nil(t, domainsInventory["testName"])
+	})
+
+	t.Run("test_Get_err_notNil_intentory_notNil", func(t *testing.T) {
+		var wg sync.WaitGroup
+		domainsInventory := make(map[string]*types.Inventory)
+		testInventory := &types.Inventory{
+			Associations: []*types.Association{
+				{
+					SourceID: "testSourceId",
+				},
+			},
+		}
+
+		agent.EXPECT().Get(ctx, activityID).Return(testInventory, fmt.Errorf("errNotNil"))
+		agent.EXPECT().Name().Return("testName").Times(2)
+
+		wg.Add(1)
+		updateInventoryForDomain(ctx, &wg, activityID, agent, domainsInventory)
+		wg.Wait()
+
+		assert.Equal(t, testInventory, domainsInventory["testName"])
+	})
 }
 
 func createTestInventoryNode(domain string, number int, key string, value string) types.InventoryNode {
