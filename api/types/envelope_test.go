@@ -14,6 +14,7 @@ package types
 import (
 	"encoding/json"
 	"github.com/stretchr/testify/require"
+	"reflect"
 	"testing"
 	"time"
 
@@ -51,7 +52,7 @@ func TestToEnvelope(t *testing.T) {
 
 	actual, err := ToEnvelope(testActivityID, testPayload)
 	require.NoError(t, err)
-	assert.Equal(t, expected, actual)
+	reflect.DeepEqual(expected, actual)
 }
 
 func TestFromEnvelope(t *testing.T) {

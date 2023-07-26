@@ -13,11 +13,11 @@
 package agent
 
 import (
-	"github.com/eclipse-kanto/update-manager/api/types"
 	"testing"
 	"time"
 
 	"github.com/eclipse-kanto/update-manager/test/mocks"
+
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -26,77 +26,38 @@ func TestNewCurrentStateNotifier(t *testing.T) {
 	mockCtr := gomock.NewController(t)
 	defer mockCtr.Finish()
 
-	t.Run("test_new_current_state_notifier", func(t *testing.T) {
-		mockClient := mocks.NewMockUpdateAgentClient(mockCtr)
-		interval := time.Second
-		updAgent := &updateAgent{
-			client: mockClient,
-		}
-		expectedNotifier := &currentStateNotifier{
-			interval: interval,
-			agent:    updAgent,
-		}
-		actualNotifier := newCurrentStateNotifier(interval, updAgent)
-
-		assert.Equal(t, expectedNotifier, actualNotifier)
-	})
+	updAgent := &updateAgent{
+		client: mocks.NewMockUpdateAgentClient(mockCtr),
+	}
+	expectedNotifier := &currentStateNotifier{
+		interval: interval,
+		agent:    updAgent,
+	}
+	assert.Equal(t, expectedNotifier, newCurrentStateNotifier(interval, updAgent))
 }
 
 func TestCurrentStateTimerSet(t *testing.T) {
 	mockCtr := gomock.NewController(t)
 	defer mockCtr.Finish()
 
-	inventory := &types.Inventory{
-		SoftwareNodes: []*types.SoftwareNode{
-			{
-				InventoryNode: types.InventoryNode{
-					ID:      "update-manager",
-					Version: "development",
-					Name:    "Update Manager",
-				},
-				Type: "APPLICATION",
-			},
-		},
+	updAgent := &updateAgent{
+		client: mocks.NewMockUpdateAgentClient(mockCtr),
 	}
 
 	t.Run("test_set_internal_timer_not_nil", func(t *testing.T) {
-		t.Parallel()
-		mockClient := mocks.NewMockUpdateAgentClient(mockCtr)
-		interval := time.Second
-		updAgent := &updateAgent{
-			client: mockClient,
-		}
-
-		notifier := newCurrentStateNotifier(interval, updAgent)
-		notifier.internalTimer = time.AfterFunc(interval, func() {})
+		notifier := initCurrentStateNotifier(updAgent)
 
 		notifier.set(testActivityID, inventory)
-
 		assert.Equal(t, inventory, notifier.currentState)
-		if notifier.internalTimer != nil {
-			if !notifier.internalTimer.Stop() {
-				<-notifier.internalTimer.C
-			}
-		}
+		stopCurrentStateNotifierInternalTimer(notifier)
 	})
 
 	t.Run("test_set_internal_timer_nil", func(t *testing.T) {
-		mockClient := mocks.NewMockUpdateAgentClient(mockCtr)
-		interval := time.Second
-		updAgent := &updateAgent{
-			client: mockClient,
-		}
-
 		notifier := newCurrentStateNotifier(interval, updAgent)
 
 		notifier.set(testActivityID, inventory)
-
 		assert.Equal(t, inventory, notifier.currentState)
-		if notifier.internalTimer != nil {
-			if !notifier.internalTimer.Stop() {
-				<-notifier.internalTimer.C
-			}
-		}
+		stopCurrentStateNotifierInternalTimer(notifier)
 	})
 }
 
@@ -104,80 +65,51 @@ func TestCurrentStateTimerStop(t *testing.T) {
 	mockCtr := gomock.NewController(t)
 	defer mockCtr.Finish()
 
-	inventory := &types.Inventory{
-		SoftwareNodes: []*types.SoftwareNode{
-			{
-				InventoryNode: types.InventoryNode{
-					ID:      "update-manager",
-					Version: "development",
-					Name:    "Update Manager",
-				},
-				Type: "APPLICATION",
-			},
-		},
+	updAgent := &updateAgent{
+		client: mocks.NewMockUpdateAgentClient(mockCtr),
 	}
+	notifier := initCurrentStateNotifier(updAgent)
 
-	t.Run("test_stop", func(t *testing.T) {
-		mockClient := mocks.NewMockUpdateAgentClient(mockCtr)
-		interval := time.Second
-		updAgent := &updateAgent{
-			client: mockClient,
-		}
-
-		notifier := newCurrentStateNotifier(interval, updAgent)
-		notifier.internalTimer = time.AfterFunc(interval, func() {})
-		notifier.currentState = inventory
-
-		notifier.stop()
-
-		assert.Nil(t, notifier.currentState)
-	})
+	notifier.stop()
+	assert.Nil(t, notifier.currentState)
 }
 
 func TestCurrentStateTimerNotifyEvent(t *testing.T) {
 	mockCtr := gomock.NewController(t)
 	defer mockCtr.Finish()
 
-	inventory := &types.Inventory{
-		SoftwareNodes: []*types.SoftwareNode{
-			{
-				InventoryNode: types.InventoryNode{
-					ID:      "update-manager",
-					Version: "development",
-					Name:    "Update Manager",
-				},
-				Type: "APPLICATION",
-			},
-		},
+	mockClient := mocks.NewMockUpdateAgentClient(mockCtr)
+	updAgent := &updateAgent{
+		client: mockClient,
 	}
 
 	t.Run("test_notifyEvent_internal_timer_not_nil", func(t *testing.T) {
-		mockClient := mocks.NewMockUpdateAgentClient(mockCtr)
-		interval := time.Second
-		updAgent := &updateAgent{
-			client: mockClient,
-		}
-
-		notifier := newCurrentStateNotifier(interval, updAgent)
-		notifier.internalTimer = time.AfterFunc(interval, func() {})
-		notifier.currentState = inventory
+		notifier := initCurrentStateNotifier(updAgent)
 		mockClient.EXPECT().SendCurrentState(gomock.Any(), gomock.Any()).Return(nil)
 
 		notifier.notifyEvent()
-
 		assert.Nil(t, notifier.internalTimer)
 	})
 
 	t.Run("test_notifyEvent_internal_timer_nil", func(t *testing.T) {
-		mockClient := mocks.NewMockUpdateAgentClient(mockCtr)
-		interval := time.Second
-		updAgent := &updateAgent{
-			client: mockClient,
-		}
-
 		notifier := newCurrentStateNotifier(interval, updAgent)
-
 		notifier.notifyEvent()
-
+		stopCurrentStateNotifierInternalTimer(notifier)
 	})
+}
+
+func initCurrentStateNotifier(updAgent *updateAgent) *currentStateNotifier {
+	notifier := newCurrentStateNotifier(interval, updAgent)
+	notifier.activityID = testActivityID
+	notifier.internalTimer = time.AfterFunc(interval, func() {})
+	notifier.currentState = inventory
+	return notifier
+}
+
+func stopCurrentStateNotifierInternalTimer(notifier *currentStateNotifier) {
+	notifier.lock.Lock()
+	defer notifier.lock.Unlock()
+	if notifier.internalTimer != nil {
+		notifier.internalTimer.Stop()
+	}
 }
