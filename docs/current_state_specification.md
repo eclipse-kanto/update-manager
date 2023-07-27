@@ -51,7 +51,7 @@ The diagram below represents the Device Inventory graph and the links between th
 
 The software nodes are organized in the graph at different levels. At the root level stands the main Update Manager software node, which represents the Update Manager component. At the second level are placed the root nodes for each supported domain agent, which are linked with associations to the Update Manager node. At the last level in the hierarchy are placed the domain-specific software nodes, representing the domain components. These software nodes can be modeled the in a tree-based structure if the internal domain-specific representation is more complex.
 
-The hardware nodes do not follow any strict hierarchy and can be linked to any hardware or software node. Any cycles between the noded are not allowed and prevented.
+The hardware nodes do not follow any strict hierarchy and can be linked to any hardware or software node. Any cycles between the nodes are not allowed and prevented.
 
 ![Device inventory](/_assets/device-inventory.svg)
 
