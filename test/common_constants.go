@@ -10,7 +10,7 @@
 //
 // SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
 
-package agent
+package test
 
 import (
 	"time"
@@ -18,18 +18,36 @@ import (
 	"github.com/eclipse-kanto/update-manager/api/types"
 )
 
-const testActivityID = "testActivityId"
-const interval = 1 * time.Second
+const TestActivityID = "testActivityId"
+const Interval = 1 * time.Second
 
-var inventory = &types.Inventory{
+var Inventory = &types.Inventory{
 	SoftwareNodes: []*types.SoftwareNode{
-		{
-			InventoryNode: types.InventoryNode{
-				ID:      "update-manager",
-				Version: "development",
-				Name:    "Update Manager",
+		MainInventoryNode,
+	},
+}
+
+var MainInventoryNode = &types.SoftwareNode{
+	InventoryNode: types.InventoryNode{
+		ID:      "device-update-manager",
+		Version: "development",
+		Name:    "Update Manager",
+	},
+	Type: types.SoftwareTypeApplication,
+}
+
+var SampleTestHardwareNode = []*types.HardwareNode{
+	{
+		InventoryNode: types.InventoryNode{
+			ID:      "testId",
+			Version: "3.0.0",
+			Name:    "testName",
+			Parameters: []*types.KeyValuePair{
+				{
+					Key:   "k1",
+					Value: "v1",
+				},
 			},
-			Type: "APPLICATION",
 		},
 	},
 }

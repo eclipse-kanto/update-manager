@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/eclipse-kanto/update-manager/api/types"
+	"github.com/eclipse-kanto/update-manager/test"
 	"github.com/eclipse-kanto/update-manager/test/mocks"
 
 	"github.com/golang/mock/gomock"
@@ -30,65 +31,65 @@ func TestHandleCurrentStateEvent(t *testing.T) {
 
 	t.Run("test_no_activity_id_without_delay", func(t *testing.T) {
 		mockClient := mocks.NewMockUpdateAgentClient(mockCtr)
-		mockClient.EXPECT().SendCurrentState("", inventory)
+		mockClient.EXPECT().SendCurrentState("", test.Inventory)
 
 		updAgent := &updateAgent{
 			client: mockClient,
 		}
 
-		updAgent.HandleCurrentStateEvent("testDomain", "", inventory)
+		updAgent.HandleCurrentStateEvent("testDomain", "", test.Inventory)
 	})
 
 	t.Run("test_no_activity_id_with_delay", func(t *testing.T) {
 		mockClient := mocks.NewMockUpdateAgentClient(mockCtr)
 		updAgent := &updateAgent{
 			client:                  mockClient,
-			currentStateReportDelay: interval,
+			currentStateReportDelay: test.Interval,
 		}
 
 		ch := make(chan bool, 1)
-		mockClient.EXPECT().SendCurrentState("", inventory).DoAndReturn(
+		mockClient.EXPECT().SendCurrentState("", test.Inventory).DoAndReturn(
 			func(activityID string, inventory *types.Inventory) error {
 				ch <- true
 				return nil
 			})
-		updAgent.HandleCurrentStateEvent("testDomain", "", inventory)
+		updAgent.HandleCurrentStateEvent("testDomain", "", test.Inventory)
 		<-ch
 	})
 
 	t.Run("test_activity_id_not_empty", func(t *testing.T) {
 		mockClient := mocks.NewMockUpdateAgentClient(mockCtr)
-		mockClient.EXPECT().SendCurrentState(testActivityID, inventory)
+		mockClient.EXPECT().SendCurrentState(test.TestActivityID, test.Inventory)
 		updAgent := &updateAgent{
 			client:                  mockClient,
-			currentStateReportDelay: interval,
+			currentStateReportDelay: test.Interval,
 		}
-		updAgent.HandleCurrentStateEvent("testDomain", testActivityID, inventory)
+		updAgent.HandleCurrentStateEvent("testDomain", test.TestActivityID, test.Inventory)
 	})
 
 	t.Run("test_current_state_notifier_not_nil", func(t *testing.T) {
 		mockClient := mocks.NewMockUpdateAgentClient(mockCtr)
-		mockClient.EXPECT().SendCurrentState(testActivityID, inventory).Return(nil)
+		mockClient.EXPECT().SendCurrentState(test.TestActivityID, test.Inventory).Return(nil)
 		csNotifier := &currentStateNotifier{
 			internalTimer: time.AfterFunc(time.Millisecond, nil),
 		}
 		updAgent := &updateAgent{
 			client:                  mockClient,
-			currentStateReportDelay: interval,
+			currentStateReportDelay: test.Interval,
 			currentStateNotifier:    csNotifier,
 		}
-		updAgent.HandleCurrentStateEvent("testDomain", testActivityID, inventory)
+		updAgent.HandleCurrentStateEvent("testDomain", test.TestActivityID, test.Inventory)
 		assert.Nil(t, updAgent.currentStateNotifier)
 	})
 
 	t.Run("test_current_state_send_error", func(t *testing.T) {
 		mockClient := mocks.NewMockUpdateAgentClient(mockCtr)
-		mockClient.EXPECT().SendCurrentState(testActivityID, inventory).Return(errors.New("send current state error"))
+		mockClient.EXPECT().SendCurrentState(test.TestActivityID, test.Inventory).Return(errors.New("send current state error"))
 
 		updAgent := &updateAgent{
 			client:                  mockClient,
-			currentStateReportDelay: interval,
+			currentStateReportDelay: test.Interval,
 		}
-		updAgent.HandleCurrentStateEvent("testDomain", testActivityID, inventory)
+		updAgent.HandleCurrentStateEvent("testDomain", test.TestActivityID, test.Inventory)
 	})
 }

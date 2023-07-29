@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/eclipse-kanto/update-manager/api/types"
+	"github.com/eclipse-kanto/update-manager/test"
 	"github.com/eclipse-kanto/update-manager/test/mocks"
 
 	"github.com/golang/mock/gomock"
@@ -141,11 +142,11 @@ func TestHandleDesiredState(t *testing.T) {
 	}
 
 	ch := make(chan bool, 1)
-	mockUpdateManager.EXPECT().Apply(context.Background(), testActivityID, dummyDesiredState).DoAndReturn(
+	mockUpdateManager.EXPECT().Apply(context.Background(), test.TestActivityID, dummyDesiredState).DoAndReturn(
 		func(ctx context.Context, activityID string, state *types.DesiredState) {
 			ch <- true
 		})
-	assert.NoError(t, updAgent.HandleDesiredState(testActivityID, 0, dummyDesiredState))
+	assert.NoError(t, updAgent.HandleDesiredState(test.TestActivityID, 0, dummyDesiredState))
 	<-ch
 }
 
@@ -164,11 +165,11 @@ func TestHandleDesiredStateCommand(t *testing.T) {
 		Command: types.CommandUpdate,
 	}
 	ch := make(chan bool, 1)
-	mockUpdateManager.EXPECT().Command(context.Background(), testActivityID, dummyDesiredStateCommand).DoAndReturn(func(ctx context.Context, activityID string, command *types.DesiredStateCommand) {
+	mockUpdateManager.EXPECT().Command(context.Background(), test.TestActivityID, dummyDesiredStateCommand).DoAndReturn(func(ctx context.Context, activityID string, command *types.DesiredStateCommand) {
 		ch <- true
 		assert.True(t, reflect.DeepEqual(dsCommand, command))
 	})
-	assert.NoError(t, updAgent.HandleDesiredStateCommand(testActivityID, 0, dummyDesiredStateCommand))
+	assert.NoError(t, updAgent.HandleDesiredStateCommand(test.TestActivityID, 0, dummyDesiredStateCommand))
 	<-ch
 
 }
@@ -186,18 +187,18 @@ func TestHandleCurrentStateGet(t *testing.T) {
 		ctx:     context.Background(),
 	}
 
-	activityID := prefixInitCurrentStateID + testActivityID
+	activityID := prefixInitCurrentStateID + test.TestActivityID
 
 	t.Run("test_handle_current_state_get_error", func(t *testing.T) {
-		mockUpdateManager.EXPECT().Get(context.Background(), testActivityID).Return(nil, errors.New("get error"))
-		err := updAgent.HandleCurrentStateGet(testActivityID, 0)
+		mockUpdateManager.EXPECT().Get(context.Background(), test.TestActivityID).Return(nil, errors.New("get error"))
+		err := updAgent.HandleCurrentStateGet(test.TestActivityID, 0)
 		assert.NotNil(t, err)
 	})
 
 	t.Run("test_handle_current_state_get_ok", func(t *testing.T) {
 		mockUpdateManager.EXPECT().WatchEvents(context.Background()).Times(1)
-		mockUpdateManager.EXPECT().Get(context.Background(), activityID).Return(inventory, nil)
-		mockClient.EXPECT().SendCurrentState(activityID, inventory).Times(1).Return(nil)
+		mockUpdateManager.EXPECT().Get(context.Background(), activityID).Return(test.Inventory, nil)
+		mockClient.EXPECT().SendCurrentState(activityID, test.Inventory).Times(1).Return(nil)
 
 		err := updAgent.HandleCurrentStateGet(activityID, 0)
 
@@ -206,8 +207,8 @@ func TestHandleCurrentStateGet(t *testing.T) {
 
 	t.Run("test_handle_current_state_get_publish_err", func(t *testing.T) {
 		mockUpdateManager.EXPECT().WatchEvents(context.Background()).Times(1)
-		mockUpdateManager.EXPECT().Get(context.Background(), activityID).Return(inventory, nil)
-		mockClient.EXPECT().SendCurrentState(activityID, inventory).Times(1).Return(errors.New("send current state error"))
+		mockUpdateManager.EXPECT().Get(context.Background(), activityID).Return(test.Inventory, nil)
+		mockClient.EXPECT().SendCurrentState(activityID, test.Inventory).Times(1).Return(errors.New("send current state error"))
 		err := updAgent.HandleCurrentStateGet(activityID, 0)
 
 		assert.Error(t, err)

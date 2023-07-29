@@ -17,6 +17,7 @@ import (
 
 	"github.com/eclipse-kanto/update-manager/api"
 	"github.com/eclipse-kanto/update-manager/api/types"
+	"github.com/eclipse-kanto/update-manager/test"
 	"github.com/eclipse-kanto/update-manager/test/mocks"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -37,7 +38,7 @@ func TestHandleDesiredStateFeedbackEvent(t *testing.T) {
 	}
 
 	mockUpdateOrchestrator := mocks.NewMockUpdateOrchestrator(mockCtrl)
-	updateManager := createTestUpdateManager(nil, nil, nil, 0, nil, mockUpdateOrchestrator, nil)
+	updateManager := createTestUpdateManager(nil, nil, nil, 0, nil, mockUpdateOrchestrator, nil, "development")
 
 	mockUpdateOrchestrator.EXPECT().HandleDesiredStateFeedbackEvent("testDomain", "testActivityId", "testBaseline", types.BaselineStatusActivating, "testMsg", testActions)
 	updateManager.HandleDesiredStateFeedbackEvent("testDomain", "testActivityId", "testBaseline", types.BaselineStatusActivating, "testMsg", testActions)
@@ -45,98 +46,38 @@ func TestHandleDesiredStateFeedbackEvent(t *testing.T) {
 
 var expectedInventory = &types.Inventory{
 	SoftwareNodes: []*types.SoftwareNode{
-		{
-			InventoryNode: types.InventoryNode{
-				ID:   "device-update-manager",
-				Name: "Update Manager",
-			},
-			Type: "APPLICATION",
-		},
-		{
-			InventoryNode: types.InventoryNode{
-				ID:   "",
-				Name: "testDomainInventoryName2",
-			},
-			Type: "APPLICATION",
-		},
-		{
-			InventoryNode: types.InventoryNode{
-				ID:   "",
-				Name: "testDomainInventoryName1",
-			},
-			Type: "APPLICATION",
-		},
+		test.MainInventoryNode,
+		test.CreateSoftwareNode("testDomain", 1, "", "", types.SoftwareTypeApplication),
+		test.CreateSoftwareNode("testDomain", 2, "", "", types.SoftwareTypeApplication),
 	},
 	Associations: []*types.Association{
-		{
-			SourceID: "device-update-manager",
-			TargetID: "",
-		},
-		{
-			SourceID: "device-update-manager",
-			TargetID: "",
-		},
-		{
-			SourceID: "device-update-manager",
-			TargetID: "testDomainInventoryName1",
-		},
-		{
-			SourceID: "device-update-manager",
-			TargetID: "testDomainInventoryName2",
-		},
+		test.CreateAssociation("device-update-manager", "testDomain-test-1"),
+		test.CreateAssociation("device-update-manager", "testDomain-test-1"),
+		test.CreateAssociation("device-update-manager", "testDomain-test-1"),
+		test.CreateAssociation("device-update-manager", "testDomain-test-2"),
 	},
-	HardwareNodes: []*types.HardwareNode{
-		{
-			InventoryNode: types.InventoryNode{
-				ID: "testHWInventoryNodeId",
-			},
-		},
-	},
+	HardwareNodes: test.SampleTestHardwareNode,
 }
 
 var givenInventory = &types.Inventory{
 	SoftwareNodes: []*types.SoftwareNode{
-		{
-			InventoryNode: types.InventoryNode{
-				Name: "testDomainInventoryName1",
-			},
-			Type: "APPLICATION",
-		},
+		test.CreateSoftwareNode("testDomain", 1, "", "", types.SoftwareTypeApplication),
 	},
-	HardwareNodes: []*types.HardwareNode{
-		{
-			InventoryNode: types.InventoryNode{
-				ID: "testHWInventoryNodeId",
-			},
-		},
-	},
+	HardwareNodes: test.SampleTestHardwareNode,
 	Associations: []*types.Association{
-		{
-			SourceID: "device-update-manager",
-			TargetID: "testDomainInventoryName1",
-		},
-		{
-			SourceID: "device-update-manager",
-			TargetID: "testDomainInventoryName2",
-		},
+		test.CreateAssociation("device-update-manager", "testDomain-test-1"),
+		test.CreateAssociation("device-update-manager", "testDomain-test-2"),
 	},
 }
 
 func TestHandleCurrentStateEvent(t *testing.T) {
-
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
 	defaultlyAddedInventory := map[string]*types.Inventory{
-
 		"testDomainInventory1": {
 			SoftwareNodes: []*types.SoftwareNode{
-				{
-					InventoryNode: types.InventoryNode{
-						Name: "testDomainInventoryName2",
-					},
-					Type: "APPLICATION",
-				},
+				test.CreateSoftwareNode("testDomain", 2, "", "", types.SoftwareTypeApplication),
 			},
 		},
 	}
@@ -144,13 +85,18 @@ func TestHandleCurrentStateEvent(t *testing.T) {
 		eventCallback := mocks.NewMockUpdateManagerCallback(mockCtrl)
 		domainUpdateManager := mocks.NewMockUpdateManager(mockCtrl)
 		domainUpdateManagers := map[string]api.UpdateManager{"testDomain1": domainUpdateManager}
-		updateManager := createTestUpdateManager(eventCallback, domainUpdateManagers, nil, 0, nil, nil, defaultlyAddedInventory)
-		eventCallback.EXPECT().HandleCurrentStateEvent("device", "", expectedInventory).Times(1)
+		updateManager := createTestUpdateManager(eventCallback, domainUpdateManagers, nil, 0, nil, nil, defaultlyAddedInventory, "development")
+
+		eventCallback.EXPECT().HandleCurrentStateEvent("device", "", gomock.Any()).DoAndReturn(
+			func(name string, activityId string, invent *types.Inventory) {
+				test.AssertInventoryWithoutElementsOrder(t, expectedInventory, invent)
+			})
+
 		updateManager.HandleCurrentStateEvent("testName", "", givenInventory)
 		assert.Equal(t, givenInventory, updateManager.domainsInventory["testName"])
 	})
 	t.Run("test_HandleCurrentStateEvent_activityId_notNil", func(t *testing.T) {
-		updateManager := createTestUpdateManager(nil, nil, nil, 0, nil, nil, defaultlyAddedInventory)
+		updateManager := createTestUpdateManager(nil, nil, nil, 0, nil, nil, defaultlyAddedInventory, "development")
 		updateManager.HandleCurrentStateEvent("testName", "testActivityId", givenInventory)
 		assert.Equal(t, givenInventory, updateManager.domainsInventory["testName"])
 	})

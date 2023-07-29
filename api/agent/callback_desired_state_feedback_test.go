@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/eclipse-kanto/update-manager/api/types"
+	"github.com/eclipse-kanto/update-manager/test"
 	"github.com/eclipse-kanto/update-manager/test/mocks"
 
 	"github.com/golang/mock/gomock"
@@ -75,14 +76,14 @@ func TestHandleDesiredStateFeedbackEvent(t *testing.T) {
 		client: mockClient,
 	}
 
-	for name, test := range tests {
+	for name, testCase := range tests {
 		t.Run(name, func(t *testing.T) {
-			mockClient.EXPECT().SendDesiredStateFeedback(testActivityID, &types.DesiredStateFeedback{
-				Status:  test.status,
-				Message: test.message,
-				Actions: test.actions,
-			}).Return(test.sendError)
-			updAgent.HandleDesiredStateFeedbackEvent("", testActivityID, "", test.status, test.message, test.actions)
+			mockClient.EXPECT().SendDesiredStateFeedback(test.TestActivityID, &types.DesiredStateFeedback{
+				Status:  testCase.status,
+				Message: testCase.message,
+				Actions: testCase.actions,
+			}).Return(testCase.sendError)
+			updAgent.HandleDesiredStateFeedbackEvent("", test.TestActivityID, "", testCase.status, testCase.message, testCase.actions)
 		})
 	}
 
@@ -96,7 +97,7 @@ func TestHandleDesiredStateFeedbackEvent(t *testing.T) {
 				Message: "operation completed",
 				Actions: configureActions(types.ActionStatusUpdateSuccess, "update success"),
 			}
-			assert.Equal(t, testActivityID, activityID)
+			assert.Equal(t, test.TestActivityID, activityID)
 			assert.Equal(t, expectedFeedback, feedback)
 			return nil
 		})
@@ -104,7 +105,7 @@ func TestHandleDesiredStateFeedbackEvent(t *testing.T) {
 			internalTimer: time.AfterFunc(time.Millisecond, nil),
 		}
 		updAgent.desiredStateFeedbackNotifier = dsNotifier
-		updAgent.HandleDesiredStateFeedbackEvent("", testActivityID, "", types.StatusCompleted, "operation completed", actions)
+		updAgent.HandleDesiredStateFeedbackEvent("", test.TestActivityID, "", types.StatusCompleted, "operation completed", actions)
 
 		assert.Nil(t, updAgent.desiredStateFeedbackNotifier.internalTimer)
 
@@ -116,7 +117,7 @@ func TestHandleDesiredStateFeedbackEvent(t *testing.T) {
 			client: mockClient,
 		}
 		updAgent.desiredStateFeedbackReportInterval = -1 * time.Second
-		updAgent.HandleDesiredStateFeedbackEvent("", testActivityID, "", types.StatusRunning, "operation running", actions)
+		updAgent.HandleDesiredStateFeedbackEvent("", test.TestActivityID, "", types.StatusRunning, "operation running", actions)
 
 		assert.Nil(t, updAgent.desiredStateFeedbackNotifier)
 	})
@@ -131,12 +132,12 @@ func TestHandleDesiredStateFeedbackEvent(t *testing.T) {
 				Message: "",
 				Actions: configureActions(types.ActionStatusDownloading, "downloading"),
 			}
-			assert.Equal(t, testActivityID, activityID)
+			assert.Equal(t, test.TestActivityID, activityID)
 			assert.Equal(t, expectedFeedback, feedback)
 			return nil
 		})
-		updAgent.desiredStateFeedbackReportInterval = interval
-		updAgent.HandleDesiredStateFeedbackEvent("", testActivityID, "", types.StatusRunning, "operation running", actions)
+		updAgent.desiredStateFeedbackReportInterval = test.Interval
+		updAgent.HandleDesiredStateFeedbackEvent("", test.TestActivityID, "", types.StatusRunning, "operation running", actions)
 		updAgent.desiredStateFeedbackNotifier.internalTimer.Stop()
 	})
 
@@ -150,14 +151,14 @@ func TestHandleDesiredStateFeedbackEvent(t *testing.T) {
 				Message: "",
 				Actions: configureActions(types.ActionStatusDownloading, "downloading"),
 			}
-			assert.Equal(t, testActivityID, activityID)
+			assert.Equal(t, test.TestActivityID, activityID)
 			assert.Equal(t, expectedFeedback, feedback)
 			return nil
 		})
-		updAgent.desiredStateFeedbackReportInterval = interval
-		updAgent.HandleDesiredStateFeedbackEvent("", testActivityID, "", types.StatusRunning, "operation running", actions)
+		updAgent.desiredStateFeedbackReportInterval = test.Interval
+		updAgent.HandleDesiredStateFeedbackEvent("", test.TestActivityID, "", types.StatusRunning, "operation running", actions)
 		timer1 := updAgent.desiredStateFeedbackNotifier.internalTimer
-		updAgent.HandleDesiredStateFeedbackEvent("", testActivityID, "", types.StatusRunning, "operation running", actions)
+		updAgent.HandleDesiredStateFeedbackEvent("", test.TestActivityID, "", types.StatusRunning, "operation running", actions)
 		timer2 := updAgent.desiredStateFeedbackNotifier.internalTimer
 		assert.Equal(t, timer1, timer2)
 		updAgent.desiredStateFeedbackNotifier.internalTimer.Stop()
@@ -173,11 +174,11 @@ func TestHandleDesiredStateFeedbackEvent(t *testing.T) {
 				Message: "downloading",
 				Actions: configureActions(types.ActionStatusDownloading, "downloading"),
 			}
-			assert.Equal(t, testActivityID, activityID)
+			assert.Equal(t, test.TestActivityID, activityID)
 			assert.Equal(t, expectedFeedback, feedback)
 			return nil
 		})
-		updAgent.HandleDesiredStateFeedbackEvent("", testActivityID, "", types.StatusIncomplete, "downloading", actions)
+		updAgent.HandleDesiredStateFeedbackEvent("", test.TestActivityID, "", types.StatusIncomplete, "downloading", actions)
 	})
 
 	t.Run("test_status_identifying", func(t *testing.T) {
@@ -190,11 +191,11 @@ func TestHandleDesiredStateFeedbackEvent(t *testing.T) {
 				Message: "identifying",
 				Actions: configureActions(types.ActionStatusActivating, "activating"),
 			}
-			assert.Equal(t, testActivityID, activityID)
+			assert.Equal(t, test.TestActivityID, activityID)
 			assert.Equal(t, expectedFeedback, feedback)
 			return nil
 		})
-		updAgent.HandleDesiredStateFeedbackEvent("", testActivityID, "", types.StatusIdentifying, "identifying", actions)
+		updAgent.HandleDesiredStateFeedbackEvent("", test.TestActivityID, "", types.StatusIdentifying, "identifying", actions)
 	})
 }
 

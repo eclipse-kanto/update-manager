@@ -46,10 +46,8 @@ func TestNewUpdateOperation(t *testing.T) {
 			},
 		},
 	}
-
-	handler := &TestDesiredStateFeedbackHandler{}
-
 	t.Run("test-valid-scenario", func(t *testing.T) {
+		handler := &TestDesiredStateFeedbackHandler{}
 		testOp, err := newUpdateOperation(domainAgents, activityID, desiredState, handler)
 		assert.Nil(t, err)
 		assert.NotNil(t, testOp)
@@ -70,10 +68,7 @@ func TestNewUpdateOperation(t *testing.T) {
 	})
 
 	t.Run("test-missing-domain-agents", func(t *testing.T) {
-		domainAgents := map[string]api.UpdateManager{}
-		handler := &TestDesiredStateFeedbackHandler{}
-
-		testOp, err := newUpdateOperation(domainAgents, activityID, desiredState, handler)
+		testOp, err := newUpdateOperation(map[string]api.UpdateManager{}, activityID, desiredState, &TestDesiredStateFeedbackHandler{})
 		assert.Error(t, err)
 		assert.Nil(t, testOp)
 		assert.Equal(t, "the desired state manifest does not contain any supported domain", err.Error())
@@ -84,10 +79,7 @@ func TestNewUpdateOperation(t *testing.T) {
 			"domain1": mocks.NewMockUpdateManager(mockCtrl),
 			"domain2": mocks.NewMockUpdateManager(mockCtrl),
 		}
-		desiredState := &types.DesiredState{}
-		handler := &TestDesiredStateFeedbackHandler{}
-
-		testOp, err := newUpdateOperation(domainAgents, activityID, desiredState, handler)
+		testOp, err := newUpdateOperation(domainAgents, activityID, &types.DesiredState{}, &TestDesiredStateFeedbackHandler{})
 		assert.Error(t, err)
 		assert.Nil(t, testOp)
 		assert.Equal(t, "the desired state manifest does not contain any supported domain", err.Error())
@@ -116,6 +108,5 @@ func TestNewUpdateOperation(t *testing.T) {
 		assert.Equal(t, types.StatusIdentifying, testOp.domains["domain1"])
 		assert.Equal(t, types.StatusType(""), testOp.domains["domain2"])
 		assert.Equal(t, handler, testOp.desiredStateCallback)
-
 	})
 }

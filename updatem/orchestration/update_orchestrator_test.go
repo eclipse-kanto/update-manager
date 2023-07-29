@@ -20,6 +20,7 @@ import (
 	"github.com/eclipse-kanto/update-manager/api"
 	"github.com/eclipse-kanto/update-manager/api/types"
 	"github.com/eclipse-kanto/update-manager/config"
+	"github.com/eclipse-kanto/update-manager/test"
 	"github.com/eclipse-kanto/update-manager/test/mocks"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -32,9 +33,7 @@ func TestNewUpdateOrchestrator(t *testing.T) {
 		},
 		phaseTimeout: 10 * time.Minute,
 	}
-	newUpdOrch := NewUpdateOrchestrator(&config.Config{RebootEnabled: true})
-
-	assert.Equal(t, expectedOrchestrator, newUpdOrch)
+	assert.Equal(t, expectedOrchestrator, NewUpdateOrchestrator(&config.Config{RebootEnabled: true}))
 }
 
 func TestUpdOrchApply(t *testing.T) {
@@ -48,7 +47,7 @@ func TestUpdOrchApply(t *testing.T) {
 		ctx := context.Background()
 
 		updOrchestrator := &updateOrchestrator{
-			cfg: createTestConfig(false, false),
+			cfg: test.CreateTestConfig(false, false),
 		}
 		desiredState := &types.DesiredState{
 			Domains: []*types.Domain{
@@ -57,15 +56,15 @@ func TestUpdOrchApply(t *testing.T) {
 				},
 			},
 		}
-		domainAgent1 := mocks.NewMockUpdateManager(mockCtrl)
+		domainAgent := mocks.NewMockUpdateManager(mockCtrl)
 
-		domainAgent1.EXPECT().Apply(ctx, "testActivityId", desiredState).DoAndReturn(func(ctx context.Context, activityId string, desiredState *types.DesiredState) {
+		domainAgent.EXPECT().Apply(ctx, "testActivityId", desiredState).DoAndReturn(func(ctx context.Context, activityId string, desiredState *types.DesiredState) {
 			applyChan <- true
 		})
-		domainAgent1.EXPECT().Name().Times(2)
+		domainAgent.EXPECT().Name().Times(2)
 
 		domainAgents := map[string]api.UpdateManager{
-			"domain1": domainAgent1,
+			"domain1": domainAgent,
 		}
 
 		eventCallback.EXPECT().HandleDesiredStateFeedbackEvent("device", "testActivityId", "", gomock.Any(), "", []*types.Action{}).Times(4)
@@ -76,23 +75,20 @@ func TestUpdOrchApply(t *testing.T) {
 		updOrchestrator.HandleDesiredStateFeedbackEvent("domain1", "testActivityId", "", types.StatusIdentified, "", []*types.Action{})
 		updOrchestrator.HandleDesiredStateFeedbackEvent("domain1", "testActivityId", "", types.StatusCompleted, "", []*types.Action{})
 		updOrchestrator.HandleDesiredStateFeedbackEvent("domain1", "testActivityId", "", types.BaselineStatusCleanupSuccess, "", []*types.Action{})
-
 		<-doneChan
-
 	})
 	t.Run("test_empty_domainAgents_err_not_nil", func(t *testing.T) {
 		eventCallback := mocks.NewMockUpdateManagerCallback(mockCtrl)
 		updOrchestrator := &updateOrchestrator{
-			cfg: createTestConfig(false, false),
+			cfg: test.CreateTestConfig(false, false),
 		}
 		desiredState := &types.DesiredState{
 			Domains: []*types.Domain{},
 		}
 
 		eventCallback.EXPECT().HandleDesiredStateFeedbackEvent("device", "", "", types.StatusIncomplete, "the desired state manifest does not contain any supported domain", []*types.Action{})
-		rebootReq := updOrchestrator.Apply(context.Background(), nil, "testActivityId", desiredState, eventCallback)
 
-		assert.False(t, rebootReq)
+		assert.False(t, updOrchestrator.Apply(context.Background(), nil, "testActivityId", desiredState, eventCallback))
 	})
 }
 
