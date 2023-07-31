@@ -57,3 +57,12 @@ var SampleTestHardwareNode = []*types.HardwareNode{
 		},
 	},
 }
+
+// DesiredState test constant
+var DesiredState = &types.DesiredState{
+	Domains: []*types.Domain{
+		{
+			ID: "domain1",
+		},
+	},
+}
