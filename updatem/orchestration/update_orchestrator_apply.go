@@ -92,7 +92,8 @@ func (orchestrator *updateOrchestrator) setupUpdateOperation(domainAgents map[st
 	operation, err := newUpdateOperation(domainAgents, activityID, desiredState, desiredStateCallback)
 	if err != nil {
 		orchestrator.operation = &updateOperation{
-			status: types.StatusIncomplete,
+			status:               types.StatusIncomplete,
+			desiredStateCallback: desiredStateCallback
 		}
 		return err
 	}
