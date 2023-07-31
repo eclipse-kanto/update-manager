@@ -28,10 +28,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const (
-	testActivityID = "testActivityId"
-)
-
 var defaultInventory = &types.Inventory{
 	SoftwareNodes: []*types.SoftwareNode{
 		test.MainInventoryNode,
@@ -112,16 +108,16 @@ func TestApplyDesiredState(t *testing.T) {
 
 	domainUpdateManager := mocks.NewMockUpdateManager(mockCtrl)
 	domainUpdateManagers := map[string]api.UpdateManager{"testDomain1": domainUpdateManager}
-	domainUpdateManager.EXPECT().Get(ctx, testActivityID).Times(1).Return(nil, nil)
+	domainUpdateManager.EXPECT().Get(ctx, test.ActivityID).Times(1).Return(nil, nil)
 	domainUpdateManager.EXPECT().Name().Return("testDomain1")
 
 	updateManager := createTestUpdateManager(eventCallback, domainUpdateManagers, nil, 0, test.CreateTestConfig(false, false), mockUpdateOrchestrator, nil, "development")
 
-	mockUpdateOrchestrator.EXPECT().Apply(context.Background(), domainUpdateManagers, testActivityID, desiredState1, eventCallback).Times(1)
+	mockUpdateOrchestrator.EXPECT().Apply(context.Background(), domainUpdateManagers, test.ActivityID, desiredState1, eventCallback).Times(1)
 
-	eventCallback.EXPECT().HandleCurrentStateEvent("device", testActivityID, testInventory)
+	eventCallback.EXPECT().HandleCurrentStateEvent("device", test.ActivityID, testInventory)
 
-	updateManager.Apply(ctx, testActivityID, desiredState1)
+	updateManager.Apply(ctx, test.ActivityID, desiredState1)
 }
 
 func TestDisposeUpdateManager(t *testing.T) {
@@ -216,7 +212,7 @@ func TestRebootAfterApplyDesiredState(t *testing.T) {
 			eventCallback := mocks.NewMockUpdateManagerCallback(mockCtrl)
 			mockUpdateOrchestrator := mocks.NewMockUpdateOrchestrator(mockCtrl)
 
-			eventCallback.EXPECT().HandleCurrentStateEvent("device", testActivityID, testInventory)
+			eventCallback.EXPECT().HandleCurrentStateEvent("device", test.ActivityID, testInventory)
 			rebootManager := mocks.NewMockRebootManager(mockCtrl)
 
 			if testValue.expectedReboot {
@@ -225,9 +221,9 @@ func TestRebootAfterApplyDesiredState(t *testing.T) {
 			cfg := test.CreateTestConfig(testValue.rebootRequired, testValue.rebootEnabled)
 			domainUpdateManagers := map[string]api.UpdateManager{}
 			updateManager := createTestUpdateManager(eventCallback, domainUpdateManagers, rebootManager, 0, cfg, mockUpdateOrchestrator, nil, "development")
-			mockUpdateOrchestrator.EXPECT().Apply(context.Background(), domainUpdateManagers, testActivityID, nil, eventCallback).Return(testValue.rebootRequired).Times(1)
+			mockUpdateOrchestrator.EXPECT().Apply(context.Background(), domainUpdateManagers, test.ActivityID, nil, eventCallback).Return(testValue.rebootRequired).Times(1)
 
-			updateManager.Apply(context.Background(), testActivityID, nil)
+			updateManager.Apply(context.Background(), test.ActivityID, nil)
 		})
 	}
 }

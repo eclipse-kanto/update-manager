@@ -316,11 +316,11 @@ func TestUpdateInventoryForDomain2(t *testing.T) {
 		var wg sync.WaitGroup
 		domainsInventory := make(map[string]*types.Inventory)
 
-		agent.EXPECT().Get(context.Background(), "testActivityId").Return(testCase.testInventory, testCase.mockGetReturnErr)
+		agent.EXPECT().Get(context.Background(), test.ActivityID).Return(testCase.testInventory, testCase.mockGetReturnErr)
 		agent.EXPECT().Name().Return("testName").Times(testCase.mockNameTimes)
 
 		wg.Add(1)
-		updateInventoryForDomain(context.Background(), &wg, "testActivityId", agent, domainsInventory)
+		updateInventoryForDomain(context.Background(), &wg, test.ActivityID, agent, domainsInventory)
 		wg.Wait()
 		assert.Equal(t, testCase.testInventory, domainsInventory["testName"])
 	}

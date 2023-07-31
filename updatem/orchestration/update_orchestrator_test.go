@@ -58,7 +58,7 @@ func TestUpdOrchApply(t *testing.T) {
 		}
 		domainAgent := mocks.NewMockUpdateManager(mockCtrl)
 
-		domainAgent.EXPECT().Apply(ctx, "testActivityId", desiredState).DoAndReturn(func(ctx context.Context, activityId string, desiredState *types.DesiredState) {
+		domainAgent.EXPECT().Apply(ctx, test.ActivityID, desiredState).DoAndReturn(func(ctx context.Context, activityId string, desiredState *types.DesiredState) {
 			applyChan <- true
 		})
 		domainAgent.EXPECT().Name().Times(2)
@@ -67,14 +67,14 @@ func TestUpdOrchApply(t *testing.T) {
 			"domain1": domainAgent,
 		}
 
-		eventCallback.EXPECT().HandleDesiredStateFeedbackEvent("device", "testActivityId", "", gomock.Any(), "", []*types.Action{}).Times(4)
+		eventCallback.EXPECT().HandleDesiredStateFeedbackEvent("device", test.ActivityID, "", gomock.Any(), "", []*types.Action{}).Times(4)
 
-		go applyDesiredState(ctx, updOrchestrator, doneChan, domainAgents, "testActivityId", desiredState, eventCallback)
+		go applyDesiredState(ctx, updOrchestrator, doneChan, domainAgents, test.ActivityID, desiredState, eventCallback)
 
 		<-applyChan
-		updOrchestrator.HandleDesiredStateFeedbackEvent("domain1", "testActivityId", "", types.StatusIdentified, "", []*types.Action{})
-		updOrchestrator.HandleDesiredStateFeedbackEvent("domain1", "testActivityId", "", types.StatusCompleted, "", []*types.Action{})
-		updOrchestrator.HandleDesiredStateFeedbackEvent("domain1", "testActivityId", "", types.BaselineStatusCleanupSuccess, "", []*types.Action{})
+		updOrchestrator.HandleDesiredStateFeedbackEvent("domain1", test.ActivityID, "", types.StatusIdentified, "", []*types.Action{})
+		updOrchestrator.HandleDesiredStateFeedbackEvent("domain1", test.ActivityID, "", types.StatusCompleted, "", []*types.Action{})
+		updOrchestrator.HandleDesiredStateFeedbackEvent("domain1", test.ActivityID, "", types.BaselineStatusCleanupSuccess, "", []*types.Action{})
 		<-doneChan
 	})
 	t.Run("test_empty_domainAgents_err_not_nil", func(t *testing.T) {
@@ -88,7 +88,7 @@ func TestUpdOrchApply(t *testing.T) {
 
 		eventCallback.EXPECT().HandleDesiredStateFeedbackEvent("device", "", "", types.StatusIncomplete, "the desired state manifest does not contain any supported domain", []*types.Action{})
 
-		assert.False(t, updOrchestrator.Apply(context.Background(), nil, "testActivityId", desiredState, eventCallback))
+		assert.False(t, updOrchestrator.Apply(context.Background(), nil, test.ActivityID, desiredState, eventCallback))
 	})
 }
 

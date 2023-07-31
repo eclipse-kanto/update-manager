@@ -40,8 +40,8 @@ func TestHandleDesiredStateFeedbackEvent(t *testing.T) {
 	mockUpdateOrchestrator := mocks.NewMockUpdateOrchestrator(mockCtrl)
 	updateManager := createTestUpdateManager(nil, nil, nil, 0, nil, mockUpdateOrchestrator, nil, "development")
 
-	mockUpdateOrchestrator.EXPECT().HandleDesiredStateFeedbackEvent("testDomain", "testActivityId", "testBaseline", types.BaselineStatusActivating, "testMsg", testActions)
-	updateManager.HandleDesiredStateFeedbackEvent("testDomain", "testActivityId", "testBaseline", types.BaselineStatusActivating, "testMsg", testActions)
+	mockUpdateOrchestrator.EXPECT().HandleDesiredStateFeedbackEvent("testDomain", test.ActivityID, "testBaseline", types.BaselineStatusActivating, "testMsg", testActions)
+	updateManager.HandleDesiredStateFeedbackEvent("testDomain", test.ActivityID, "testBaseline", types.BaselineStatusActivating, "testMsg", testActions)
 }
 
 var expectedInventory = &types.Inventory{
@@ -83,8 +83,7 @@ func TestHandleCurrentStateEvent(t *testing.T) {
 	}
 	t.Run("test_HandleCurrentStateEvent_activityId_nil", func(t *testing.T) {
 		eventCallback := mocks.NewMockUpdateManagerCallback(mockCtrl)
-		domainUpdateManager := mocks.NewMockUpdateManager(mockCtrl)
-		domainUpdateManagers := map[string]api.UpdateManager{"testDomain1": domainUpdateManager}
+		domainUpdateManagers := map[string]api.UpdateManager{"testDomain1": mocks.NewMockUpdateManager(mockCtrl)}
 		updateManager := createTestUpdateManager(eventCallback, domainUpdateManagers, nil, 0, nil, nil, defaultlyAddedInventory, "development")
 
 		eventCallback.EXPECT().HandleCurrentStateEvent("device", "", gomock.Any()).DoAndReturn(
@@ -97,7 +96,7 @@ func TestHandleCurrentStateEvent(t *testing.T) {
 	})
 	t.Run("test_HandleCurrentStateEvent_activityId_notNil", func(t *testing.T) {
 		updateManager := createTestUpdateManager(nil, nil, nil, 0, nil, nil, defaultlyAddedInventory, "development")
-		updateManager.HandleCurrentStateEvent("testName", "testActivityId", givenInventory)
+		updateManager.HandleCurrentStateEvent("testName", test.ActivityID, givenInventory)
 		assert.Equal(t, givenInventory, updateManager.domainsInventory["testName"])
 	})
 }

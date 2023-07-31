@@ -63,7 +63,7 @@ func CreateTestConfig(rebootRequired, rebootEnabled bool) *config.Config {
 		agents[fmt.Sprintf("testDomain%d", i)] = &api.UpdateManagerConfig{
 			Name:           fmt.Sprintf("testDomain%d", i),
 			RebootRequired: rebootRequired,
-			ReadTimeout:    "1s",
+			ReadTimeout:    Interval.String(),
 		}
 	}
 

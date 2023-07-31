@@ -18,8 +18,8 @@ import (
 	"github.com/eclipse-kanto/update-manager/api/types"
 )
 
-//TestActivityID test constant
-const TestActivityID = "testActivityId"
+//ActivityID test constant
+const ActivityID = "testActivityId"
 
 //Interval test constant
 const Interval = 1 * time.Second

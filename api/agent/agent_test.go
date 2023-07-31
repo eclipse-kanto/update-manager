@@ -142,11 +142,11 @@ func TestHandleDesiredState(t *testing.T) {
 	}
 
 	ch := make(chan bool, 1)
-	mockUpdateManager.EXPECT().Apply(context.Background(), test.TestActivityID, dummyDesiredState).DoAndReturn(
+	mockUpdateManager.EXPECT().Apply(context.Background(), test.ActivityID, dummyDesiredState).DoAndReturn(
 		func(ctx context.Context, activityID string, state *types.DesiredState) {
 			ch <- true
 		})
-	assert.NoError(t, updAgent.HandleDesiredState(test.TestActivityID, 0, dummyDesiredState))
+	assert.NoError(t, updAgent.HandleDesiredState(test.ActivityID, 0, dummyDesiredState))
 	<-ch
 }
 
@@ -165,11 +165,11 @@ func TestHandleDesiredStateCommand(t *testing.T) {
 		Command: types.CommandUpdate,
 	}
 	ch := make(chan bool, 1)
-	mockUpdateManager.EXPECT().Command(context.Background(), test.TestActivityID, dummyDesiredStateCommand).DoAndReturn(func(ctx context.Context, activityID string, command *types.DesiredStateCommand) {
+	mockUpdateManager.EXPECT().Command(context.Background(), test.ActivityID, dummyDesiredStateCommand).DoAndReturn(func(ctx context.Context, activityID string, command *types.DesiredStateCommand) {
 		ch <- true
 		assert.True(t, reflect.DeepEqual(dsCommand, command))
 	})
-	assert.NoError(t, updAgent.HandleDesiredStateCommand(test.TestActivityID, 0, dummyDesiredStateCommand))
+	assert.NoError(t, updAgent.HandleDesiredStateCommand(test.ActivityID, 0, dummyDesiredStateCommand))
 	<-ch
 
 }
@@ -187,11 +187,11 @@ func TestHandleCurrentStateGet(t *testing.T) {
 		ctx:     context.Background(),
 	}
 
-	activityID := prefixInitCurrentStateID + test.TestActivityID
+	activityID := prefixInitCurrentStateID + test.ActivityID
 
 	t.Run("test_handle_current_state_get_error", func(t *testing.T) {
-		mockUpdateManager.EXPECT().Get(context.Background(), test.TestActivityID).Return(nil, errors.New("get error"))
-		err := updAgent.HandleCurrentStateGet(test.TestActivityID, 0)
+		mockUpdateManager.EXPECT().Get(context.Background(), test.ActivityID).Return(nil, errors.New("get error"))
+		err := updAgent.HandleCurrentStateGet(test.ActivityID, 0)
 		assert.NotNil(t, err)
 	})
 

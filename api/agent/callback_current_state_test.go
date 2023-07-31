@@ -59,17 +59,17 @@ func TestHandleCurrentStateEvent(t *testing.T) {
 
 	t.Run("test_activity_id_not_empty", func(t *testing.T) {
 		mockClient := mocks.NewMockUpdateAgentClient(mockCtr)
-		mockClient.EXPECT().SendCurrentState(test.TestActivityID, test.Inventory)
+		mockClient.EXPECT().SendCurrentState(test.ActivityID, test.Inventory)
 		updAgent := &updateAgent{
 			client:                  mockClient,
 			currentStateReportDelay: test.Interval,
 		}
-		updAgent.HandleCurrentStateEvent("testDomain", test.TestActivityID, test.Inventory)
+		updAgent.HandleCurrentStateEvent("testDomain", test.ActivityID, test.Inventory)
 	})
 
 	t.Run("test_current_state_notifier_not_nil", func(t *testing.T) {
 		mockClient := mocks.NewMockUpdateAgentClient(mockCtr)
-		mockClient.EXPECT().SendCurrentState(test.TestActivityID, test.Inventory).Return(nil)
+		mockClient.EXPECT().SendCurrentState(test.ActivityID, test.Inventory).Return(nil)
 		csNotifier := &currentStateNotifier{
 			internalTimer: time.AfterFunc(time.Millisecond, nil),
 		}
@@ -78,18 +78,18 @@ func TestHandleCurrentStateEvent(t *testing.T) {
 			currentStateReportDelay: test.Interval,
 			currentStateNotifier:    csNotifier,
 		}
-		updAgent.HandleCurrentStateEvent("testDomain", test.TestActivityID, test.Inventory)
+		updAgent.HandleCurrentStateEvent("testDomain", test.ActivityID, test.Inventory)
 		assert.Nil(t, updAgent.currentStateNotifier)
 	})
 
 	t.Run("test_current_state_send_error", func(t *testing.T) {
 		mockClient := mocks.NewMockUpdateAgentClient(mockCtr)
-		mockClient.EXPECT().SendCurrentState(test.TestActivityID, test.Inventory).Return(errors.New("send current state error"))
+		mockClient.EXPECT().SendCurrentState(test.ActivityID, test.Inventory).Return(errors.New("send current state error"))
 
 		updAgent := &updateAgent{
 			client:                  mockClient,
 			currentStateReportDelay: test.Interval,
 		}
-		updAgent.HandleCurrentStateEvent("testDomain", test.TestActivityID, test.Inventory)
+		updAgent.HandleCurrentStateEvent("testDomain", test.ActivityID, test.Inventory)
 	})
 }
