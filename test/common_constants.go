@@ -18,15 +18,20 @@ import (
 	"github.com/eclipse-kanto/update-manager/api/types"
 )
 
+//TestActivityID test constant
 const TestActivityID = "testActivityId"
+
+//Interval test constant
 const Interval = 1 * time.Second
 
+//Inventory test constant
 var Inventory = &types.Inventory{
 	SoftwareNodes: []*types.SoftwareNode{
 		MainInventoryNode,
 	},
 }
 
+//MainInventoryNode test constant
 var MainInventoryNode = &types.SoftwareNode{
 	InventoryNode: types.InventoryNode{
 		ID:      "device-update-manager",
@@ -36,6 +41,7 @@ var MainInventoryNode = &types.SoftwareNode{
 	Type: types.SoftwareTypeApplication,
 }
 
+//SampleTestHardwareNode test constant
 var SampleTestHardwareNode = []*types.HardwareNode{
 	{
 		InventoryNode: types.InventoryNode{

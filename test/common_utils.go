@@ -25,6 +25,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+//AssertInventoryWithoutElementsOrder function for assertion types.Inventory without HW, SW, Association nodes
 func AssertInventoryWithoutElementsOrder(t *testing.T, inv1, inv2 *types.Inventory) {
 	if inv1 == nil || inv2 == nil {
 		assert.True(t, inv1 == inv2)
@@ -34,6 +35,7 @@ func AssertInventoryWithoutElementsOrder(t *testing.T, inv1, inv2 *types.Invento
 	assert.True(t, compareSlicesWithoutOrder(inv1.Associations, inv2.Associations), "Associations not equal")
 }
 
+//CreateSoftwareNode function for creation of SoftwareNode
 func CreateSoftwareNode(domain string, number int, key string, value string, swType types.SoftwareType) *types.SoftwareNode {
 	num := strconv.FormatInt(int64(number), 10)
 
@@ -53,6 +55,7 @@ func CreateSoftwareNode(domain string, number int, key string, value string, swT
 	}
 }
 
+//CreateTestConfig function for creation of test Config
 func CreateTestConfig(rebootRequired, rebootEnabled bool) *config.Config {
 	agents := make(map[string]*api.UpdateManagerConfig)
 
@@ -73,6 +76,7 @@ func CreateTestConfig(rebootRequired, rebootEnabled bool) *config.Config {
 	}
 }
 
+//CreateAssociation function for creation of test Association
 func CreateAssociation(sourceID, targetID string) *types.Association {
 	return &types.Association{
 		SourceID: sourceID,
