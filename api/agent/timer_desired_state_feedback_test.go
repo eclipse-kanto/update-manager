@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/eclipse-kanto/update-manager/api/types"
+	"github.com/eclipse-kanto/update-manager/test"
 	"github.com/eclipse-kanto/update-manager/test/mocks"
 
 	"github.com/golang/mock/gomock"
@@ -50,12 +51,12 @@ func TestNewDesiredStateFeedbackNotifier(t *testing.T) {
 		client: mocks.NewMockUpdateAgentClient(mockCtr),
 	}
 	expectedNotifier := &desiredStateFeedbackNotifier{
-		interval:        interval,
+		interval:        test.Interval,
 		agent:           updAgent,
 		actions:         []*types.Action{},
 		reportedActions: []*types.Action{},
 	}
-	assert.Equal(t, expectedNotifier, newDesiredStateFeedbackNotifier(interval, updAgent))
+	assert.Equal(t, expectedNotifier, newDesiredStateFeedbackNotifier(test.Interval, updAgent))
 
 }
 
@@ -87,65 +88,65 @@ func TestDesiredStateFeedbackTimerSet(t *testing.T) {
 
 	t.Run("test_set_internal_timer_not_nil", func(t *testing.T) {
 		notifier := initDesiredStateFeedbackNotifier(updAgent)
-		notifier.set(testActivityID, testActions)
+		notifier.set(test.ActivityID, testActions)
 		assert.Equal(t, testActions, notifier.actions)
 		stopDesiredStateFeedbackNotifierInternalTimer(notifier)
 	})
 
 	t.Run("test_set_internal_timer_nil", func(t *testing.T) {
-		notifier := newDesiredStateFeedbackNotifier(interval, updAgent)
+		notifier := newDesiredStateFeedbackNotifier(test.Interval, updAgent)
 		mockClient.EXPECT().SendDesiredStateFeedback(gomock.Any(), gomock.Any()).Times(1)
 
-		notifier.set(testActivityID, testActions)
+		notifier.set(test.ActivityID, testActions)
 		assert.Equal(t, reportedActions, notifier.reportedActions)
-		assert.Equal(t, testActivityID, notifier.activityID)
+		assert.Equal(t, test.ActivityID, notifier.activityID)
 		stopDesiredStateFeedbackNotifierInternalTimer(notifier)
 	})
 
 	t.Run("test_actions_change_during_timeout", func(t *testing.T) {
-		notifier := newDesiredStateFeedbackNotifier(interval, updAgent)
+		notifier := newDesiredStateFeedbackNotifier(test.Interval, updAgent)
 		mockClient.EXPECT().SendDesiredStateFeedback(gomock.Any(), gomock.Any()).Times(1)
 		// initial actions set
-		notifier.set(testActivityID, testActions)
+		notifier.set(test.ActivityID, testActions)
 		notifier.lock.Lock()
 		assert.Equal(t, testActions, notifier.actions)
 		assert.Equal(t, reportedActions, notifier.reportedActions)
-		assert.Equal(t, testActivityID, notifier.activityID)
+		assert.Equal(t, test.ActivityID, notifier.activityID)
 		notifier.lock.Unlock()
 		mockClient.EXPECT().SendDesiredStateFeedback(gomock.Any(), gomock.Any()).Times(1)
 		// update the actions with a new set
-		notifier.set(testActivityID, testActions2)
+		notifier.set(test.ActivityID, testActions2)
 		notifier.lock.Lock()
 		// assert that the actions have not updated before the interval has passed
 		assert.Equal(t, testActions2, notifier.actions)
 		assert.NotEqual(t, reportedActions2, notifier.reportedActions)
-		assert.Equal(t, testActivityID, notifier.activityID)
+		assert.Equal(t, test.ActivityID, notifier.activityID)
 		notifier.lock.Unlock()
-		time.Sleep(interval + 100*time.Millisecond)
+		time.Sleep(test.Interval + 100*time.Millisecond)
 		notifier.lock.Lock()
 		// check that the actions have been properly updated after the timeout
 		assert.Equal(t, testActions2, notifier.actions)
 		assert.Equal(t, reportedActions2, notifier.reportedActions)
-		assert.Equal(t, testActivityID, notifier.activityID)
+		assert.Equal(t, test.ActivityID, notifier.activityID)
 		notifier.lock.Unlock()
 		stopDesiredStateFeedbackNotifierInternalTimer(notifier)
 	})
 	t.Run("test_no_event_published_on_resetting_the_same_actions_during_timeout", func(t *testing.T) {
-		notifier := newDesiredStateFeedbackNotifier(2*interval, updAgent)
+		notifier := newDesiredStateFeedbackNotifier(2*test.Interval, updAgent)
 		mockClient.EXPECT().SendDesiredStateFeedback(gomock.Any(), gomock.Any()).Times(1)
-		notifier.set(testActivityID, testActions)
+		notifier.set(test.ActivityID, testActions)
 		notifier.lock.Lock()
 		assert.Equal(t, testActions, notifier.actions)
 		assert.Equal(t, reportedActions, notifier.reportedActions)
-		assert.Equal(t, testActivityID, notifier.activityID)
+		assert.Equal(t, test.ActivityID, notifier.activityID)
 		notifier.lock.Unlock()
 		mockClient.EXPECT().SendDesiredStateFeedback(gomock.Any(), gomock.Any()).Times(0)
-		notifier.set(testActivityID, testActions)
-		time.Sleep(interval + 100*time.Millisecond)
+		notifier.set(test.ActivityID, testActions)
+		time.Sleep(test.Interval + 100*time.Millisecond)
 		notifier.lock.Lock()
 		assert.Equal(t, testActions, notifier.actions)
 		assert.Equal(t, reportedActions, notifier.reportedActions)
-		assert.Equal(t, testActivityID, notifier.activityID)
+		assert.Equal(t, test.ActivityID, notifier.activityID)
 		notifier.lock.Unlock()
 		stopDesiredStateFeedbackNotifierInternalTimer(notifier)
 	})
@@ -177,7 +178,7 @@ func TestDesiredStateFeedbackTimerNotifyEvent(t *testing.T) {
 		client: mockClient,
 	}
 	t.Run("test_notifyEvent_internal_timer_nil", func(t *testing.T) {
-		notifier := newDesiredStateFeedbackNotifier(interval, updAgent)
+		notifier := newDesiredStateFeedbackNotifier(test.Interval, updAgent)
 		notifier.notifyEvent()
 	})
 
@@ -219,9 +220,9 @@ func TestDesiredStateFeedbackTimerToActionsString(t *testing.T) {
 }
 
 func initDesiredStateFeedbackNotifier(updAgent *updateAgent) *desiredStateFeedbackNotifier {
-	notifier := newDesiredStateFeedbackNotifier(interval, updAgent)
-	notifier.activityID = testActivityID
-	notifier.internalTimer = time.AfterFunc(interval, func() {})
+	notifier := newDesiredStateFeedbackNotifier(test.Interval, updAgent)
+	notifier.activityID = test.ActivityID
+	notifier.internalTimer = time.AfterFunc(test.Interval, func() {})
 	notifier.actions = testActions
 	return notifier
 }

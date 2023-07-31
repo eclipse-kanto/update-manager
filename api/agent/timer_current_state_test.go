@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/eclipse-kanto/update-manager/test"
 	"github.com/eclipse-kanto/update-manager/test/mocks"
 
 	"github.com/golang/mock/gomock"
@@ -30,10 +31,10 @@ func TestNewCurrentStateNotifier(t *testing.T) {
 		client: mocks.NewMockUpdateAgentClient(mockCtr),
 	}
 	expectedNotifier := &currentStateNotifier{
-		interval: interval,
+		interval: test.Interval,
 		agent:    updAgent,
 	}
-	assert.Equal(t, expectedNotifier, newCurrentStateNotifier(interval, updAgent))
+	assert.Equal(t, expectedNotifier, newCurrentStateNotifier(test.Interval, updAgent))
 }
 
 func TestCurrentStateTimerSet(t *testing.T) {
@@ -47,16 +48,16 @@ func TestCurrentStateTimerSet(t *testing.T) {
 	t.Run("test_set_internal_timer_not_nil", func(t *testing.T) {
 		notifier := initCurrentStateNotifier(updAgent)
 
-		notifier.set(testActivityID, inventory)
-		assert.Equal(t, inventory, notifier.currentState)
+		notifier.set(test.ActivityID, test.Inventory)
+		assert.Equal(t, test.Inventory, notifier.currentState)
 		stopCurrentStateNotifierInternalTimer(notifier)
 	})
 
 	t.Run("test_set_internal_timer_nil", func(t *testing.T) {
-		notifier := newCurrentStateNotifier(interval, updAgent)
+		notifier := newCurrentStateNotifier(test.Interval, updAgent)
 
-		notifier.set(testActivityID, inventory)
-		assert.Equal(t, inventory, notifier.currentState)
+		notifier.set(test.ActivityID, test.Inventory)
+		assert.Equal(t, test.Inventory, notifier.currentState)
 		stopCurrentStateNotifierInternalTimer(notifier)
 	})
 }
@@ -92,17 +93,17 @@ func TestCurrentStateTimerNotifyEvent(t *testing.T) {
 	})
 
 	t.Run("test_notifyEvent_internal_timer_nil", func(t *testing.T) {
-		notifier := newCurrentStateNotifier(interval, updAgent)
+		notifier := newCurrentStateNotifier(test.Interval, updAgent)
 		notifier.notifyEvent()
 		stopCurrentStateNotifierInternalTimer(notifier)
 	})
 }
 
 func initCurrentStateNotifier(updAgent *updateAgent) *currentStateNotifier {
-	notifier := newCurrentStateNotifier(interval, updAgent)
-	notifier.activityID = testActivityID
-	notifier.internalTimer = time.AfterFunc(interval, func() {})
-	notifier.currentState = inventory
+	notifier := newCurrentStateNotifier(test.Interval, updAgent)
+	notifier.activityID = test.ActivityID
+	notifier.internalTimer = time.AfterFunc(test.Interval, func() {})
+	notifier.currentState = test.Inventory
 	return notifier
 }
 
