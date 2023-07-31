@@ -690,114 +690,114 @@ func TestValidateActivity(t *testing.T) {
 }
 
 func TestDomainUpdateCompleted(t *testing.T) {
-	t.Run("test_CfgNoRebootRequired_status_complete", func(t *testing.T) {
-		orchestrator := generateUpdOrch(false, make(map[string]map[string]*types.Action), types.StatusCompleted, nil)
-
-		orchestrator.domainUpdateCompleted()
-
-		assert.Equal(t, 0, len(orchestrator.operation.errChan))
-		assert.Equal(t, 1, len(orchestrator.operation.done))
-		assert.Equal(t, 1, len(orchestrator.operation.identDone))
-
-		assert.True(t, <-orchestrator.operation.done)
-		assert.True(t, <-orchestrator.operation.identDone)
-
-		assert.Equal(t, types.StatusCompleted, orchestrator.operation.status)
-		assert.Equal(t, false, orchestrator.operation.rebootRequired)
-	})
-	t.Run("test_actions_moreThanZero_and_CfgRebootRequired", func(t *testing.T) {
-		orchestrator := generateUpdOrch(true, map[string]map[string]*types.Action{
-			"testDomain1": {
-				"testAction": {},
+	testActions := map[string]map[string]*types.Action{
+		"testDomain1": {
+			"testAction": {},
+		},
+	}
+	testCases := map[string]struct {
+		cfgRebootReqired       bool
+		actions                map[string]map[string]*types.Action
+		delayedStatus          types.StatusType
+		domain                 map[string]types.StatusType
+		errChanLen             bool
+		doneChanLen            bool
+		identDoneChanLen       bool
+		expectedRebootRequired bool
+		expectedStatus         types.StatusType
+		expectedErrMsg         string
+	}{
+		"test_CfgNoRebootRequired_status_complete": {
+			actions:          make(map[string]map[string]*types.Action),
+			delayedStatus:    types.StatusCompleted,
+			doneChanLen:      true,
+			identDoneChanLen: true,
+			expectedStatus:   types.StatusCompleted,
+		},
+		"test_actions_moreThanZero_and_CfgRebootRequired": {
+			cfgRebootReqired:       true,
+			actions:                testActions,
+			delayedStatus:          types.StatusCompleted,
+			doneChanLen:            true,
+			identDoneChanLen:       true,
+			expectedRebootRequired: true,
+			expectedStatus:         types.StatusCompleted,
+		},
+		"test_delayedStatusStatusIncomplete": {
+			actions:        testActions,
+			delayedStatus:  types.StatusIncomplete,
+			errChanLen:     true,
+			expectedStatus: types.StatusIncomplete,
+			expectedErrMsg: "the update process is incompleted",
+		},
+		"test_domains_moreThanZero_all_supported_and_CfgRebootRequired": {
+			cfgRebootReqired: true,
+			actions:          testActions,
+			delayedStatus:    types.StatusCompleted,
+			domain: map[string]types.StatusType{
+				"d1": types.BaselineStatusCleanupSuccess,
+				"d2": types.BaselineStatusCleanupFailure,
 			},
-		}, types.StatusCompleted, nil)
-
-		orchestrator.domainUpdateCompleted()
-
-		assert.Equal(t, 0, len(orchestrator.operation.errChan))
-		assert.Equal(t, 1, len(orchestrator.operation.done))
-		assert.Equal(t, 1, len(orchestrator.operation.identDone))
-
-		assert.True(t, <-orchestrator.operation.done)
-		assert.True(t, <-orchestrator.operation.identDone)
-
-		assert.Equal(t, types.StatusCompleted, orchestrator.operation.status)
-		assert.Equal(t, true, orchestrator.operation.rebootRequired)
-	})
-	t.Run("test_delayedStatusStatusIncomplete", func(t *testing.T) {
-		orchestrator := generateUpdOrch(false, map[string]map[string]*types.Action{
-			"testDomain1": {
-				"testAction": {},
+			doneChanLen:            true,
+			identDoneChanLen:       true,
+			expectedStatus:         types.StatusCompleted,
+			expectedRebootRequired: true,
+		},
+		"test_domains_moreThanZero_one_not_supported": {
+			cfgRebootReqired: true,
+			actions:          testActions,
+			delayedStatus:    types.StatusCompleted,
+			domain: map[string]types.StatusType{
+				"d1": types.BaselineStatusCleanupSuccess,
+				"d2": types.BaselineStatusCleanup,
 			},
-		}, types.StatusIncomplete, nil)
+			expectedStatus: types.StatusIdentifying,
+		},
+	}
 
-		orchestrator.domainUpdateCompleted()
+	for testName, testCase := range testCases {
+		t.Run(testName, func(t *testing.T) {
+			orchestrator := generateUpdOrch(testCase.cfgRebootReqired, testCase.actions, testCase.delayedStatus, testCase.domain)
 
-		assert.Equal(t, 1, len(orchestrator.operation.errChan))
-		assert.Equal(t, 0, len(orchestrator.operation.done))
-		assert.Equal(t, 0, len(orchestrator.operation.identDone))
+			orchestrator.domainUpdateCompleted()
 
-		assert.True(t, <-orchestrator.operation.errChan)
+			if testCase.errChanLen {
+				assert.Equal(t, 1, len(orchestrator.operation.errChan))
+				assert.True(t, <-orchestrator.operation.errChan)
+			} else {
+				assert.Equal(t, 0, len(orchestrator.operation.errChan))
+			}
+			if testCase.doneChanLen {
+				assert.Equal(t, 1, len(orchestrator.operation.done))
+				assert.True(t, <-orchestrator.operation.done)
+			} else {
+				assert.Equal(t, 0, len(orchestrator.operation.done))
+			}
+			if testCase.identDoneChanLen {
+				assert.Equal(t, 1, len(orchestrator.operation.identDone))
+				assert.True(t, <-orchestrator.operation.identDone)
+			} else {
+				assert.Equal(t, 0, len(orchestrator.operation.identDone))
+			}
 
-		assert.Equal(t, types.StatusIncomplete, orchestrator.operation.status)
-		assert.Equal(t, false, orchestrator.operation.rebootRequired)
-		assert.Equal(t, "the update process is incompleted", orchestrator.operation.errMsg)
-	})
-	t.Run("test_domains_moreThanZero_all_supported_and_CfgRebootRequired", func(t *testing.T) {
-		orchestrator := generateUpdOrch(true, map[string]map[string]*types.Action{
-			"testDomain1": {
-				"testAction": {},
-			},
-		}, types.StatusCompleted, map[string]types.StatusType{
-			"d1": types.BaselineStatusCleanupSuccess,
-			"d2": types.BaselineStatusCleanupFailure,
+			assert.Equal(t, testCase.expectedStatus, orchestrator.operation.status)
+			assert.Equal(t, testCase.expectedRebootRequired, orchestrator.operation.rebootRequired)
+			assert.Equal(t, testCase.expectedErrMsg, orchestrator.operation.errMsg)
 		})
-
-		orchestrator.domainUpdateCompleted()
-
-		assert.Equal(t, 0, len(orchestrator.operation.errChan))
-		assert.Equal(t, 1, len(orchestrator.operation.done))
-		assert.Equal(t, 1, len(orchestrator.operation.identDone))
-
-		assert.True(t, <-orchestrator.operation.done)
-		assert.True(t, <-orchestrator.operation.identDone)
-
-		assert.Equal(t, types.StatusCompleted, orchestrator.operation.status)
-		assert.Equal(t, true, orchestrator.operation.rebootRequired)
-	})
-	t.Run("test_domains_moreThanZero_one_not_supported", func(t *testing.T) {
-		orchestrator := generateUpdOrch(true, map[string]map[string]*types.Action{
-			"testDomain1": {
-				"testAction": {},
-			},
-		}, types.StatusCompleted, map[string]types.StatusType{
-			"d1": types.BaselineStatusCleanupSuccess,
-			"d2": types.BaselineStatusCleanup,
-		})
-
-		orchestrator.domainUpdateCompleted()
-
-		assert.Equal(t, 0, len(orchestrator.operation.errChan))
-		assert.Equal(t, 0, len(orchestrator.operation.done))
-		assert.Equal(t, 0, len(orchestrator.operation.identDone))
-
-		assert.Equal(t, types.StatusIdentifying, orchestrator.operation.status)
-		assert.Equal(t, false, orchestrator.operation.rebootRequired)
-	})
+	}
 }
 
 func generateUpdOrch(cfgRebootReqired bool, actions map[string]map[string]*types.Action, delayedStatus types.StatusType, domains map[string]types.StatusType) *updateOrchestrator {
 	return &updateOrchestrator{
 		operation: &updateOperation{
-			actions:        actions,
-			delayedStatus:  delayedStatus,
-			status:         types.StatusIdentifying,
-			errMsg:         "testErrMsg",
-			errChan:        make(chan bool, 1),
-			identDone:      make(chan bool, 1),
-			done:           make(chan bool, 1),
-			rebootRequired: false,
-			domains:        domains,
+			actions:       actions,
+			delayedStatus: delayedStatus,
+			status:        types.StatusIdentifying,
+			errMsg:        "",
+			errChan:       make(chan bool, 1),
+			identDone:     make(chan bool, 1),
+			done:          make(chan bool, 1),
+			domains:       domains,
 		},
 		cfg: test.CreateTestConfig(cfgRebootReqired, true),
 	}

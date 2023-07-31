@@ -89,16 +89,9 @@ func TestNewUpdateOperation(t *testing.T) {
 			"domain1": mocks.NewMockUpdateManager(mockCtrl),
 			"domain2": mocks.NewMockUpdateManager(mockCtrl),
 		}
-		desiredState := &types.DesiredState{
-			Domains: []*types.Domain{
-				{
-					ID: "domain1",
-				},
-			},
-		}
 		handler := &TestDesiredStateFeedbackHandler{}
 
-		testOp, err := newUpdateOperation(domainAgents, test.ActivityID, desiredState, handler)
+		testOp, err := newUpdateOperation(domainAgents, test.ActivityID, test.DesiredState, handler)
 
 		assert.Nil(t, err)
 		assert.NotNil(t, testOp)

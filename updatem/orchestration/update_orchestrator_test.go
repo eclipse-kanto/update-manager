@@ -49,16 +49,9 @@ func TestUpdOrchApply(t *testing.T) {
 		updOrchestrator := &updateOrchestrator{
 			cfg: test.CreateTestConfig(false, false),
 		}
-		desiredState := &types.DesiredState{
-			Domains: []*types.Domain{
-				{
-					ID: "domain1",
-				},
-			},
-		}
 		domainAgent := mocks.NewMockUpdateManager(mockCtrl)
 
-		domainAgent.EXPECT().Apply(ctx, test.ActivityID, desiredState).DoAndReturn(func(ctx context.Context, activityId string, desiredState *types.DesiredState) {
+		domainAgent.EXPECT().Apply(ctx, test.ActivityID, test.DesiredState).DoAndReturn(func(ctx context.Context, activityId string, desiredState *types.DesiredState) {
 			applyChan <- true
 		})
 		domainAgent.EXPECT().Name().Times(2)
@@ -69,7 +62,7 @@ func TestUpdOrchApply(t *testing.T) {
 
 		eventCallback.EXPECT().HandleDesiredStateFeedbackEvent("device", test.ActivityID, "", gomock.Any(), "", []*types.Action{}).Times(4)
 
-		go applyDesiredState(ctx, updOrchestrator, doneChan, domainAgents, test.ActivityID, desiredState, eventCallback)
+		go applyDesiredState(ctx, updOrchestrator, doneChan, domainAgents, test.ActivityID, test.DesiredState, eventCallback)
 
 		<-applyChan
 		updOrchestrator.HandleDesiredStateFeedbackEvent("domain1", test.ActivityID, "", types.StatusIdentified, "", []*types.Action{})

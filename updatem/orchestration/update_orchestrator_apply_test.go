@@ -178,7 +178,6 @@ func TestWaitIdentification(t *testing.T) {
 		"test_case_identDone": {
 			ctx:            context.Background(),
 			testChan:       identDone,
-			expectedErr:    nil,
 			expectedStatus: types.StatusIdentifying,
 		},
 		"test_case_terminateContext": {
@@ -248,7 +247,6 @@ func TestWaitCompletion(t *testing.T) {
 		"test_case_done": {
 			ctx:            context.Background(),
 			testChan:       done,
-			expectedErr:    nil,
 			expectedStatus: types.StatusIdentifying,
 		},
 		"test_case_terminateContext": {
@@ -296,14 +294,12 @@ func TestCommand(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 	mockUpdateManager := mocks.NewMockUpdateManager(mockCtrl)
-
-	t.Run("test_command_existing_domain", func(t *testing.T) {
-		orchestrator := &updateOrchestrator{
-			operation: &updateOperation{},
-		}
-		orchestrator.operation.statesPerDomain = map[api.UpdateManager]*types.DesiredState{
+	orchestrator := &updateOrchestrator{
+		operation: &updateOperation{statesPerDomain: map[api.UpdateManager]*types.DesiredState{
 			mockUpdateManager: {},
-		}
+		}},
+	}
+	t.Run("test_command_existing_domain", func(t *testing.T) {
 		command := &types.DesiredStateCommand{
 			Command: types.CommandActivate,
 		}
@@ -314,13 +310,6 @@ func TestCommand(t *testing.T) {
 		orchestrator.command(context.Background(), test.ActivityID, "testName", types.CommandActivate)
 	})
 	t.Run("test_command_domain_not_exists", func(t *testing.T) {
-		orchestrator := &updateOrchestrator{
-			operation: &updateOperation{},
-		}
-		orchestrator.operation.statesPerDomain = map[api.UpdateManager]*types.DesiredState{
-			mockUpdateManager: {},
-		}
-
 		mockUpdateManager.EXPECT().Name().Return("testName").Times(1)
 
 		orchestrator.command(context.Background(), test.ActivityID, "difTestName", types.CommandActivate)
@@ -331,17 +320,8 @@ func TestSetupUpdateOperation(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 	t.Run("test_setupupdateoperation_newUpdateOperation_err_nil", func(t *testing.T) {
-
 		domainAgents := map[string]api.UpdateManager{
 			"domain1": mocks.NewMockUpdateManager(mockCtrl),
-		}
-		activityID := test.ActivityID
-		desiredState := &types.DesiredState{
-			Domains: []*types.Domain{
-				{
-					ID: "domain1",
-				},
-			},
 		}
 		handler := &TestDesiredStateFeedbackHandler{}
 
@@ -351,9 +331,9 @@ func TestSetupUpdateOperation(t *testing.T) {
 			domains: map[string]types.StatusType{
 				"domain1": types.StatusIdentifying,
 			},
-			desiredState: desiredState,
+			desiredState: test.DesiredState,
 			statesPerDomain: map[api.UpdateManager]*types.DesiredState{
-				domainAgents["domain1"]: desiredState,
+				domainAgents["domain1"]: test.DesiredState,
 			},
 			actions:              map[string]map[string]*types.Action{},
 			desiredStateCallback: handler,
@@ -363,7 +343,7 @@ func TestSetupUpdateOperation(t *testing.T) {
 			operation: &updateOperation{},
 		}
 
-		err := orchestrator.setupUpdateOperation(domainAgents, activityID, desiredState, handler)
+		err := orchestrator.setupUpdateOperation(domainAgents, test.ActivityID, test.DesiredState, handler)
 
 		assert.NotNil(t, orchestrator.operation.done)
 		assert.NotNil(t, orchestrator.operation.errChan)
@@ -413,7 +393,6 @@ func TestDisposeUpdateOperation(t *testing.T) {
 	t.Run("test_no_operation_to_dispose", func(t *testing.T) {
 		orchestrator := &updateOrchestrator{
 			operationLock: sync.Mutex{},
-			operation:     nil,
 		}
 
 		orchestrator.disposeUpdateOperation()
