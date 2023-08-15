@@ -206,11 +206,13 @@ func (um *updateManagerFeature) prepare(requestID string, msg *protocol.Envelope
 	bytes, err := json.Marshal(msg.Value)
 	if err == nil {
 		envelope, err = types.FromEnvelope(bytes, to)
-		if respReq {
-			um.reply(requestID, msg.Headers.CorrelationID(), operation, 204, nil)
+		if err == nil {
+			if respReq {
+				um.reply(requestID, msg.Headers.CorrelationID(), operation, 204, nil)
+			}
+			logger.Debug("[%s][%s] execute '%s' operation with correlation id '%s'", updateManagerFeatureID, um.domain, operation, msg.Headers.CorrelationID())
+			return envelope, true
 		}
-		logger.Debug("[%s][%s] execute '%s' operation with correlation id '%s'", updateManagerFeatureID, um.domain, operation, msg.Headers.CorrelationID())
-		return envelope, true
 	}
 	thingErr := newMessagesParameterInvalidError(err.Error())
 	logger.ErrorErr(thingErr, "[%s][%s] failed to parse message value", updateManagerFeatureID, um.domain)
