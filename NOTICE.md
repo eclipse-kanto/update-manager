@@ -40,6 +40,12 @@ golang/go (1.21.0)
 * Project: https://github.com/golang/go
 * Source:  https://github.com/golang/go/releases/tag/go1.21.0
 
+eclipse/ditto-clients-golang (0.0.0-20230504175246-3e6e17510ac4)
+
+* License: Eclipse Public License v2.0
+* Project: https://github.com/eclipse/ditto-clients-golang
+* Source:  https://github.com/eclipse-ditto/ditto-clients-golang/tree/3e6e17510ac45213afd843639e97b58669e151aa
+
 eclipse/paho.mqtt.golang (1.4.1)
 
 * License: Eclipse Public License - v 2.0 (EPL-2.0)

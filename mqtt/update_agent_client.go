@@ -110,8 +110,8 @@ func (client *updateAgentClient) Stop() error {
 	return nil
 }
 
-func (client *updateAgentClient) onConnect(mqttClient pahomqtt.Client) {
-	go client.getAndPublishCurrentState()
+func (client *updateAgentClient) onConnect(_ pahomqtt.Client) {
+	go getAndPublishCurrentState(client.Domain(), client.handler.HandleCurrentStateGet)
 
 	if err := client.subscribeStateTopics(); err != nil {
 		logger.ErrorErr(err, "[%s] error subscribing for DesiredState/DesiredStateCommand/CurrentStateGet requests", client.Domain())
@@ -186,16 +186,6 @@ func (client *updateAgentClient) handleStateRequest(mqttClient pahomqtt.Client, 
 	}
 }
 
-func (client *updateAgentClient) getAndPublishCurrentState() {
-	currentTime := time.Now().UnixNano() / int64(time.Millisecond)
-	activityID := prefixInitCurrentStateID + strconv.FormatInt(int64(currentTime), 10)
-	if err := client.handler.HandleCurrentStateGet(activityID, currentTime); err != nil {
-		logger.ErrorErr(err, "[%s] error processing initial current state get request", client.Domain())
-	} else {
-		logger.Debug("[%s] initial current state get request successfully processed", client.Domain())
-	}
-}
-
 // SendCurrentState makes the client create envelope raw bytes with the given activityID and current state inventory and send the raw bytes as current state message.
 func (client *updateAgentClient) SendCurrentState(activityID string, currentState *types.Inventory) error {
 	currentStateBytes, err := types.ToEnvelope(activityID, currentState)
@@ -253,4 +243,14 @@ func newClient(config *ConnectionConfig, onConnect pahomqtt.OnConnectHandler) pa
 		SetPassword(config.Password)
 
 	return pahomqtt.NewClient(clientOptions)
+}
+
+func getAndPublishCurrentState(domain string, currentStateGetHandler func(string, int64) error) {
+	currentTime := time.Now().UnixNano() / int64(time.Millisecond)
+	activityID := prefixInitCurrentStateID + strconv.FormatInt(int64(currentTime), 10)
+	if err := currentStateGetHandler(activityID, currentTime); err != nil {
+		logger.ErrorErr(err, "[%s] error processing initial current state get request", domain)
+	} else {
+		logger.Debug("[%s] initial current state get request successfully processed", domain)
+	}
 }
