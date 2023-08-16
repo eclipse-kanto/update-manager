@@ -60,15 +60,12 @@ func TestUpdateAgentThingClientStop(t *testing.T) {
 	mockCtrl, mockPaho, mockToken := setupCommonMocks(t)
 	defer mockCtrl.Finish()
 
-	mockHandler := mocks.NewMockUpdateAgentHandler(mockCtrl)
-
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			updateAgentClient := &updateAgentThingsClient{
 				updateAgentClient: &updateAgentClient{
 					domain:     test.domain,
 					mqttClient: newInternalClient(test.domain, mqttTestConfig, mockPaho),
-					handler:    mockHandler,
 				},
 			}
 
@@ -108,11 +105,10 @@ func TestThingsSendDesiredStateFeedback(t *testing.T) {
 				},
 				uaFeature: mockFeature,
 			}
-			mockFeature.EXPECT().SendDesiredStateFeedback(gomock.Any()).DoAndReturn(
-				func(envelope *types.Envelope) error {
-					assert.Equal(t, name, envelope.ActivityID)
-					assert.True(t, envelope.Timestamp > 0)
-					assert.Equal(t, testFeedback, envelope.Payload)
+			mockFeature.EXPECT().SendFeedback(name, gomock.Any()).DoAndReturn(
+				func(activityID string, desiredStateFeedback *types.DesiredStateFeedback) error {
+					assert.Equal(t, name, activityID)
+					assert.Equal(t, testFeedback, desiredStateFeedback)
 					return test.err
 				})
 
@@ -158,11 +154,10 @@ func TestThingsSendCurrentState(t *testing.T) {
 				},
 				uaFeature: mockFeature,
 			}
-			mockFeature.EXPECT().SetCurrentState(gomock.Any()).DoAndReturn(
-				func(envelope *types.Envelope) error {
-					assert.Equal(t, name, envelope.ActivityID)
-					assert.True(t, envelope.Timestamp > 0)
-					assert.Equal(t, testCurrentState, envelope.Payload)
+			mockFeature.EXPECT().SetState(name, gomock.Any()).DoAndReturn(
+				func(activityID string, inventory *types.Inventory) error {
+					assert.Equal(t, name, activityID)
+					assert.Equal(t, testCurrentState, inventory)
 					return test.err
 				})
 
@@ -179,11 +174,9 @@ func TestThingOnConnect(t *testing.T) {
 	mockCtrl, mockPaho, mockToken := setupCommonMocks(t)
 	defer mockCtrl.Finish()
 
-	client := newInternalClient("test", mqttTestConfig, mockPaho)
-
 	updateAgentThingsClient := &updateAgentThingsClient{
 		updateAgentClient: &updateAgentClient{
-			mqttClient: client,
+			mqttClient: newInternalClient("test", mqttTestConfig, mockPaho),
 			domain:     "test",
 		},
 	}

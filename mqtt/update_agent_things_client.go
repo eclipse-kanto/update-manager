@@ -160,27 +160,15 @@ func (client *updateAgentThingsClient) onConnect(_ pahomqtt.Client) {
 
 // SendCurrentState makes the client create envelope with the given activityID and current state inventory and updates the current state property of the feature.
 func (client *updateAgentThingsClient) SendCurrentState(activityID string, currentState *types.Inventory) error {
-	envelope := &types.Envelope{
-		ActivityID: activityID,
-		Timestamp:  time.Now().UnixNano() / int64(time.Millisecond),
-		Payload:    currentState,
-	}
-	if logger.IsTraceEnabled() {
-		logger.Trace("[%s] publishing current state '%s'....", client.Domain(), currentState)
-	} else {
-		logger.Debug("[%s] publishing current state...", client.Domain())
-	}
-	return client.uaFeature.SetCurrentState(envelope)
+
+	logger.Debug("[%s] publishing current state...", client.Domain())
+
+	return client.uaFeature.SetState(activityID, currentState)
 }
 
 // SendDesiredStateFeedback makes the client create envelope with the given activityID and desired state feedback and send issues a desired state feedback message.
 func (client *updateAgentThingsClient) SendDesiredStateFeedback(activityID string, desiredStateFeedback *types.DesiredStateFeedback) error {
-	envelope := &types.Envelope{
-		ActivityID: activityID,
-		Timestamp:  time.Now().UnixNano() / int64(time.Millisecond),
-		Payload:    desiredStateFeedback,
-	}
-	return client.uaFeature.SendDesiredStateFeedback(envelope)
+	return client.uaFeature.SendFeedback(activityID, desiredStateFeedback)
 }
 
 func millisecondsToDuration(milliseconds int64) time.Duration {

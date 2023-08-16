@@ -16,6 +16,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/eclipse-kanto/update-manager/api"
 	"github.com/eclipse-kanto/update-manager/api/types"
@@ -33,23 +34,45 @@ const (
 	updateManagerFeatureDefinition = "com.bosch.iot.suite.edge.update:UpdateManager:1.0.0"
 	// incoming operations
 	updateManagerFeatureOperationApply   = "apply"
-	updateManagerFeatureOperationReport  = "report"
-	updateManagerFeatureOperationCommand = "command"
+	updateManagerFeatureOperationRefresh = "refresh"
 	// outgoing messages
 	updateManagerFeatureMessageFeedback = "feedback"
 	// properties
-	updateManagerFeaturePropertyState  = "state"
-	updateManagerFeaturePropertyDomain = "domain"
+	updateManagerFeaturePropertyDomain     = "domain"
+	updateManagerFeaturePropertyActivityID = "activityId"
+	updateManagerFeaturePropertyTimestamp  = "timestamp"
+	updateManagerFeaturePropertyInventory  = "inventory"
 
 	jsonContent = "application/json"
 )
+
+type base struct {
+	ActivityID string `json:"activityId"`
+	Timestamp  int64  `json:"timestamp"`
+}
+
+type feedback struct {
+	base
+	DesiredStateFeedback *types.DesiredStateFeedback `json:"desiredStateFeedback,omitempty"`
+}
+
+type updateManagerProperties struct {
+	base
+	Domain    string           `json:"domain"`
+	Inventory *types.Inventory `json:"inventory,omitempty"`
+}
+
+type applyArgs struct {
+	base
+	DesiredState *types.DesiredState `json:"desiredState"`
+}
 
 // UpdateManagerFeature describes the update manager feature representation.
 type UpdateManagerFeature interface {
 	Activate() error
 	Deactivate()
-	SetCurrentState(envelope *types.Envelope) error
-	SendDesiredStateFeedback(envelope *types.Envelope) error
+	SetState(activityID string, currentState *types.Inventory) error
+	SendFeedback(activityID string, desiredStateFeedback *types.DesiredStateFeedback) error
 }
 
 type updateManagerFeature struct {
@@ -107,27 +130,36 @@ func (um *updateManagerFeature) Deactivate() {
 	um.active = false
 }
 
-// SetCurrentState modifies the current state property of th e feature.
-func (um *updateManagerFeature) SetCurrentState(envelope *types.Envelope) error {
+// SetState modifies the state property of the feature.
+func (um *updateManagerFeature) SetState(activityID string, currentState *types.Inventory) error {
 	um.Lock()
 	defer um.Unlock()
 
 	if !um.active {
 		return nil
 	}
-	cmd := things.NewCommand(um.thingID).FeatureProperty(updateManagerFeatureID, updateManagerFeaturePropertyState).Modify(envelope).Twin()
+	properties := &updateManagerProperties{
+		base:      base{ActivityID: activityID, Timestamp: time.Now().UnixNano() / int64(time.Millisecond)},
+		Domain:    um.domain,
+		Inventory: currentState,
+	}
+	cmd := things.NewCommand(um.thingID).FeatureProperties(updateManagerFeatureID).Twin().Modify(properties)
 	return um.dittoClient.Send(cmd.Envelope(protocol.WithResponseRequired(false), protocol.WithContentType(jsonContent)))
 }
 
-// SendDesiredStateFeedback issues a desired feedback message to the cloud.
-func (um *updateManagerFeature) SendDesiredStateFeedback(envelope *types.Envelope) error {
+// SendFeedback issues a feedback message to the cloud.
+func (um *updateManagerFeature) SendFeedback(activityID string, desiredStateFeedback *types.DesiredStateFeedback) error {
 	um.Lock()
 	defer um.Unlock()
 
 	if !um.active {
 		return nil
 	}
-	message := things.NewMessage(um.thingID).Feature(updateManagerFeatureID).Outbox(updateManagerFeatureMessageFeedback).WithPayload(envelope)
+	feedback := &feedback{
+		base:                 base{ActivityID: activityID, Timestamp: time.Now().UnixNano() / int64(time.Millisecond)},
+		DesiredStateFeedback: desiredStateFeedback,
+	}
+	message := things.NewMessage(um.thingID).Feature(updateManagerFeatureID).Outbox(updateManagerFeatureMessageFeedback).WithPayload(feedback)
 	return um.dittoClient.Send(message.Envelope(protocol.WithResponseRequired(false), protocol.WithContentType(jsonContent)))
 }
 
@@ -142,10 +174,8 @@ func (um *updateManagerFeature) messagesHandler(requestID string, msg *protocol.
 	if msg.Topic.Namespace == um.thingID.Namespace && msg.Topic.EntityName == um.thingID.Name {
 		if msg.Path == fmt.Sprintf("/features/%s/inbox/messages/%s", updateManagerFeatureID, updateManagerFeatureOperationApply) {
 			um.processApply(requestID, msg)
-		} else if msg.Path == fmt.Sprintf("/features/%s/inbox/messages/%s", updateManagerFeatureID, updateManagerFeatureOperationReport) {
-			um.processReport(requestID, msg)
-		} else if msg.Path == fmt.Sprintf("/features/%s/inbox/messages/%s", updateManagerFeatureID, updateManagerFeatureOperationCommand) {
-			um.processCommand(requestID, msg)
+		} else if msg.Path == fmt.Sprintf("/features/%s/inbox/messages/%s", updateManagerFeatureID, updateManagerFeatureOperationRefresh) {
+			um.processRefresh(requestID, msg)
 		} else {
 			logger.Debug("There is no handler for a message - skipping processing")
 		}
@@ -155,71 +185,61 @@ func (um *updateManagerFeature) messagesHandler(requestID string, msg *protocol.
 }
 
 func (um *updateManagerFeature) processApply(requestID string, msg *protocol.Envelope) {
-	ds := &types.DesiredState{}
-	envelope, prepared := um.prepare(requestID, msg, updateManagerFeatureOperationApply, ds)
-	if !prepared {
-		return
-	}
-	go func(handler api.UpdateAgentHandler) {
-		logger.Trace("[%s][%s] processing apply operation", updateManagerFeatureID, um.domain)
-		if err := um.handler.HandleDesiredState(envelope.ActivityID, envelope.Timestamp, ds); err != nil {
-			logger.ErrorErr(err, "[%s][%s] error processing apply operation", updateManagerFeatureID, um.domain)
+	args := &applyArgs{}
+	if um.prepare(requestID, msg, updateManagerFeatureOperationApply, args) {
+		if args.DesiredState != nil {
+			um.replySuccess(requestID, msg, updateManagerFeatureOperationApply)
+			go func(handler api.UpdateAgentHandler) {
+				logger.Trace("[%s][%s] processing apply operation", updateManagerFeatureID, um.domain)
+				if err := um.handler.HandleDesiredState(args.ActivityID, args.Timestamp, args.DesiredState); err != nil {
+					logger.ErrorErr(err, "[%s][%s] error processing apply operation", updateManagerFeatureID, um.domain)
+				}
+			}(um.handler)
+		} else {
+			um.replyError("desired state is missing", requestID, msg, updateManagerFeatureOperationApply)
 		}
-	}(um.handler)
+	}
 }
 
-func (um *updateManagerFeature) processReport(requestID string, msg *protocol.Envelope) {
-	envelope, prepared := um.prepare(requestID, msg, updateManagerFeatureOperationReport, nil)
-	if !prepared {
-		return
+func (um *updateManagerFeature) processRefresh(requestID string, msg *protocol.Envelope) {
+	args := &base{}
+	if um.prepare(requestID, msg, updateManagerFeatureOperationRefresh, args) {
+		um.replySuccess(requestID, msg, updateManagerFeatureOperationApply)
+		go func(handler api.UpdateAgentHandler) {
+			logger.Trace("[%s][%s] processing refresh operation", updateManagerFeatureID, um.domain)
+			if err := um.handler.HandleCurrentStateGet(args.ActivityID, args.Timestamp); err != nil {
+				logger.ErrorErr(err, "[%s][%s] error processing refresh operation", updateManagerFeatureID, um.domain)
+			}
+		}(um.handler)
 	}
-	go func(handler api.UpdateAgentHandler) {
-		logger.Trace("[%s][%s] processing report operation", updateManagerFeatureID, um.domain)
-		if err := um.handler.HandleCurrentStateGet(envelope.ActivityID, envelope.Timestamp); err != nil {
-			logger.ErrorErr(err, "[%s][%s] error processing report operation", updateManagerFeatureID, um.domain)
-		}
-	}(um.handler)
 }
 
-func (um *updateManagerFeature) processCommand(requestID string, msg *protocol.Envelope) {
-	command := &types.DesiredStateCommand{}
-	envelope, prepared := um.prepare(requestID, msg, updateManagerFeatureOperationCommand, command)
-	if !prepared {
-		return
-	}
-	go func(handler api.UpdateAgentHandler) {
-		logger.Trace("[%s][%s] processing command '%s'", updateManagerFeatureID, um.domain, command.Command)
-		if err := handler.HandleDesiredStateCommand(envelope.ActivityID, envelope.Timestamp, command); err != nil {
-			logger.ErrorErr(err, "[%s][%s] error processing command '%s'", updateManagerFeatureID, um.domain, command.Command)
-		}
-	}(um.handler)
-
-}
-
-func (um *updateManagerFeature) prepare(requestID string, msg *protocol.Envelope, operation string, to interface{}) (*types.Envelope, bool) {
+func (um *updateManagerFeature) prepare(requestID string, msg *protocol.Envelope, operation string, to interface{}) bool {
 	logger.Trace("[%s][%s] parse message value: %v", updateManagerFeatureID, um.domain, msg.Value)
 
-	var (
-		envelope *types.Envelope
-		respReq  = msg.Headers.IsResponseRequired()
-	)
 	bytes, err := json.Marshal(msg.Value)
 	if err == nil {
-		envelope, err = types.FromEnvelope(bytes, to)
-		if err == nil {
-			if respReq {
-				um.reply(requestID, msg.Headers.CorrelationID(), operation, 204, nil)
-			}
+		if err = json.Unmarshal(bytes, to); err == nil {
 			logger.Debug("[%s][%s] execute '%s' operation with correlation id '%s'", updateManagerFeatureID, um.domain, operation, msg.Headers.CorrelationID())
-			return envelope, true
+			return true
 		}
 	}
-	thingErr := newMessagesParameterInvalidError(err.Error())
-	logger.ErrorErr(thingErr, "[%s][%s] failed to parse message value", updateManagerFeatureID, um.domain)
-	if respReq {
+	um.replyError(err.Error(), requestID, msg, operation)
+	return false
+}
+
+func (um *updateManagerFeature) replySuccess(requestID string, msg *protocol.Envelope, operation string) {
+	if msg.Headers.IsResponseRequired() {
+		um.reply(requestID, msg.Headers.CorrelationID(), operation, 204, nil)
+	}
+}
+
+func (um *updateManagerFeature) replyError(errMsg string, requestID string, msg *protocol.Envelope, operation string) {
+	if msg.Headers.IsResponseRequired() {
+		thingErr := newMessagesParameterInvalidError(errMsg)
+		logger.ErrorErr(thingErr, "[%s][%s] invalid request", updateManagerFeatureID, um.domain)
 		um.reply(requestID, msg.Headers.CorrelationID(), operation, thingErr.Status, thingErr)
 	}
-	return nil, false
 }
 
 func (um *updateManagerFeature) reply(requestID string, cid string, cmd string, status int, payload interface{}) {

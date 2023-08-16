@@ -71,7 +71,6 @@ func TestNewDesiredStateClient(t *testing.T) {
 	}
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-
 			client, err := NewDesiredStateClient("testDomain", test.client)
 			if test.err != "" {
 				assert.EqualError(t, err, fmt.Sprintf("Unexpected type: %T", test.client))

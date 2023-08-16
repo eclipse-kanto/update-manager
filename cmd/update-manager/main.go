@@ -47,8 +47,7 @@ func main() {
 	} else {
 		client = mqtt.NewUpdateAgentClient(cfg.Domain, cfg.MQTT)
 	}
-	orchestrator := orchestration.NewUpdateOrchestrator(cfg)
-	updateManager, err := orchestration.NewUpdateManager(version, cfg, client, orchestrator)
+	updateManager, err := orchestration.NewUpdateManager(version, cfg, client, orchestration.NewUpdateOrchestrator(cfg))
 	if err == nil {
 		err = app.Launch(cfg, client, updateManager)
 	}

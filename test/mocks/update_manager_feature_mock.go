@@ -72,30 +72,30 @@ func (mr *MockUpdateManagerFeatureMockRecorder) Deactivate() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Deactivate", reflect.TypeOf((*MockUpdateManagerFeature)(nil).Deactivate))
 }
 
-// SendDesiredStateFeedback mocks base method.
-func (m *MockUpdateManagerFeature) SendDesiredStateFeedback(envelope *types.Envelope) error {
+// SendFeedback mocks base method.
+func (m *MockUpdateManagerFeature) SendFeedback(activityID string, desiredStateFeedback *types.DesiredStateFeedback) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SendDesiredStateFeedback", envelope)
+	ret := m.ctrl.Call(m, "SendFeedback", activityID, desiredStateFeedback)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// SendDesiredStateFeedback indicates an expected call of SendDesiredStateFeedback.
-func (mr *MockUpdateManagerFeatureMockRecorder) SendDesiredStateFeedback(envelope interface{}) *gomock.Call {
+// SendFeedback indicates an expected call of SendFeedback.
+func (mr *MockUpdateManagerFeatureMockRecorder) SendFeedback(activityID, desiredStateFeedback interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendDesiredStateFeedback", reflect.TypeOf((*MockUpdateManagerFeature)(nil).SendDesiredStateFeedback), envelope)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendFeedback", reflect.TypeOf((*MockUpdateManagerFeature)(nil).SendFeedback), activityID, desiredStateFeedback)
 }
 
-// SetCurrentState mocks base method.
-func (m *MockUpdateManagerFeature) SetCurrentState(envelope *types.Envelope) error {
+// SetState mocks base method.
+func (m *MockUpdateManagerFeature) SetState(activityID string, currentState *types.Inventory) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetCurrentState", envelope)
+	ret := m.ctrl.Call(m, "SetState", activityID, currentState)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// SetCurrentState indicates an expected call of SetCurrentState.
-func (mr *MockUpdateManagerFeatureMockRecorder) SetCurrentState(envelope interface{}) *gomock.Call {
+// SetState indicates an expected call of SetState.
+func (mr *MockUpdateManagerFeatureMockRecorder) SetState(activityID, currentState interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCurrentState", reflect.TypeOf((*MockUpdateManagerFeature)(nil).SetCurrentState), envelope)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetState", reflect.TypeOf((*MockUpdateManagerFeature)(nil).SetState), activityID, currentState)
 }
