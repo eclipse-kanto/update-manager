@@ -16,6 +16,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/eclipse-kanto/update-manager/api"
 	"github.com/eclipse-kanto/update-manager/cmd/update-manager/app"
 	"github.com/eclipse-kanto/update-manager/config"
 	"github.com/eclipse-kanto/update-manager/logger"
@@ -40,11 +41,18 @@ func main() {
 	}
 	defer loggerOut.Close()
 
-	client := mqtt.NewUpdateAgentClient(cfg.Domain, cfg.MQTT)
-	orchestrator := orchestration.NewUpdateOrchestrator(cfg)
-	updateManager := orchestration.NewUpdateManager(version, cfg, client, orchestrator)
+	var client api.UpdateAgentClient
+	if cfg.ThingsEnabled {
+		client = mqtt.NewUpdateAgentThingsClient(cfg.Domain, cfg.MQTT)
+	} else {
+		client = mqtt.NewUpdateAgentClient(cfg.Domain, cfg.MQTT)
+	}
+	updateManager, err := orchestration.NewUpdateManager(version, cfg, client, orchestration.NewUpdateOrchestrator(cfg))
+	if err == nil {
+		err = app.Launch(cfg, client, updateManager)
+	}
 
-	if err := app.Launch(cfg, client, updateManager); err != nil {
+	if err != nil {
 		logger.Error("failed to init Update Manager", err, nil)
 		loggerOut.Close()
 		os.Exit(1)

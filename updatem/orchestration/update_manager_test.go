@@ -45,16 +45,26 @@ func TestNewUpdateManager(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	cfg := test.CreateTestConfig(false, false)
-	uaClient := mqtt.NewUpdateAgentClient("device", &mqtt.ConnectionConfig{})
-	updateManager := NewUpdateManager("dummyVersion", cfg, uaClient, nil).((*aggregatedUpdateManager))
+	t.Run("test_no_error", func(t *testing.T) {
+		uaClient := mqtt.NewUpdateAgentClient("device", &mqtt.ConnectionConfig{})
+		apiUpdateManager, err := NewUpdateManager("dummyVersion", cfg, uaClient, nil)
+		assert.NoError(t, err)
+		updateManager := apiUpdateManager.(*aggregatedUpdateManager)
 
-	assert.Equal(t, "device", updateManager.Name())
-	assert.Equal(t, "dummyVersion", updateManager.version)
-	assert.Equal(t, cfg, updateManager.cfg)
-	assert.NotNil(t, updateManager.domainsInventory)
-	assert.NotNil(t, updateManager.rebootManager)
-	assert.NotNil(t, updateManager.domainAgents)
-	assert.Equal(t, 3, len(updateManager.domainAgents))
+		assert.Equal(t, "device", updateManager.Name())
+		assert.Equal(t, "dummyVersion", updateManager.version)
+		assert.Equal(t, cfg, updateManager.cfg)
+		assert.NotNil(t, updateManager.domainsInventory)
+		assert.NotNil(t, updateManager.rebootManager)
+		assert.NotNil(t, updateManager.domainAgents)
+		assert.Equal(t, 3, len(updateManager.domainAgents))
+	})
+	t.Run("test_error", func(t *testing.T) {
+		mockClient := mocks.NewMockUpdateAgentClient(mockCtrl)
+		apiUpdateManager, err := NewUpdateManager("dummyVersion", cfg, mockClient, nil)
+		assert.Error(t, err)
+		assert.Nil(t, apiUpdateManager)
+	})
 }
 
 func TestGetCurrentState(t *testing.T) {

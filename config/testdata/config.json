@@ -18,6 +18,7 @@
     "unsubscribeTimeout": 500
   },
   "domain": "mydomain",
+  "thingsEnabled": false,
   "rebootEnabled": false,
   "rebootAfter": "1m",
   "reportFeedbackInterval": "2m",

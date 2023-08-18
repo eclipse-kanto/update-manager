@@ -43,12 +43,15 @@ type aggregatedUpdateManager struct {
 }
 
 // NewUpdateManager instantiates a new Kanto update manager
-func NewUpdateManager(version string, cfg *config.Config, updateAgentClient api.UpdateAgentClient, updateOrchestrator api.UpdateOrchestrator) api.UpdateManager {
+func NewUpdateManager(version string, cfg *config.Config, updateAgentClient api.UpdateAgentClient, updateOrchestrator api.UpdateOrchestrator) (api.UpdateManager, error) {
 	domainAgents := make(map[string]api.UpdateManager)
 
 	for domainName, agentConfig := range cfg.Agents {
 		agentConfig.Name = domainName
-		desiredStateClient := mqtt.NewDesiredStateClient(domainName, updateAgentClient)
+		desiredStateClient, err := mqtt.NewDesiredStateClient(domainName, updateAgentClient)
+		if err != nil {
+			return nil, err
+		}
 		domainAgents[domainName] = domain.NewUpdateManager(desiredStateClient, agentConfig)
 	}
 	updateManager := &aggregatedUpdateManager{
@@ -64,7 +67,7 @@ func NewUpdateManager(version string, cfg *config.Config, updateAgentClient api.
 		domainAgent.SetCallback(updateManager)
 	}
 
-	return updateManager
+	return updateManager, nil
 }
 
 func (updateManager *aggregatedUpdateManager) Name() string {

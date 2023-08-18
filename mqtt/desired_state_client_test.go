@@ -14,10 +14,12 @@ package mqtt
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
+	"github.com/eclipse-kanto/update-manager/api"
 	"github.com/eclipse-kanto/update-manager/api/types"
-	mqttmocks "github.com/eclipse-kanto/update-manager/mqtt/mocks"
+	clientsmocks "github.com/eclipse-kanto/update-manager/mqtt/mocks"
 	"github.com/eclipse-kanto/update-manager/test/mocks"
 
 	pahomqtt "github.com/eclipse/paho.mqtt.golang"
@@ -29,13 +31,55 @@ func TestDomain(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	mockPaho := mqttmocks.NewMockClient(mockCtrl)
+	mockPaho := clientsmocks.NewMockClient(mockCtrl)
 
 	updateAgentClient := &updateAgentClient{
 		mqttClient: newInternalClient("testDomain", &ConnectionConfig{}, mockPaho),
 	}
 
-	assert.Equal(t, "testDomain", NewDesiredStateClient("testDomain", updateAgentClient).Domain())
+	client, _ := NewDesiredStateClient("testDomain", updateAgentClient)
+	assert.Equal(t, "testDomain", client.Domain())
+}
+
+func TestNewDesiredStateClient(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockPaho := clientsmocks.NewMockClient(mockCtrl)
+	mockClient := mocks.NewMockUpdateAgentClient(mockCtrl)
+
+	tests := map[string]struct {
+		client api.UpdateAgentClient
+		err    string
+	}{
+		"test_update_agent_client": {
+			client: &updateAgentClient{
+				mqttClient: newInternalClient("testDomain", &ConnectionConfig{}, mockPaho),
+			},
+		},
+		"test_update_agent_things_client": {
+			client: &updateAgentThingsClient{
+				updateAgentClient: &updateAgentClient{
+					mqttClient: newInternalClient("testDomain", &ConnectionConfig{}, mockPaho),
+				},
+			},
+		},
+		"test_error": {
+			client: mockClient,
+			err:    fmt.Sprintf("Unexpected type: %T", mockClient),
+		},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			client, err := NewDesiredStateClient("testDomain", test.client)
+			if test.err != "" {
+				assert.EqualError(t, err, fmt.Sprintf("Unexpected type: %T", test.client))
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, client)
+			}
+		})
+	}
 }
 
 func TestDesiredStateClientStart(t *testing.T) {
@@ -118,7 +162,7 @@ func TestSendDesiredState(t *testing.T) {
 					{ID: test.domain},
 				},
 			}
-			desiredStateClient := NewDesiredStateClient(test.domain, &updateAgentClient{
+			desiredStateClient, _ := NewDesiredStateClient(test.domain, &updateAgentClient{
 				mqttClient: newInternalClient("testDomain", mqttTestConfig, mockPaho),
 			})
 			mockPaho.EXPECT().Publish(test.domain+"update/desiredstate", uint8(1), false, gomock.Any()).DoAndReturn(
@@ -153,7 +197,7 @@ func TestSendDesiredStateCommand(t *testing.T) {
 				Command:  types.CommandDownload,
 				Baseline: name,
 			}
-			desiredStateClient := NewDesiredStateClient(test.domain, &updateAgentClient{
+			desiredStateClient, _ := NewDesiredStateClient(test.domain, &updateAgentClient{
 				mqttClient: newInternalClient(test.domain, mqttTestConfig, mockPaho),
 			})
 			mockPaho.EXPECT().Publish(test.domain+"update/desiredstate/command", uint8(1), false, gomock.Any()).DoAndReturn(
@@ -184,7 +228,7 @@ func TestSendCurrentStateGet(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			desiredStateClient := NewDesiredStateClient(test.domain, &updateAgentClient{
+			desiredStateClient, _ := NewDesiredStateClient(test.domain, &updateAgentClient{
 				mqttClient: newInternalClient(test.domain, mqttTestConfig, mockPaho),
 			})
 			mockPaho.EXPECT().Publish(test.domain+"update/currentstate/get", uint8(1), false, gomock.Any()).DoAndReturn(
@@ -213,7 +257,7 @@ func TestHandleCurrentStateMessage(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	mockMessage := mqttmocks.NewMockMessage(mockCtrl)
+	mockMessage := clientsmocks.NewMockMessage(mockCtrl)
 
 	testCurrentState := &types.Inventory{
 		SoftwareNodes: []*types.SoftwareNode{
@@ -256,7 +300,7 @@ func TestHandleDesiredStateFeedbackMessage(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	mockMessage := mqttmocks.NewMockMessage(mockCtrl)
+	mockMessage := clientsmocks.NewMockMessage(mockCtrl)
 
 	testFeedback := &types.DesiredStateFeedback{
 		Status: types.StatusIdentified,

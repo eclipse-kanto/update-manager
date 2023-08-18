@@ -50,6 +50,8 @@ func SetupFlags(flagSet *flag.FlagSet, cfg *BaseConfig) {
 	flagSet.Int64Var(&cfg.MQTT.UnsubscribeTimeout, "mqtt-conn-unsub-timeout", EnvToInt("MQTT_CONN_UNSUB_TIMEOUT", cfg.MQTT.UnsubscribeTimeout), "Unsubscribe timeout in milliseconds for the MQTT requests")
 
 	flagSet.StringVar(&cfg.Domain, "domain", EnvToString("DOMAIN", cfg.Domain), "Specify the Domain of this update agent, used as MQTT topic prefix.")
+
+	flagSet.BoolVar(&cfg.ThingsEnabled, "things-enabled", EnvToBool("THINGS_ENABLED", cfg.ThingsEnabled), "Specify whether the UpdateManager will behave as a things.")
 }
 
 // ParseConfigFilePath returns the value for configuration file path if set.
