@@ -204,7 +204,7 @@ func (um *updateManagerFeature) processApply(requestID string, msg *protocol.Env
 func (um *updateManagerFeature) processRefresh(requestID string, msg *protocol.Envelope) {
 	args := &base{}
 	if um.prepare(requestID, msg, updateManagerFeatureOperationRefresh, args) {
-		um.replySuccess(requestID, msg, updateManagerFeatureOperationApply)
+		um.replySuccess(requestID, msg, updateManagerFeatureOperationRefresh)
 		go func(handler api.UpdateAgentHandler) {
 			logger.Trace("[%s][%s] processing refresh operation", updateManagerFeatureID, um.domain)
 			if err := um.handler.HandleCurrentStateGet(args.ActivityID, args.Timestamp); err != nil {

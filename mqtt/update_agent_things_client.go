@@ -42,7 +42,7 @@ type updateAgentThingsClient struct {
 	*updateAgentClient
 	dittoClient ditto.Client
 	edgeConfig  *edgeConfiguration
-	uaFeature   things.UpdateManagerFeature
+	umFeature   things.UpdateManagerFeature
 }
 
 // NewUpdateAgentThingsClient instantiates a new UpdateAgentClient instance using the provided configuration options.
@@ -86,14 +86,16 @@ func (client *updateAgentThingsClient) handleEdgeResponse(_ pahomqtt.Client, mes
 	if client.edgeConfig == nil || *localCfg != *client.edgeConfig {
 		logger.Info("[%s] applying edge configuration: %v", client.Domain(), localCfg)
 		if client.edgeConfig != nil {
-			client.uaFeature.Deactivate()
+			client.umFeature.Deactivate()
 			client.dittoClient.Disconnect()
 		}
 
 		dittoConfig := ditto.NewConfiguration().
-			WithDisconnectTimeout(millisecondsToDuration(client.mqttConfig.DisconnectTimeout)).
+			WithAcknowledgeTimeout(millisecondsToDuration(client.mqttConfig.AcknowledgeTimeout)).
+			WithSubscribeTimeout(millisecondsToDuration(client.mqttConfig.SubscribeTimeout)).
+			WithUnsubscribeTimeout(millisecondsToDuration(client.mqttConfig.UnsubscribeTimeout)).
 			WithConnectHandler(func(dittoClient ditto.Client) {
-				if err = client.uaFeature.Activate(); err != nil {
+				if err = client.umFeature.Activate(); err != nil {
 					logger.ErrorErr(err, "[%s] could not activate update manager feature", client.Domain())
 				} else {
 					go getAndPublishCurrentState(client.Domain(), client.handler.HandleCurrentStateGet)
@@ -104,7 +106,7 @@ func (client *updateAgentThingsClient) handleEdgeResponse(_ pahomqtt.Client, mes
 			logger.ErrorErr(err, "[%s] could not create ditto client", client.Domain())
 			return
 		}
-		client.uaFeature = things.NewUpdateManagerFeature(client.Domain(), localCfg.DeviceID, client.dittoClient, client.handler)
+		client.umFeature = things.NewUpdateManagerFeature(client.Domain(), localCfg.DeviceID, client.dittoClient, client.handler)
 
 		if err = client.dittoClient.Connect(); err != nil {
 			logger.ErrorErr(err, "[%s] could not connect to ditto endpoint", client.Domain())
@@ -124,8 +126,8 @@ func (client *updateAgentThingsClient) Stop() error {
 	} else if err := token.Error(); err != nil {
 		logger.WarnErr(err, "[%s] error unsubscribing for topic '%s", client.Domain(), edgeResponseTopic)
 	}
-	if client.uaFeature != nil {
-		client.uaFeature.Deactivate()
+	if client.umFeature != nil {
+		client.umFeature.Deactivate()
 	}
 	if client.dittoClient != nil {
 		client.dittoClient.Disconnect()
@@ -163,12 +165,12 @@ func (client *updateAgentThingsClient) SendCurrentState(activityID string, curre
 
 	logger.Debug("[%s] publishing current state...", client.Domain())
 
-	return client.uaFeature.SetState(activityID, currentState)
+	return client.umFeature.SetState(activityID, currentState)
 }
 
 // SendDesiredStateFeedback makes the client create envelope with the given activityID and desired state feedback and send issues a desired state feedback message.
 func (client *updateAgentThingsClient) SendDesiredStateFeedback(activityID string, desiredStateFeedback *types.DesiredStateFeedback) error {
-	return client.uaFeature.SendFeedback(activityID, desiredStateFeedback)
+	return client.umFeature.SendFeedback(activityID, desiredStateFeedback)
 }
 
 func millisecondsToDuration(milliseconds int64) time.Duration {
