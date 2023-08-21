@@ -8,7 +8,7 @@ The desired state comes in a descriptive way, a.k.a desired state manifest. The 
 
 The update manager works together with a number of additional components, named update agents and implementing a dedicated UpdateAgent API. These agents have the responsibility to update a certain domain inside the target device while the update manager is domain-neutral.
 
-The update domains are, but not limitted to:
+The update domains are, but not limited to:
 - [Self-Update (OS Update) of connected Device](https://github.com/eclipse-leda/leda-contrib-self-update-agent)
 - [Container Management](https://github.com/eclipse-kanto/container-management)
 - IoT Device Firmware
