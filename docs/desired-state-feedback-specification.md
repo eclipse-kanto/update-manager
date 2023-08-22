@@ -1,5 +1,5 @@
 ### Desired State Feedback Representation
-The cloud backend (or OTA update system) needs to keep track of the update progress on both individual level as well as on campaign (or fleet) level. To achieve this purpose, the Update Manager introduces the Desire State Feedback as a common, structured and straightforward way for notifying the backend about the progress and status of the update.
+The cloud backend (or OTA update system) needs to keep track of the update progress on both individual level as well as on campaign (or fleet) level. To achieve this purpose, the Update Manager introduces the Desired State Feedback as a common, structured and straightforward way for notifying the backend about the progress and status of the update.
 
 The feedback is comprised by overall information for the current status of the ongoing update process, information for the status for each of the identified components and optional unstructured message. This message is meant to support projects with the need to transfer custom data such as a human readable progress information or internally used status codes.
 Optionally, the feedback can be defined at baseline level by specifying additional information for the baseline the feedback is associated with. If not present, the feedback is considered to be related at domain level.
@@ -11,13 +11,13 @@ The following table describes all supported properties and sections of the Desir
 | Property | Type | Description |
 | - | - | - |
 | **General properties** | | |
-| status | string | Status of the Desired State Feedback. The supported statuses are listed below |
+| status | string | [Status of the Desired State](#supported-desired-state-feedback-statuses) |
 | baseline | string | Title of the baseline, the Desired State Feedback is associated with. Optional |
 | message | string | Info message for the Desired State Feedback |
 | actions | JSON array | Set of Desired State Feedback actions |
 | **Action properties** | | |
 | component | JSON object | The component, which is linked with the action |
-| status | string | Status the of action. The supported statuses are listed below |
+| status | string | [Status the of action](#supported-desired-state-feedback-action-statuses) |
 | progress | int | Progress of the action in percentage |
 | message | string | Info message for the action |
 | **Config properties** | | |
@@ -127,10 +127,10 @@ message: Optional additional info about this action, e.g. internal status code, 
 
 The following diagram depicts the action state transitions:
 
-![Action states](/_assets/action-states.png)
+![Action states](./_assets/action-states.png)
 
 ### Device Level Aggregated State
 
 The overall device level state of the desired state application depends on the states of each individual action that has been identified. Only if all of them have completed successfully, the device has reached its desired state. The following diagram depicts the state transitions:
 
-![Aggregated states](/_assets/aggregate-states.png)
+![Aggregated states](./_assets/aggregate-states.png)

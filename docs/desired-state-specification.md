@@ -1,5 +1,5 @@
 ### Desired State Representation
-A technology agnostic way of representing the target software state of the device is required to enable remote management of device software and configuration. The device software state model enables flexible representation of complex software topologies of a device as well as the related configuration. It also enable users and application developers to develop and deploy composite applications seamlessly based on device context changes.
+A technology agnostic way of representing the target software state of the device is required to enable remote management of device software and configuration. The device software state model enables flexible representation of complex software topologies of a device as well as the related configuration. It also enables users and application developers to develop and deploy composite applications seamlessly based on device context changes.
 
 ### Desired State Data Model
 
@@ -12,9 +12,9 @@ The following table describes all supported properties and sections of the Desir
 | domains | JSON array | List of Desired State specifications for the domain agents |
 | **Baseline properties** | | |
 | title | string | Title of the baseline |
-| description | string | Description of the baseline |
+| description | string | Description of the baseline. A baseline is supposed to hold dependent components that are to be updated together. |
 | preconditions | string | List of comma-separated precondition expressions |
-| components | JSON array | Components of the baseline |
+| components | JSON array | Components of the baseline, each entry is prefixed with the domain name so that cross-domain dependecies can be handled too. |
 | **Domain properties** | | |
 | id | string | Identifier of the domain agent |
 | config | JSON object | Set of domain-specific configuration properties as key/value pairs |

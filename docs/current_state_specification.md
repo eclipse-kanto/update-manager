@@ -53,7 +53,7 @@ The software nodes are organized in the graph at different levels. At the root l
 
 The hardware nodes do not follow any strict hierarchy and can be linked to any hardware or software node. Any cycles between the nodes are not allowed and prevented.
 
-![Device inventory](/_assets/device-inventory.svg)
+![Device inventory](./_assets/device-inventory.svg)
 
 ### Current State Data Model Example
 
