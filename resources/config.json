@@ -1,0 +1,12 @@
+{
+    "log": {
+        "logFile": "/var/log/kanto-update-manager/kanto-update-manager.log"
+    },
+    "domain": "device",
+    "agents": {
+        "containers": {
+            "rebootRequired": false,
+            "readTimeout": "30s"
+        }
+    }
+}

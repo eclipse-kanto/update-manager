@@ -1,0 +1,41 @@
+{
+  "log": {
+    "logFile": "log/update-manager.log",
+    "logLevel": "ERROR",
+    "logFileSize": 3,
+    "logFileCount": 6,
+    "logFileMaxAge": 29
+  },
+  "connection": {
+    "broker":"www",
+    "keepAlive": 500,
+    "disconnectTimeout": 500,
+    "username":"username",
+    "password":"pass",
+    "connectTimeout": 500,
+    "acknowledgeTimeout": 500,
+    "subscribeTimeout": 500,
+    "unsubscribeTimeout": 500
+  },
+  "domain": "mydomain",
+  "thingsEnabled": false,
+  "rebootEnabled": false,
+  "rebootAfter": "1m",
+  "reportFeedbackInterval": "2m",
+  "currentStateDelay": "1m",
+  "phaseTimeout": "2m",
+  "agents": {
+    "self-update": {
+      "rebootRequired": false,
+      "readTimeout": "20s"
+    },
+    "containers": {
+      "rebootRequired": true,
+      "readTimeout": "30s"
+    },
+    "test-domain": {
+      "rebootRequired": true,
+      "readTimeout": "50s"
+    }
+  }
+}
