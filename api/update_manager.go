@@ -26,7 +26,7 @@ type UpdateAgent interface {
 
 // UpdateManagerConfig holds configuration properties for an update manager.
 type UpdateManagerConfig struct {
-	Name           string
+	Name           string `json:"-"`
 	RebootRequired bool   `json:"rebootRequired"`
 	ReadTimeout    string `json:"readTimeout"`
 }

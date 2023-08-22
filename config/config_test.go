@@ -94,17 +94,14 @@ func TestLoadConfigFromFile(t *testing.T) {
 
 		expectedAgentValues := map[string]*api.UpdateManagerConfig{
 			"self-update": {
-				Name:           "testSUname",
 				RebootRequired: false,
 				ReadTimeout:    "20s",
 			},
 			"containers": {
-				Name:           "testContainersName",
 				RebootRequired: true,
 				ReadTimeout:    "30s",
 			},
 			"test-domain": {
-				Name:           "testDomainName",
 				RebootRequired: true,
 				ReadTimeout:    "50s",
 			},

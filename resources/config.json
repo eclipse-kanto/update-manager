@@ -5,7 +5,6 @@
     "domain": "device",
     "agents": {
         "containers": {
-            "name": "containers",
             "rebootRequired": false,
             "readTimeout": "30s"
         }
