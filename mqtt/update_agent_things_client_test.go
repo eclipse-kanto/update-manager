@@ -21,6 +21,7 @@ import (
 
 	"github.com/eclipse-kanto/update-manager/api/types"
 	mqttmocks "github.com/eclipse-kanto/update-manager/mqtt/mocks"
+	"github.com/eclipse-kanto/update-manager/test"
 	"github.com/eclipse-kanto/update-manager/test/mocks"
 	"github.com/golang/mock/gomock"
 
@@ -29,8 +30,8 @@ import (
 
 func TestUpdateAgentThingsClientStart(t *testing.T) {
 	tests := map[string]testCaseOutgoing{
-		"test_connect_ok":      {domain: "testdomain", isTimedOut: false},
-		"test_connect_timeout": {domain: "mydomain", isTimedOut: true},
+		"test_connect_ok":      {domain: test.Domain, isTimedOut: false},
+		"test_connect_timeout": {domain: test.Domain, isTimedOut: true},
 	}
 
 	mockCtrl, mockPaho, mockToken := setupCommonMocks(t)
@@ -57,8 +58,8 @@ func TestUpdateAgentThingsClientStart(t *testing.T) {
 
 func TestUpdateAgentThingClientStop(t *testing.T) {
 	tests := map[string]testCaseOutgoing{
-		"test_disconnect_ok":      {domain: "testdomain", isTimedOut: false},
-		"test_disconnect_timeout": {domain: "mydomain", isTimedOut: true},
+		"test_disconnect_ok":      {domain: test.Domain, isTimedOut: false},
+		"test_disconnect_timeout": {domain: test.Domain, isTimedOut: true},
 	}
 
 	mockCtrl, mockPaho, mockToken := setupCommonMocks(t)
@@ -88,8 +89,8 @@ func TestThingsSendDesiredStateFeedback(t *testing.T) {
 		domain string
 		err    error
 	}{
-		"test_things_send_desired_state_feedback_ok":    {domain: "testdomain"},
-		"test_things_send_desired_state_feedback_error": {domain: "mydomain", err: fmt.Errorf("test error")},
+		"test_things_send_desired_state_feedback_ok":    {domain: test.Domain},
+		"test_things_send_desired_state_feedback_error": {domain: test.Domain, err: fmt.Errorf("test error")},
 	}
 
 	mockCtrl, mockPaho, _ := setupCommonMocks(t)
@@ -130,8 +131,8 @@ func TestThingsSendCurrentState(t *testing.T) {
 		domain string
 		err    error
 	}{
-		"test_send_current_state_ok":    {domain: "testdomain"},
-		"test_send_current_state_error": {domain: "mydomain", err: fmt.Errorf("test error")},
+		"test_send_current_state_ok":    {domain: test.Domain},
+		"test_send_current_state_error": {domain: test.Domain, err: fmt.Errorf("test error")},
 	}
 
 	mockCtrl, mockPaho, _ := setupCommonMocks(t)
@@ -209,7 +210,6 @@ func TestHandleEdgeResponseThingsHandleDesiredStateMessage(t *testing.T) {
 	mockMessage := mqttmocks.NewMockMessage(mockCtrl)
 	mockHandler := mocks.NewMockUpdateAgentHandler(mockCtrl)
 
-	testDomain := "testDomain"
 	testEdgeConfig := &edgeConfiguration{DeviceID: "namespace:testDevice", TenantID: "testTenant", PolicyID: "testPolicy"}
 	testBytes, _ := json.Marshal(testEdgeConfig)
 	testWG := &sync.WaitGroup{}
@@ -217,8 +217,8 @@ func TestHandleEdgeResponseThingsHandleDesiredStateMessage(t *testing.T) {
 
 	updateAgentThingsClient := &updateAgentThingsClient{
 		updateAgentClient: &updateAgentClient{
-			mqttClient: newInternalClient(testDomain, mqttTestConfig, mockPaho),
-			domain:     testDomain,
+			mqttClient: newInternalClient(test.Domain, mqttTestConfig, mockPaho),
+			domain:     test.Domain,
 			handler:    mockHandler,
 		},
 	}
@@ -238,17 +238,5 @@ func TestHandleEdgeResponseThingsHandleDesiredStateMessage(t *testing.T) {
 	assert.Equal(t, testEdgeConfig, updateAgentThingsClient.edgeConfig)
 	assert.NotNil(t, updateAgentThingsClient.dittoClient)
 	assert.NotNil(t, updateAgentThingsClient.umFeature)
-
-	testWaitChan := make(chan struct{})
-	testTimeout := 2 * time.Second
-	go func() {
-		defer close(testWaitChan)
-		testWG.Wait()
-	}()
-	select {
-	case <-testWaitChan:
-		return // completed normally
-	case <-time.After(testTimeout):
-		t.Fatal("timed out waiting for ", testTimeout)
-	}
+	test.AssertWithTimeout(t, testWG, 2*time.Second)
 }

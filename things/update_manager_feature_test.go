@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/eclipse-kanto/update-manager/api/types"
+	"github.com/eclipse-kanto/update-manager/test"
 	"github.com/eclipse-kanto/update-manager/test/mocks"
 	"github.com/eclipse/ditto-clients-golang/model"
 	"github.com/eclipse/ditto-clients-golang/protocol"
@@ -27,11 +28,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const (
-	testDomain     = "testDomain"
-	testActivityID = "testActivityID"
-	outboxPathFmt  = "/features/UpdateManager/outbox/messages/%s"
-)
+const outboxPathFmt = "/features/UpdateManager/outbox/messages/%s"
 
 var (
 	tesThingID = model.NewNamespacedIDFrom("namespace:testDevice")
@@ -45,7 +42,7 @@ func TestActivate(t *testing.T) {
 		mockExecution func(*mocks.MockClient) error
 	}{
 		"test_activate_ok": {
-			feature: &updateManagerFeature{thingID: tesThingID, domain: testDomain},
+			feature: &updateManagerFeature{thingID: tesThingID, domain: test.Domain},
 			mockExecution: func(mockDittoClient *mocks.MockClient) error {
 				mockDittoClient.EXPECT().Subscribe(gomock.Any())
 				mockDittoClient.EXPECT().Send(gomock.AssignableToTypeOf(&protocol.Envelope{})).DoAndReturn(func(message *protocol.Envelope) error {
@@ -54,7 +51,7 @@ func TestActivate(t *testing.T) {
 					assert.Equal(t, "/features/UpdateManager", message.Path)
 					feature := message.Value.(*model.Feature)
 					assert.Equal(t, updateManagerFeatureDefinition, feature.Definition[0].String())
-					assert.Equal(t, testDomain, feature.Properties["domain"])
+					assert.Equal(t, test.Domain, feature.Properties["domain"])
 					return nil
 				})
 				return nil
@@ -67,7 +64,7 @@ func TestActivate(t *testing.T) {
 			},
 		},
 		"test_activate_error": {
-			feature: &updateManagerFeature{thingID: tesThingID, domain: testDomain},
+			feature: &updateManagerFeature{thingID: tesThingID, domain: test.Domain},
 			mockExecution: func(mockDittoClient *mocks.MockClient) error {
 				mockDittoClient.EXPECT().Subscribe(gomock.Any())
 				mockDittoClient.EXPECT().Send(gomock.AssignableToTypeOf(&protocol.Envelope{})).Return(errTest)
@@ -77,19 +74,19 @@ func TestActivate(t *testing.T) {
 		},
 	}
 
-	for name, test := range tests {
+	for name, testCase := range tests {
 		t.Run(name, func(t *testing.T) {
-			mockCtrl, mockDittoClient, _ := setupMocks(t, test.feature)
+			mockCtrl, mockDittoClient, _ := setupMocks(t, testCase.feature)
 			defer mockCtrl.Finish()
 
-			expectedError := test.mockExecution(mockDittoClient)
-			actualError := test.feature.Activate()
+			expectedError := testCase.mockExecution(mockDittoClient)
+			actualError := testCase.feature.Activate()
 			if expectedError != nil {
 				assert.EqualError(t, actualError, expectedError.Error())
-				assert.False(t, test.feature.active)
+				assert.False(t, testCase.feature.active)
 			} else {
 				assert.Nil(t, actualError)
-				assert.True(t, test.feature.active)
+				assert.True(t, testCase.feature.active)
 			}
 		})
 	}
@@ -112,36 +109,35 @@ func TestDeactivate(t *testing.T) {
 		},
 	}
 
-	for name, test := range tests {
+	for name, testCase := range tests {
 		t.Run(name, func(t *testing.T) {
-			mockCtrl, mockDittoClient, _ := setupMocks(t, test.feature)
+			mockCtrl, mockDittoClient, _ := setupMocks(t, testCase.feature)
 			defer mockCtrl.Finish()
 
-			test.mockExecution(mockDittoClient)
-			test.feature.Deactivate()
+			testCase.mockExecution(mockDittoClient)
+			testCase.feature.Deactivate()
 
-			assert.False(t, test.feature.active)
+			assert.False(t, testCase.feature.active)
 		})
 	}
 }
 
 func TestSetState(t *testing.T) {
-	testInventory := &types.Inventory{}
 	tests := map[string]struct {
 		feature       *updateManagerFeature
 		mockExecution func(*mocks.MockClient) error
 	}{
 		"test_set_state_ok": {
-			feature: &updateManagerFeature{active: true, thingID: tesThingID, domain: testDomain},
+			feature: &updateManagerFeature{active: true, thingID: tesThingID, domain: test.Domain},
 			mockExecution: func(mockDittoClient *mocks.MockClient) error {
 				mockDittoClient.EXPECT().Send(gomock.AssignableToTypeOf(&protocol.Envelope{})).DoAndReturn(func(message *protocol.Envelope) error {
 					assert.False(t, message.Headers.IsResponseRequired())
 					assertTwinCommandTopic(t, *tesThingID, message.Topic)
 					assert.Equal(t, "/features/UpdateManager/properties", message.Path)
 					properties := message.Value.(*updateManagerProperties)
-					assert.Equal(t, testDomain, properties.Domain)
-					assert.Equal(t, testActivityID, properties.ActivityID)
-					assert.Equal(t, testInventory, properties.Inventory)
+					assert.Equal(t, test.Domain, properties.Domain)
+					assert.Equal(t, test.ActivityID, properties.ActivityID)
+					assert.Equal(t, test.Inventory, properties.Inventory)
 					assert.True(t, properties.Timestamp > 0)
 					return nil
 				})
@@ -155,7 +151,7 @@ func TestSetState(t *testing.T) {
 			},
 		},
 		"test_set_state_error": {
-			feature: &updateManagerFeature{active: true, thingID: tesThingID, domain: testDomain},
+			feature: &updateManagerFeature{active: true, thingID: tesThingID, domain: test.Domain},
 			mockExecution: func(mockDittoClient *mocks.MockClient) error {
 				mockDittoClient.EXPECT().Send(gomock.AssignableToTypeOf(&protocol.Envelope{})).Return(errTest)
 				return errTest
@@ -163,13 +159,13 @@ func TestSetState(t *testing.T) {
 		},
 	}
 
-	for name, test := range tests {
+	for name, testCase := range tests {
 		t.Run(name, func(t *testing.T) {
-			mockCtrl, mockDittoClient, _ := setupMocks(t, test.feature)
+			mockCtrl, mockDittoClient, _ := setupMocks(t, testCase.feature)
 			defer mockCtrl.Finish()
 
-			expectedError := test.mockExecution(mockDittoClient)
-			actualError := test.feature.SetState(testActivityID, testInventory)
+			expectedError := testCase.mockExecution(mockDittoClient)
+			actualError := testCase.feature.SetState(test.ActivityID, test.Inventory)
 			if expectedError != nil {
 				assert.EqualError(t, actualError, expectedError.Error())
 			} else {
@@ -186,14 +182,14 @@ func TestSendFeedback(t *testing.T) {
 		mockExecution func(*mocks.MockClient) error
 	}{
 		"test_send_feedback_ok": {
-			feature: &updateManagerFeature{active: true, thingID: tesThingID, domain: testDomain},
+			feature: &updateManagerFeature{active: true, thingID: tesThingID, domain: test.Domain},
 			mockExecution: func(mockDittoClient *mocks.MockClient) error {
 				mockDittoClient.EXPECT().Send(gomock.AssignableToTypeOf(&protocol.Envelope{})).DoAndReturn(func(message *protocol.Envelope) error {
 					assert.False(t, message.Headers.IsResponseRequired())
 					assertLiveMessageTopic(t, *tesThingID, updateManagerFeatureMessageFeedback, message.Topic)
 					assert.Equal(t, fmt.Sprintf(outboxPathFmt, updateManagerFeatureMessageFeedback), message.Path)
 					feedback := message.Value.(*feedback)
-					assert.Equal(t, testActivityID, feedback.ActivityID)
+					assert.Equal(t, test.ActivityID, feedback.ActivityID)
 					assert.Equal(t, testFeedback, feedback.DesiredStateFeedback)
 					assert.True(t, feedback.Timestamp > 0)
 					return nil
@@ -208,7 +204,7 @@ func TestSendFeedback(t *testing.T) {
 			},
 		},
 		"test_send_feedback_error": {
-			feature: &updateManagerFeature{active: true, thingID: tesThingID, domain: testDomain},
+			feature: &updateManagerFeature{active: true, thingID: tesThingID, domain: test.Domain},
 			mockExecution: func(mockDittoClient *mocks.MockClient) error {
 				mockDittoClient.EXPECT().Send(gomock.AssignableToTypeOf(&protocol.Envelope{})).Return(errTest)
 				return errTest
@@ -216,13 +212,13 @@ func TestSendFeedback(t *testing.T) {
 		},
 	}
 
-	for name, test := range tests {
+	for name, testCase := range tests {
 		t.Run(name, func(t *testing.T) {
-			mockCtrl, mockDittoClient, _ := setupMocks(t, test.feature)
+			mockCtrl, mockDittoClient, _ := setupMocks(t, testCase.feature)
 			defer mockCtrl.Finish()
 
-			expectedError := test.mockExecution(mockDittoClient)
-			actualError := test.feature.SendFeedback(testActivityID, testFeedback)
+			expectedError := testCase.mockExecution(mockDittoClient)
+			actualError := testCase.feature.SendFeedback(test.ActivityID, testFeedback)
 			if expectedError != nil {
 				assert.EqualError(t, actualError, expectedError.Error())
 			} else {
@@ -233,7 +229,6 @@ func TestSendFeedback(t *testing.T) {
 }
 
 func TestMessageHandler(t *testing.T) {
-	testDesiredState := &types.DesiredState{}
 	testRequestID := "testRequestID"
 	mockThingExecution := func(operation string) func(*mocks.MockClient, *mocks.MockUpdateAgentHandler) {
 		return func(mockDittoClient *mocks.MockClient, mockHandler *mocks.MockUpdateAgentHandler) {
@@ -249,13 +244,13 @@ func TestMessageHandler(t *testing.T) {
 			testWG.Add(1)
 			switch operation {
 			case updateManagerFeatureOperationRefresh:
-				mockHandler.EXPECT().HandleCurrentStateGet(testActivityID, gomock.Any()).DoAndReturn(func(activityID string, timestamp int64) error {
+				mockHandler.EXPECT().HandleCurrentStateGet(test.ActivityID, gomock.Any()).DoAndReturn(func(activityID string, timestamp int64) error {
 					testWG.Done()
 					return nil
 				})
 			case updateManagerFeatureOperationApply:
-				mockHandler.EXPECT().HandleDesiredState(testActivityID, gomock.Any(), gomock.Any()).DoAndReturn(func(activityID string, timestamp int64, ds *types.DesiredState) error {
-					assert.Equal(t, testDesiredState, ds)
+				mockHandler.EXPECT().HandleDesiredState(test.ActivityID, gomock.Any(), gomock.Any()).DoAndReturn(func(activityID string, timestamp int64, ds *types.DesiredState) error {
+					assert.Equal(t, test.DesiredState, ds)
 					testWG.Done()
 					return nil
 				})
@@ -303,7 +298,7 @@ func TestMessageHandler(t *testing.T) {
 		},
 		"test_message_handler_refresh_ok": {
 			feature: &updateManagerFeature{active: true, thingID: tesThingID},
-			envelope: things.NewMessage(tesThingID).Feature(updateManagerFeatureID).Inbox(updateManagerFeatureOperationRefresh).WithPayload(&base{ActivityID: testActivityID}).
+			envelope: things.NewMessage(tesThingID).Feature(updateManagerFeatureID).Inbox(updateManagerFeatureOperationRefresh).WithPayload(&base{ActivityID: test.ActivityID}).
 				Envelope(protocol.WithResponseRequired(true)),
 			mockExecution: mockThingExecution(updateManagerFeatureOperationRefresh),
 		},
@@ -315,7 +310,7 @@ func TestMessageHandler(t *testing.T) {
 		},
 		"test_message_handler_apply_ok": {
 			feature: &updateManagerFeature{active: true, thingID: tesThingID},
-			envelope: things.NewMessage(tesThingID).Feature(updateManagerFeatureID).Inbox(updateManagerFeatureOperationApply).WithPayload(&applyArgs{base: base{ActivityID: testActivityID}, DesiredState: &types.DesiredState{}}).
+			envelope: things.NewMessage(tesThingID).Feature(updateManagerFeatureID).Inbox(updateManagerFeatureOperationApply).WithPayload(&applyArgs{base: base{ActivityID: test.ActivityID}, DesiredState: test.DesiredState}).
 				Envelope(protocol.WithResponseRequired(true)),
 			mockExecution: mockThingExecution(updateManagerFeatureOperationApply),
 		},
@@ -327,32 +322,20 @@ func TestMessageHandler(t *testing.T) {
 		},
 		"test_message_handler_apply_nil_desire_state_error": {
 			feature: &updateManagerFeature{active: true, thingID: tesThingID},
-			envelope: things.NewMessage(tesThingID).Feature(updateManagerFeatureID).Inbox(updateManagerFeatureOperationApply).WithPayload(&applyArgs{base: base{ActivityID: testActivityID}}).
+			envelope: things.NewMessage(tesThingID).Feature(updateManagerFeatureID).Inbox(updateManagerFeatureOperationApply).WithPayload(&applyArgs{base: base{ActivityID: test.ActivityID}}).
 				Envelope(protocol.WithResponseRequired(true)),
 			mockExecution: mockThingErrorExecution(updateManagerFeatureOperationApply),
 		},
 	}
 
-	for name, test := range tests {
+	for name, testCase := range tests {
 		t.Run(name, func(t *testing.T) {
-			mockCtrl, mockDittoClient, mockHandler := setupMocks(t, test.feature)
+			mockCtrl, mockDittoClient, mockHandler := setupMocks(t, testCase.feature)
 			defer mockCtrl.Finish()
 
-			test.mockExecution(mockDittoClient, mockHandler)
-			test.feature.messagesHandler(testRequestID, test.envelope)
-
-			testWaitChan := make(chan struct{})
-			testTimeout := 2 * time.Second
-			go func() {
-				defer close(testWaitChan)
-				testWG.Wait()
-			}()
-			select {
-			case <-testWaitChan:
-				return // completed normally
-			case <-time.After(testTimeout):
-				t.Fatal("timed out waiting for ", testTimeout)
-			}
+			testCase.mockExecution(mockDittoClient, mockHandler)
+			testCase.feature.messagesHandler(testRequestID, testCase.envelope)
+			test.AssertWithTimeout(t, testWG, 2*time.Second)
 		})
 	}
 }

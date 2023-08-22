@@ -21,6 +21,9 @@ import (
 // ActivityID test constant
 const ActivityID = "testActivityId"
 
+// Domain test constant
+const Domain = "testDomain"
+
 // Interval test constant
 const Interval = 1 * time.Second
 

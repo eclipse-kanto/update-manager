@@ -16,11 +16,11 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"sync"
 	"testing"
+	"time"
 
-	"github.com/eclipse-kanto/update-manager/api"
 	"github.com/eclipse-kanto/update-manager/api/types"
-	"github.com/eclipse-kanto/update-manager/config"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -55,32 +55,26 @@ func CreateSoftwareNode(domain string, number int, key string, value string, swT
 	}
 }
 
-// CreateTestConfig function for creation of test Config
-func CreateTestConfig(rebootRequired, rebootEnabled bool) *config.Config {
-	agents := make(map[string]*api.UpdateManagerConfig)
-
-	for i := 1; i < 4; i++ {
-		agents[fmt.Sprintf("testDomain%d", i)] = &api.UpdateManagerConfig{
-			Name:           fmt.Sprintf("testDomain%d", i),
-			RebootRequired: rebootRequired,
-			ReadTimeout:    Interval.String(),
-		}
-	}
-
-	return &config.Config{
-		BaseConfig: &config.BaseConfig{
-			Domain: "device",
-		},
-		Agents:        agents,
-		RebootEnabled: rebootEnabled,
-	}
-}
-
 // CreateAssociation function for creation of test Association
 func CreateAssociation(sourceID, targetID string) *types.Association {
 	return &types.Association{
 		SourceID: sourceID,
 		TargetID: targetID,
+	}
+}
+
+// AssertWithTimeout asserts that an operation is completed within a certain period of time
+func AssertWithTimeout(t *testing.T, waitGroup *sync.WaitGroup, testTimeout time.Duration) {
+	testWaitChan := make(chan struct{})
+	go func() {
+		defer close(testWaitChan)
+		waitGroup.Wait()
+	}()
+	select {
+	case <-testWaitChan:
+		return // completed normally
+	case <-time.After(testTimeout):
+		t.Fatal("timed out waiting for ", testTimeout)
 	}
 }
 

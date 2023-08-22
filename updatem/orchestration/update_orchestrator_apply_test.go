@@ -41,7 +41,7 @@ func TestApply(t *testing.T) {
 		mockUpdateManager := mocks.NewMockUpdateManager(mockCtrl)
 
 		orchestrator := &updateOrchestrator{
-			cfg:          test.CreateTestConfig(false, false),
+			cfg:          createTestConfig(false, false),
 			phaseTimeout: test.Interval,
 			operation: &updateOperation{
 				desiredState:         &types.DesiredState{},
@@ -93,7 +93,7 @@ func TestApply(t *testing.T) {
 		mockUpdateManager := mocks.NewMockUpdateManager(mockCtrl)
 
 		orchestrator := &updateOrchestrator{
-			cfg:          test.CreateTestConfig(false, false),
+			cfg:          createTestConfig(false, false),
 			phaseTimeout: test.Interval,
 			operation: &updateOperation{
 				desiredState:         &types.DesiredState{},
