@@ -89,7 +89,6 @@ func prepareAgentsConfig(cfg *Config, domains map[string]bool) {
 	if cfg.Agents == nil {
 		cfg.Agents = newDefaultAgentsConfig()
 	} else {
-		// fill names
 		for name, agent := range cfg.Agents {
 			agent.Name = name
 		}
