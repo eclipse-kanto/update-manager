@@ -26,17 +26,14 @@
   "phaseTimeout": "2m",
   "agents": {
     "self-update": {
-      "name": "testSUname",
       "rebootRequired": false,
       "readTimeout": "20s"
     },
     "containers": {
-      "name": "testContainersName",
       "rebootRequired": true,
       "readTimeout": "30s"
     },
     "test-domain": {
-      "name": "testDomainName",
       "rebootRequired": true,
       "readTimeout": "50s"
     }

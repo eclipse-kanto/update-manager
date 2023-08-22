@@ -228,17 +228,17 @@ func TestParseFlags(t *testing.T) {
 		testConfigPath := "../config/testdata/config.json"
 		expectedAgentsFromConfigFile := map[string]*api.UpdateManagerConfig{
 			"self-update": {
-				Name:           "testSUname",
+				Name:           "self-update",
 				RebootRequired: false,
 				ReadTimeout:    "20s",
 			},
 			"containers": {
-				Name:           "testContainersName",
+				Name:           "containers",
 				RebootRequired: true,
 				ReadTimeout:    "30s",
 			},
 			"test-domain": {
-				Name:           "testDomainName",
+				Name:           "test-domain",
 				RebootRequired: true,
 				ReadTimeout:    "50s",
 			},
@@ -306,24 +306,24 @@ func TestParseFlags(t *testing.T) {
 		reconfiguredRTO := "2m"
 		expectedAgentsFromConfigFile := map[string]*api.UpdateManagerConfig{
 			"self-update": {
-				Name:           "testSUname",
+				Name:           "self-update",
 				RebootRequired: false,
 				ReadTimeout:    reconfiguredRTO,
 			},
 			"containers": {
-				Name:           "testContainersName",
+				Name:           "containers",
 				RebootRequired: true,
 				ReadTimeout:    "30s",
 			},
 			"test-domain": {
-				Name:           "testDomainName",
+				Name:           "test-domain",
 				RebootRequired: true,
 				ReadTimeout:    "50s",
 			},
 		}
 
 		os.Args = []string{oldArgs[0], fmt.Sprintf("--%s=%s", configFileFlagID, testConfigPath),
-			fmt.Sprintf("--%s=%s", "testSUname-read-timeout", reconfiguredRTO)}
+			fmt.Sprintf("--%s=%s", "self-update-read-timeout", reconfiguredRTO)}
 		cfg := newDefaultConfig()
 		configFilePath := ParseConfigFilePath()
 		if configFilePath != "" {

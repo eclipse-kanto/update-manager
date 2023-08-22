@@ -88,6 +88,10 @@ func LoadConfig(version string) (*Config, error) {
 func prepareAgentsConfig(cfg *Config, domains map[string]bool) {
 	if cfg.Agents == nil {
 		cfg.Agents = newDefaultAgentsConfig()
+	} else {
+		for name, agent := range cfg.Agents {
+			agent.Name = name
+		}
 	}
 	if len(domains) > 0 {
 		for name := range cfg.Agents {
