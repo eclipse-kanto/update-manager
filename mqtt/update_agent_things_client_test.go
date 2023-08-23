@@ -13,10 +13,15 @@
 package mqtt
 
 import (
+	"encoding/json"
 	"fmt"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/eclipse-kanto/update-manager/api/types"
+	mqttmocks "github.com/eclipse-kanto/update-manager/mqtt/mocks"
+	"github.com/eclipse-kanto/update-manager/test"
 	"github.com/eclipse-kanto/update-manager/test/mocks"
 	"github.com/golang/mock/gomock"
 
@@ -25,8 +30,8 @@ import (
 
 func TestUpdateAgentThingsClientStart(t *testing.T) {
 	tests := map[string]testCaseOutgoing{
-		"test_connect_ok":      {domain: "testdomain", isTimedOut: false},
-		"test_connect_timeout": {domain: "mydomain", isTimedOut: true},
+		"test_connect_ok":      {domain: test.Domain, isTimedOut: false},
+		"test_connect_timeout": {domain: test.Domain, isTimedOut: true},
 	}
 
 	mockCtrl, mockPaho, mockToken := setupCommonMocks(t)
@@ -53,8 +58,8 @@ func TestUpdateAgentThingsClientStart(t *testing.T) {
 
 func TestUpdateAgentThingClientStop(t *testing.T) {
 	tests := map[string]testCaseOutgoing{
-		"test_disconnect_ok":      {domain: "testdomain", isTimedOut: false},
-		"test_disconnect_timeout": {domain: "mydomain", isTimedOut: true},
+		"test_disconnect_ok":      {domain: test.Domain, isTimedOut: false},
+		"test_disconnect_timeout": {domain: test.Domain, isTimedOut: true},
 	}
 
 	mockCtrl, mockPaho, mockToken := setupCommonMocks(t)
@@ -84,8 +89,8 @@ func TestThingsSendDesiredStateFeedback(t *testing.T) {
 		domain string
 		err    error
 	}{
-		"test_things_send_desired_state_feedback_ok":    {domain: "testdomain"},
-		"test_things_send_desired_state_feedback_error": {domain: "mydomain", err: fmt.Errorf("test error")},
+		"test_things_send_desired_state_feedback_ok":    {domain: test.Domain},
+		"test_things_send_desired_state_feedback_error": {domain: test.Domain, err: fmt.Errorf("test error")},
 	}
 
 	mockCtrl, mockPaho, _ := setupCommonMocks(t)
@@ -103,7 +108,7 @@ func TestThingsSendDesiredStateFeedback(t *testing.T) {
 					domain:     test.domain,
 					mqttClient: newInternalClient(test.domain, mqttTestConfig, mockPaho),
 				},
-				uaFeature: mockFeature,
+				umFeature: mockFeature,
 			}
 			mockFeature.EXPECT().SendFeedback(name, gomock.Any()).DoAndReturn(
 				func(activityID string, desiredStateFeedback *types.DesiredStateFeedback) error {
@@ -126,8 +131,8 @@ func TestThingsSendCurrentState(t *testing.T) {
 		domain string
 		err    error
 	}{
-		"test_send_current_state_ok":    {domain: "testdomain"},
-		"test_send_current_state_error": {domain: "mydomain", err: fmt.Errorf("test error")},
+		"test_send_current_state_ok":    {domain: test.Domain},
+		"test_send_current_state_error": {domain: test.Domain, err: fmt.Errorf("test error")},
 	}
 
 	mockCtrl, mockPaho, _ := setupCommonMocks(t)
@@ -152,7 +157,7 @@ func TestThingsSendCurrentState(t *testing.T) {
 					domain:     test.domain,
 					mqttClient: newInternalClient(test.domain, mqttTestConfig, mockPaho),
 				},
-				uaFeature: mockFeature,
+				umFeature: mockFeature,
 			}
 			mockFeature.EXPECT().SetState(name, gomock.Any()).DoAndReturn(
 				func(activityID string, inventory *types.Inventory) error {
@@ -195,4 +200,43 @@ func TestThingOnConnect(t *testing.T) {
 		updateAgentThingsClient.onConnect(nil)
 	})
 
+}
+
+func TestHandleEdgeResponseThingsHandleDesiredStateMessage(t *testing.T) {
+
+	mockCtrl, mockPaho, mockToken := setupCommonMocks(t)
+	defer mockCtrl.Finish()
+
+	mockMessage := mqttmocks.NewMockMessage(mockCtrl)
+	mockHandler := mocks.NewMockUpdateAgentHandler(mockCtrl)
+
+	testEdgeConfig := &edgeConfiguration{DeviceID: "namespace:testDevice", TenantID: "testTenant", PolicyID: "testPolicy"}
+	testBytes, _ := json.Marshal(testEdgeConfig)
+	testWG := &sync.WaitGroup{}
+	testWG.Add(1)
+
+	updateAgentThingsClient := &updateAgentThingsClient{
+		updateAgentClient: &updateAgentClient{
+			mqttClient: newInternalClient(test.Domain, mqttTestConfig, mockPaho),
+			domain:     test.Domain,
+			handler:    mockHandler,
+		},
+	}
+
+	mockMessage.EXPECT().Payload().Return(testBytes)
+	mockPaho.EXPECT().IsConnected().Return(true)
+	mockPaho.EXPECT().Subscribe("command///req/#", uint8(1), gomock.Any()).Return(mockToken)
+	setupMockToken(mockToken, mqttTestConfig.SubscribeTimeout, false)
+	mockPaho.EXPECT().Publish("e", uint8(1), false, gomock.Any()).Return(mockToken)
+	setupMockToken(mockToken, mqttTestConfig.AcknowledgeTimeout, false)
+	mockHandler.EXPECT().HandleCurrentStateGet(gomock.Any(), gomock.Any()).DoAndReturn(func(string, int64) error {
+		testWG.Done()
+		return nil
+	})
+
+	updateAgentThingsClient.handleEdgeResponse(nil, mockMessage)
+	assert.Equal(t, testEdgeConfig, updateAgentThingsClient.edgeConfig)
+	assert.NotNil(t, updateAgentThingsClient.dittoClient)
+	assert.NotNil(t, updateAgentThingsClient.umFeature)
+	test.AssertWithTimeout(t, testWG, 2*time.Second)
 }

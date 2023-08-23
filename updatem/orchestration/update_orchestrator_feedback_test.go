@@ -648,7 +648,7 @@ func TestFeedbackHandleDesiredStateFeedbackEvent(t *testing.T) {
 						mockUpdateManager: {},
 					},
 				},
-				cfg: test.CreateTestConfig(false, false),
+				cfg: createTestConfig(false, false),
 			}
 
 			testCase.testCode()
@@ -799,7 +799,7 @@ func generateUpdOrch(cfgRebootReqired bool, actions map[string]map[string]*types
 			done:          make(chan bool, 1),
 			domains:       domains,
 		},
-		cfg: test.CreateTestConfig(cfgRebootReqired, true),
+		cfg: createTestConfig(cfgRebootReqired, true),
 	}
 }
 

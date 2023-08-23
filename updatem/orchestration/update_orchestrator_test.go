@@ -47,7 +47,7 @@ func TestUpdOrchApply(t *testing.T) {
 		ctx := context.Background()
 
 		updOrchestrator := &updateOrchestrator{
-			cfg: test.CreateTestConfig(false, false),
+			cfg: createTestConfig(false, false),
 		}
 		domainAgent := mocks.NewMockUpdateManager(mockCtrl)
 
@@ -73,7 +73,7 @@ func TestUpdOrchApply(t *testing.T) {
 	t.Run("test_empty_domainAgents_err_not_nil", func(t *testing.T) {
 		eventCallback := mocks.NewMockUpdateManagerCallback(mockCtrl)
 		updOrchestrator := &updateOrchestrator{
-			cfg: test.CreateTestConfig(false, false),
+			cfg: createTestConfig(false, false),
 		}
 		desiredState := &types.DesiredState{
 			Domains: []*types.Domain{},

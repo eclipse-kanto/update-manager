@@ -15,6 +15,7 @@ package orchestration
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"sync"
 	"testing"
@@ -321,7 +322,7 @@ func TestUpdateInventoryForDomain2(t *testing.T) {
 
 		wg.Add(1)
 		updateInventoryForDomain(context.Background(), &wg, test.ActivityID, agent, domainsInventory)
-		wg.Wait()
+		test.AssertWithTimeout(t, &wg, 2*time.Second)
 		assert.Equal(t, testCase.testInventory, domainsInventory["testName"])
 	}
 }

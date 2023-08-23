@@ -44,7 +44,7 @@ func TestNewUpdateManager(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	cfg := test.CreateTestConfig(false, false)
+	cfg := createTestConfig(false, false)
 	t.Run("test_no_error", func(t *testing.T) {
 		uaClient := mqtt.NewUpdateAgentClient("device", &mqtt.ConnectionConfig{})
 		apiUpdateManager, err := NewUpdateManager("dummyVersion", cfg, uaClient, nil)
@@ -90,7 +90,7 @@ func TestGetCurrentState(t *testing.T) {
 		domainUpdateManager.(*mocks.MockUpdateManager).EXPECT().Name().Times(1)
 	}
 
-	updateManager := createTestUpdateManager(nil, domainUpdateManagers, nil, 0, test.CreateTestConfig(false, false), nil, domainInventory, "development")
+	updateManager := createTestUpdateManager(nil, domainUpdateManagers, nil, 0, createTestConfig(false, false), nil, domainInventory, "development")
 	currentState, err := updateManager.Get(ctx, "test")
 	assert.Nil(t, err)
 	test.AssertInventoryWithoutElementsOrder(t, defaultInventory, currentState)
@@ -121,7 +121,7 @@ func TestApplyDesiredState(t *testing.T) {
 	domainUpdateManager.EXPECT().Get(ctx, test.ActivityID).Times(1).Return(nil, nil)
 	domainUpdateManager.EXPECT().Name().Return("testDomain1")
 
-	updateManager := createTestUpdateManager(eventCallback, domainUpdateManagers, nil, 0, test.CreateTestConfig(false, false), mockUpdateOrchestrator, nil, "development")
+	updateManager := createTestUpdateManager(eventCallback, domainUpdateManagers, nil, 0, createTestConfig(false, false), mockUpdateOrchestrator, nil, "development")
 
 	mockUpdateOrchestrator.EXPECT().Apply(context.Background(), domainUpdateManagers, test.ActivityID, desiredState1, eventCallback).Times(1)
 
@@ -140,7 +140,7 @@ func TestDisposeUpdateManager(t *testing.T) {
 		domainUpdateManager.(*mocks.MockUpdateManager).EXPECT().Dispose()
 	}
 
-	updateManager := createTestUpdateManager(nil, domainUpdateManagers, nil, 0, test.CreateTestConfig(false, false), nil, nil, "development")
+	updateManager := createTestUpdateManager(nil, domainUpdateManagers, nil, 0, createTestConfig(false, false), nil, nil, "development")
 	assert.Nil(t, updateManager.Dispose())
 }
 
@@ -154,7 +154,7 @@ func TestStartWatchEvents(t *testing.T) {
 		domainUpdateManager.(*mocks.MockUpdateManager).EXPECT().WatchEvents(ctx)
 	}
 
-	createTestUpdateManager(nil, domainUpdateManagers, nil, 0, test.CreateTestConfig(false, false), nil, nil, "1.0.0").WatchEvents(ctx)
+	createTestUpdateManager(nil, domainUpdateManagers, nil, 0, createTestConfig(false, false), nil, nil, "1.0.0").WatchEvents(ctx)
 }
 
 func TestSetCallback(t *testing.T) {
@@ -163,7 +163,7 @@ func TestSetCallback(t *testing.T) {
 
 	eventCallback := mocks.NewMockUpdateManagerCallback(mockCtrl)
 
-	updateManager := createTestUpdateManager(nil, nil, nil, 0, test.CreateTestConfig(false, false), nil, nil, "1.0.0")
+	updateManager := createTestUpdateManager(nil, nil, nil, 0, createTestConfig(false, false), nil, nil, "1.0.0")
 	updateManager.SetCallback(eventCallback)
 	assert.Equal(t, eventCallback, updateManager.eventCallback)
 }
@@ -228,7 +228,7 @@ func TestRebootAfterApplyDesiredState(t *testing.T) {
 			if testValue.expectedReboot {
 				rebootManager.EXPECT().Reboot(30 * time.Second).Return(testValue.rebootError)
 			}
-			cfg := test.CreateTestConfig(testValue.rebootRequired, testValue.rebootEnabled)
+			cfg := createTestConfig(testValue.rebootRequired, testValue.rebootEnabled)
 			domainUpdateManagers := map[string]api.UpdateManager{}
 			updateManager := createTestUpdateManager(eventCallback, domainUpdateManagers, rebootManager, 0, cfg, mockUpdateOrchestrator, nil, "development")
 			mockUpdateOrchestrator.EXPECT().Apply(context.Background(), domainUpdateManagers, test.ActivityID, nil, eventCallback).Return(testValue.rebootRequired).Times(1)
@@ -257,5 +257,25 @@ func createTestUpdateManager(eventCallback api.UpdateManagerCallback, updateMana
 		eventCallback:      eventCallback,
 		updateOrchestrator: updateOrchestrator,
 		domainsInventory:   domainsInventory,
+	}
+}
+
+func createTestConfig(rebootRequired, rebootEnabled bool) *config.Config {
+	agents := make(map[string]*api.UpdateManagerConfig)
+
+	for i := 1; i < 4; i++ {
+		agents[fmt.Sprintf("testDomain%d", i)] = &api.UpdateManagerConfig{
+			Name:           fmt.Sprintf("testDomain%d", i),
+			RebootRequired: rebootRequired,
+			ReadTimeout:    test.Interval.String(),
+		}
+	}
+
+	return &config.Config{
+		BaseConfig: &config.BaseConfig{
+			Domain: "device",
+		},
+		Agents:        agents,
+		RebootEnabled: rebootEnabled,
 	}
 }
