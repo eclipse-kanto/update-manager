@@ -13,19 +13,19 @@ The following table describes all supported properties and sections of the Curre
 | **General properties** | | |
 | hardwareNodes | JSON array | Inventory for a list of hardware nodes |
 | softwareNodes | JSON array | Inventory for a list of software nodes |
-| associations | JSON array | List of mappings between the inventory nodes |
+| associations | JSON array | List of mappings between the inventory nodes. No semantics on model level, just a link between two nodes - either software, or hardware nodes. For Update Manager semantics, see [Device Inventory Graph Representation](#device-inventory-graph-representation) below. |
 | **Hardware node properties** | | |
 | id | string | Identifier of the hardware node |
 | version | string | Version of the hardware node |
 | name | string | Name of a hardware node |
-| parameters | JSON array | List of key/value parameters for a hardware node |
+| parameters | JSON array | List of key/value parameters for a hardware node. The parameters are solution and domain-specific. Detailed documentation for the supported key-value parameters of a hardware node are to be provided additionally. |
 | addressable | boolean | Enables hardware node addressability |
 | **Software node properties** | | |
 | id | string | Identifier of the software node |
 | version | string | Version of the software node |
 | name | string | Name of the software node |
-| parameters | JSON array | List of key/value parameters for a software node |
-| type | string | Type of the software node. The supported types are listed below |
+| parameters | JSON array | List of key/value parameters for a software node. The parameters are solution and domain-specific. Detailed documentation for the supported key-value parameters of a software node are to be provided additionally. |
+| type | string | Type of the software node. The supported types are listed [below](#supported-software-types) |
 | **Parameter properties** | | |
 | key | string | Key of the parameter |
 | value | string | Value of the parameter |
@@ -49,11 +49,14 @@ The list of the supported software types :
 
 The diagram below represents the Device Inventory graph and the links between the software and hardware nodes.
 
-The software nodes are organized in the graph at different levels. At the root level stands the main Update Manager software node, which represents the Update Manager component. At the second level are placed the root nodes for each supported domain agent, which are linked with associations to the Update Manager node. At the last level in the hierarchy are placed the domain-specific software nodes, representing the domain components. These software nodes can be modeled the in a tree-based structure if the internal domain-specific representation is more complex.
+The software nodes are organized in the graph at different levels. 
+- At the root level stands the main Update Manager software node (type APPLICATION), which represents the Update Manager component. 
+- At the second level are placed the software nodes for each domain update agent (type APPLICATION), which are linked with associations to the Update Manager node. These software nodes should also have a parameter with key `domain` to specify the domain they are responsible for. 
+- At the last level in the hierarchy are placed the domain-specific software nodes, representing the domain components. These software nodes can be modeled the in a tree-based structure if the internal domain-specific representation is more complex. This is domain-specific, extra documentation should come from the respective domain update agent, e.g. Eclipse Kanto containers update agent that is part of the Eclipse Kanto Container Management component.  
 
 The hardware nodes do not follow any strict hierarchy and can be linked to any hardware or software node. Any cycles between the nodes are not allowed and prevented.
 
-![Device inventory](./_assets/device-inventory.svg)
+![Device inventory](./_assets/device-inventory.png)
 
 ### Current State Data Model Example
 
@@ -97,16 +100,34 @@ The following data structure is a holistic example view of a device current stat
 			]
 		},
 		{
-			"id": "containers:helloworld",
-			"version": "1.0.0",
-			"name": "Hello World Example",
-			"type": "CONTAINER"
+			"id": "containers:hello-world",
+			"version": "latest",
+			"type": "CONTAINER",
+			"parameters": [
+				{
+					"key": "image",
+					"value": "docker.io/library/hello-world:latest"
+				},
+				{
+					"key": "status",
+					"value": "Running"
+				}
+			]
 		},
 		{
 			"id": "containers:influxdb",
-			"version": "2.7.1",
-			"name": "InfluxDB",
-			"type": "CONTAINER"
+			"version": "2.5",
+			"type": "CONTAINER",
+			"parameters": [
+				{
+					"key": "image",
+					"value": "docker.io/library/influxdb:2.5"
+				},
+				{
+					"key": "status",
+					"value": "Running"
+				}
+			]
 		},
 		{
 			"id": "self-update-agent",
@@ -138,7 +159,7 @@ The following data structure is a holistic example view of a device current stat
 		},
 		{
 			"sourceId": "containers-update-agent",
-			"targetId": "containers:helloworld"
+			"targetId": "containers:hello-world"
 		},
 		{
 			"sourceId": "containers-update-agent",
