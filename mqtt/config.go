@@ -15,27 +15,27 @@ package mqtt
 const (
 	// default mqtt connection config
 	defaultBroker             = "tcp://localhost:1883"
-	defaultKeepAlive          = 20000
-	defaultDisconnectTimeout  = 250
+	defaultKeepAlive          = "20s"
+	defaultDisconnectTimeout  = "250ms"
 	defaultUsername           = ""
 	defaultPassword           = ""
-	defaultConnectTimeout     = 30000
-	defaultAcknowledgeTimeout = 15000
-	defaultSubscribeTimeout   = 15000
-	defaultUnsubscribeTimeout = 5000
+	defaultConnectTimeout     = "30s"
+	defaultAcknowledgeTimeout = "15s"
+	defaultSubscribeTimeout   = "15s"
+	defaultUnsubscribeTimeout = "5s"
 )
 
 // ConnectionConfig represents the mqtt client connection config
 type ConnectionConfig struct {
 	Broker             string `json:"broker,omitempty"`
-	KeepAlive          int64  `json:"keepAlive,omitempty"`
-	DisconnectTimeout  int64  `json:"disconnectTimeout,omitempty"`
+	KeepAlive          string `json:"keepAlive,omitempty"`
+	DisconnectTimeout  string `json:"disconnectTimeout,omitempty"`
 	Username           string `json:"username,omitempty"`
 	Password           string `json:"password,omitempty"`
-	ConnectTimeout     int64  `json:"connectTimeout,omitempty"`
-	AcknowledgeTimeout int64  `json:"acknowledgeTimeout,omitempty"`
-	SubscribeTimeout   int64  `json:"subscribeTimeout,omitempty"`
-	UnsubscribeTimeout int64  `json:"unsubscribeTimeout,omitempty"`
+	ConnectTimeout     string `json:"connectTimeout,omitempty"`
+	AcknowledgeTimeout string `json:"acknowledgeTimeout,omitempty"`
+	SubscribeTimeout   string `json:"subscribeTimeout,omitempty"`
+	UnsubscribeTimeout string `json:"unsubscribeTimeout,omitempty"`
 }
 
 // NewDefaultConfig returns a default mqtt client connection config instance

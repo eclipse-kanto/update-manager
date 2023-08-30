@@ -59,11 +59,11 @@ func TestSetupFlags(t *testing.T) {
 		},
 		"test_flags_mqtt_conn_keep_alive": {
 			flag:         "mqtt-conn-keep-alive",
-			expectedType: reflect.Int.String(),
+			expectedType: reflect.String.String(),
 		},
 		"test_flags_mqtt_conn_disconnect_timeout": {
 			flag:         "mqtt-conn-disconnect-timeout",
-			expectedType: reflect.Int.String(),
+			expectedType: reflect.String.String(),
 		},
 		"test_flags_mqtt_conn_username": {
 			flag:         "mqtt-conn-username",
@@ -75,19 +75,19 @@ func TestSetupFlags(t *testing.T) {
 		},
 		"test_flags_mqtt-conn-connect-timeout": {
 			flag:         "mqtt-conn-connect-timeout",
-			expectedType: reflect.Int.String(),
+			expectedType: reflect.String.String(),
 		},
 		"test_flags_mqtt-conn-ack-timeout": {
 			flag:         "mqtt-conn-ack-timeout",
-			expectedType: reflect.Int.String(),
+			expectedType: reflect.String.String(),
 		},
 		"test_flags_mqtt-conn-sub-timeout": {
 			flag:         "mqtt-conn-sub-timeout",
-			expectedType: reflect.Int.String(),
+			expectedType: reflect.String.String(),
 		},
 		"test_flags_mqtt-conn-unsub-timeout": {
 			flag:         "mqtt-conn-unsub-timeout",
-			expectedType: reflect.Int.String(),
+			expectedType: reflect.String.String(),
 		},
 		"test_flags_domain": {
 			flag:         "domain",

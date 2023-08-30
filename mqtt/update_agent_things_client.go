@@ -15,7 +15,6 @@ package mqtt
 import (
 	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/eclipse-kanto/update-manager/api"
 	"github.com/eclipse-kanto/update-manager/api/types"
@@ -47,13 +46,14 @@ type updateAgentThingsClient struct {
 
 // NewUpdateAgentThingsClient instantiates a new UpdateAgentClient instance using the provided configuration options.
 func NewUpdateAgentThingsClient(domain string, config *ConnectionConfig) api.UpdateAgentClient {
+	internalConfig := newInternalConnectionConfig(config)
 	client := &updateAgentThingsClient{
 		updateAgentClient: &updateAgentClient{
-			mqttClient: newInternalClient(domain, config, nil),
+			mqttClient: newInternalClient(domain, internalConfig, nil),
 			domain:     domain,
 		},
 	}
-	client.pahoClient = newClient(config, client.onConnect)
+	client.pahoClient = newClient(internalConfig, client.onConnect)
 	return client
 }
 
@@ -65,9 +65,8 @@ func (client *updateAgentThingsClient) Domain() string {
 // Start connects the client to the MQTT broker and gets the edge configuration.
 func (client *updateAgentThingsClient) Start(handler api.UpdateAgentHandler) error {
 	client.handler = handler
-	connectTimeout := convertToMilliseconds(client.mqttConfig.ConnectTimeout)
 	token := client.pahoClient.Connect()
-	if !token.WaitTimeout(connectTimeout) {
+	if !token.WaitTimeout(client.mqttConfig.ConnectTimeout) {
 		return fmt.Errorf("[%s] connect timed out", client.Domain())
 	}
 	return token.Error()
@@ -91,9 +90,9 @@ func (client *updateAgentThingsClient) handleEdgeResponse(_ pahomqtt.Client, mes
 		}
 
 		dittoConfig := ditto.NewConfiguration().
-			WithAcknowledgeTimeout(millisecondsToDuration(client.mqttConfig.AcknowledgeTimeout)).
-			WithSubscribeTimeout(millisecondsToDuration(client.mqttConfig.SubscribeTimeout)).
-			WithUnsubscribeTimeout(millisecondsToDuration(client.mqttConfig.UnsubscribeTimeout)).
+			WithAcknowledgeTimeout(client.mqttConfig.AcknowledgeTimeout).
+			WithSubscribeTimeout(client.mqttConfig.SubscribeTimeout).
+			WithUnsubscribeTimeout(client.mqttConfig.UnsubscribeTimeout).
 			WithConnectHandler(func(dittoClient ditto.Client) {
 				if err = client.umFeature.Activate(); err != nil {
 					logger.ErrorErr(err, "[%s] could not activate update manager feature", client.Domain())
@@ -120,9 +119,8 @@ func (client *updateAgentThingsClient) handleEdgeResponse(_ pahomqtt.Client, mes
 // Stop disconnects the client from the MQTT broker.
 func (client *updateAgentThingsClient) Stop() error {
 	token := client.pahoClient.Unsubscribe(edgeResponseTopic)
-	unsubscribeTimeout := convertToMilliseconds(client.mqttConfig.UnsubscribeTimeout)
-	if !token.WaitTimeout(unsubscribeTimeout) {
-		logger.Warn("[%s] cannot unsubscribe for topic '%s' in '%v' seconds", client.Domain(), edgeResponseTopic, unsubscribeTimeout)
+	if !token.WaitTimeout(client.mqttConfig.UnsubscribeTimeout) {
+		logger.Warn("[%s] cannot unsubscribe for topic '%s' in '%v'", client.Domain(), edgeResponseTopic, client.mqttConfig.UnsubscribeTimeout)
 	} else if err := token.Error(); err != nil {
 		logger.WarnErr(err, "[%s] error unsubscribing for topic '%s", client.Domain(), edgeResponseTopic)
 	}
@@ -140,9 +138,8 @@ func (client *updateAgentThingsClient) Stop() error {
 
 func (client *updateAgentThingsClient) onConnect(_ pahomqtt.Client) {
 	token := client.pahoClient.Subscribe(edgeResponseTopic, 1, client.handleEdgeResponse)
-	subscribeTimeout := convertToMilliseconds(client.mqttConfig.SubscribeTimeout)
-	if !token.WaitTimeout(subscribeTimeout) {
-		logger.Error("[%s] cannot subscribe for topic '%s' in '%v' seconds", client.Domain(), edgeResponseTopic, subscribeTimeout)
+	if !token.WaitTimeout(client.mqttConfig.SubscribeTimeout) {
+		logger.Error("[%s] cannot subscribe for topic '%s' in '%v'", client.Domain(), edgeResponseTopic, client.mqttConfig.SubscribeTimeout)
 		return
 	}
 	if token.Error() != nil {
@@ -150,10 +147,9 @@ func (client *updateAgentThingsClient) onConnect(_ pahomqtt.Client) {
 		return
 	}
 
-	acknowledgeTimeout := convertToMilliseconds(client.mqttConfig.AcknowledgeTimeout)
 	token = client.pahoClient.Publish(edgeRequestTopic, 1, false, "")
-	if !token.WaitTimeout(acknowledgeTimeout) {
-		logger.Error("[%s] cannot publish to topic '%s' in '%v' seconds", client.Domain(), edgeRequestTopic, acknowledgeTimeout)
+	if !token.WaitTimeout(client.mqttConfig.AcknowledgeTimeout) {
+		logger.Error("[%s] cannot publish to topic '%s' in '%v'", client.Domain(), edgeRequestTopic, client.mqttConfig.AcknowledgeTimeout)
 	}
 	if token.Error() != nil {
 		logger.ErrorErr(token.Error(), "[%s] cannot publish to topic '%s'", client.Domain(), edgeRequestTopic)
@@ -171,8 +167,4 @@ func (client *updateAgentThingsClient) SendCurrentState(activityID string, curre
 // SendDesiredStateFeedback makes the client create envelope with the given activityID and desired state feedback and send issues a desired state feedback message.
 func (client *updateAgentThingsClient) SendDesiredStateFeedback(activityID string, desiredStateFeedback *types.DesiredStateFeedback) error {
 	return client.umFeature.SendFeedback(activityID, desiredStateFeedback)
-}
-
-func millisecondsToDuration(milliseconds int64) time.Duration {
-	return time.Duration(milliseconds) * time.Millisecond
 }
