@@ -14,9 +14,11 @@ package mqtt
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/eclipse-kanto/update-manager/api"
 	"github.com/eclipse-kanto/update-manager/api/types"
+	"github.com/eclipse-kanto/update-manager/api/util"
 	"github.com/eclipse-kanto/update-manager/logger"
 
 	pahomqtt "github.com/eclipse/paho.mqtt.golang"
@@ -76,10 +78,9 @@ func (client *desiredStateClient) subscribe() error {
 	topicFilters[client.topicCurrentState] = 1
 	topicFilters[client.topicDesiredStateFeedback] = 1
 	logger.Debug("subscribing for '%v' topics", topicFilters)
-	subscribeTimeout := convertToMilliseconds(client.mqttConfig.SubscribeTimeout)
 	token := client.pahoClient.SubscribeMultiple(topicFilters, client.handleMessage)
-	if !token.WaitTimeout(subscribeTimeout) {
-		return fmt.Errorf("cannot subscribe for topics '%v' in '%v' seconds", topicFilters, subscribeTimeout)
+	if !token.WaitTimeout(client.mqttConfig.SubscribeTimeout) {
+		return fmt.Errorf("cannot subscribe for topics '%v' in '%v'", topicFilters, client.mqttConfig.SubscribeTimeout)
 	}
 	return token.Error()
 }
@@ -87,9 +88,8 @@ func (client *desiredStateClient) subscribe() error {
 func (client *desiredStateClient) unsubscribe() error {
 	logger.Debug("unsubscribing from '%s' & '%s' topics", client.topicCurrentState, client.topicDesiredStateFeedback)
 	token := client.pahoClient.Unsubscribe(client.topicCurrentState, client.topicDesiredStateFeedback)
-	unsubscribeTimeout := convertToMilliseconds(client.mqttConfig.UnsubscribeTimeout)
-	if !token.WaitTimeout(unsubscribeTimeout) {
-		return fmt.Errorf("cannot unsubscribe from topic '%s' & '%s' in '%v' seconds", client.topicCurrentState, client.topicDesiredStateFeedback, unsubscribeTimeout)
+	if !token.WaitTimeout(client.mqttConfig.UnsubscribeTimeout) {
+		return fmt.Errorf("cannot unsubscribe from topic '%s' & '%s' in '%v'", client.topicCurrentState, client.topicDesiredStateFeedback, client.mqttConfig.UnsubscribeTimeout)
 	}
 	return token.Error()
 }
@@ -127,9 +127,8 @@ func (client *desiredStateClient) SendDesiredState(activityID string, desiredSta
 		return errors.Wrapf(err, "cannot marshal desired state message for activity-id %s", activityID)
 	}
 	token := client.pahoClient.Publish(client.topicDesiredState, 1, false, desiredStateBytes)
-	acknowledgeTimeout := convertToMilliseconds(client.mqttConfig.AcknowledgeTimeout)
-	if !token.WaitTimeout(acknowledgeTimeout) {
-		return fmt.Errorf("cannot publish to topic '%s' in '%v' seconds", client.topicDesiredState, acknowledgeTimeout)
+	if !token.WaitTimeout(client.mqttConfig.AcknowledgeTimeout) {
+		return fmt.Errorf("cannot publish to topic '%s' in '%v'", client.topicDesiredState, client.mqttConfig.AcknowledgeTimeout)
 	}
 	return token.Error()
 }
@@ -141,9 +140,8 @@ func (client *desiredStateClient) SendDesiredStateCommand(activityID string, des
 		return errors.Wrapf(err, "cannot marshal desired state command message for activity-id %s", activityID)
 	}
 	token := client.pahoClient.Publish(client.topicDesiredStateCommand, 1, false, desiredStateCommandBytes)
-	acknowledgeTimeout := convertToMilliseconds(client.mqttConfig.AcknowledgeTimeout)
-	if !token.WaitTimeout(acknowledgeTimeout) {
-		return fmt.Errorf("cannot publish to topic '%s' in '%v' seconds", client.topicDesiredStateCommand, acknowledgeTimeout)
+	if !token.WaitTimeout(client.mqttConfig.AcknowledgeTimeout) {
+		return fmt.Errorf("cannot publish to topic '%s' in '%v'", client.topicDesiredStateCommand, client.mqttConfig.AcknowledgeTimeout)
 	}
 	return token.Error()
 }
@@ -155,9 +153,16 @@ func (client *desiredStateClient) SendCurrentStateGet(activityID string) error {
 		return errors.Wrapf(err, "cannot marshal current state get message for activity-id %s", activityID)
 	}
 	token := client.pahoClient.Publish(client.topicCurrentStateGet, 1, false, currentStateGetBytes)
-	acknowledgeTimeout := convertToMilliseconds(client.mqttConfig.AcknowledgeTimeout)
-	if !token.WaitTimeout(acknowledgeTimeout) {
-		return fmt.Errorf("cannot publish to topic '%s' in '%v' seconds", client.topicCurrentStateGet, acknowledgeTimeout)
+	if !token.WaitTimeout(client.mqttConfig.AcknowledgeTimeout) {
+		return fmt.Errorf("cannot publish to topic '%s' in '%v'", client.topicCurrentStateGet, client.mqttConfig.AcknowledgeTimeout)
 	}
 	return token.Error()
+}
+
+func parseDuration(property, value, defaultValue string) time.Duration {
+	defaultDuration, err := time.ParseDuration(defaultValue)
+	if err != nil {
+		logger.Warn("Cannot parse default duration for property '%s': %s", property, defaultValue)
+	}
+	return util.ParseDuration(property, value, defaultDuration, defaultDuration)
 }

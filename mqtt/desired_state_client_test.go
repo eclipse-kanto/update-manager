@@ -34,7 +34,7 @@ func TestDomain(t *testing.T) {
 	mockPaho := clientsmocks.NewMockClient(mockCtrl)
 
 	updateAgentClient := &updateAgentClient{
-		mqttClient: newInternalClient("testDomain", &ConnectionConfig{}, mockPaho),
+		mqttClient: newInternalClient("testDomain", &internalConnectionConfig{}, mockPaho),
 	}
 
 	client, _ := NewDesiredStateClient("testDomain", updateAgentClient)
@@ -54,13 +54,13 @@ func TestNewDesiredStateClient(t *testing.T) {
 	}{
 		"test_update_agent_client": {
 			client: &updateAgentClient{
-				mqttClient: newInternalClient("testDomain", &ConnectionConfig{}, mockPaho),
+				mqttClient: newInternalClient("testDomain", &internalConnectionConfig{}, mockPaho),
 			},
 		},
 		"test_update_agent_things_client": {
 			client: &updateAgentThingsClient{
 				updateAgentClient: &updateAgentClient{
-					mqttClient: newInternalClient("testDomain", &ConnectionConfig{}, mockPaho),
+					mqttClient: newInternalClient("testDomain", &internalConnectionConfig{}, mockPaho),
 				},
 			},
 		},
@@ -278,7 +278,7 @@ func TestHandleCurrentStateMessage(t *testing.T) {
 			stateHandler.EXPECT().HandleCurrentState(name, gomock.Any(), testCurrentState).Times(expectedCalls).Return(test.handlerError)
 
 			desiredStateClient := &desiredStateClient{
-				mqttClient:   newInternalClient(test.domain, &ConnectionConfig{}, nil),
+				mqttClient:   newInternalClient(test.domain, &internalConnectionConfig{}, nil),
 				domain:       test.domain,
 				stateHandler: stateHandler,
 			}
@@ -314,7 +314,7 @@ func TestHandleDesiredStateFeedbackMessage(t *testing.T) {
 			stateHandler.EXPECT().HandleDesiredStateFeedback(name, gomock.Any(), testFeedback).Times(expectedCalls).Return(test.handlerError)
 
 			desiredStateClient := &desiredStateClient{
-				mqttClient:   newInternalClient(test.domain, &ConnectionConfig{}, nil),
+				mqttClient:   newInternalClient(test.domain, &internalConnectionConfig{}, nil),
 				domain:       test.domain,
 				stateHandler: stateHandler,
 			}

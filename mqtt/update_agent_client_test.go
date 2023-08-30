@@ -37,12 +37,12 @@ type testCaseIncoming struct {
 	expectedJSONErr bool
 }
 
-var mqttTestConfig = &ConnectionConfig{
-	ConnectTimeout:     10,
-	DisconnectTimeout:  8,
-	AcknowledgeTimeout: 5,
-	SubscribeTimeout:   4,
-	UnsubscribeTimeout: 3,
+var mqttTestConfig = &internalConnectionConfig{
+	ConnectTimeout:     time.Duration(10) * time.Millisecond,
+	DisconnectTimeout:  time.Duration(8) * time.Millisecond,
+	AcknowledgeTimeout: time.Duration(5) * time.Millisecond,
+	SubscribeTimeout:   time.Duration(4) * time.Millisecond,
+	UnsubscribeTimeout: time.Duration(3) * time.Millisecond,
 }
 
 func setupCommonMocks(t *testing.T) (*gomock.Controller, *mqttmocks.MockClient, *mqttmocks.MockToken) {
@@ -50,8 +50,7 @@ func setupCommonMocks(t *testing.T) (*gomock.Controller, *mqttmocks.MockClient, 
 	return mockCtrl, mqttmocks.NewMockClient(mockCtrl), mqttmocks.NewMockToken(mockCtrl)
 }
 
-func setupMockToken(mockToken *mqttmocks.MockToken, seconds int64, isTimedOut bool) {
-	duration := convertToMilliseconds(seconds)
+func setupMockToken(mockToken *mqttmocks.MockToken, duration time.Duration, isTimedOut bool) {
 	if isTimedOut {
 		mockToken.EXPECT().WaitTimeout(duration).Return(false)
 	} else {

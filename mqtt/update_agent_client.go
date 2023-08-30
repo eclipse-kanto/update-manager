@@ -39,8 +39,34 @@ const (
 	disconnectQuiesce uint = 10000
 )
 
+type internalConnectionConfig struct {
+	Broker             string
+	KeepAlive          time.Duration
+	DisconnectTimeout  time.Duration
+	Username           string
+	Password           string
+	ConnectTimeout     time.Duration
+	AcknowledgeTimeout time.Duration
+	SubscribeTimeout   time.Duration
+	UnsubscribeTimeout time.Duration
+}
+
+func newInternalConnectionConfig(config *ConnectionConfig) *internalConnectionConfig {
+	return &internalConnectionConfig{
+		Broker:             config.Broker,
+		KeepAlive:          parseDuration("mqtt-conn-keep-alive", config.KeepAlive, defaultKeepAlive),
+		DisconnectTimeout:  parseDuration("mqtt-conn-disconnect-timeout", config.DisconnectTimeout, defaultDisconnectTimeout),
+		Username:           config.Username,
+		Password:           config.Password,
+		ConnectTimeout:     parseDuration("mqtt-conn-connect-timeout", config.ConnectTimeout, defaultConnectTimeout),
+		AcknowledgeTimeout: parseDuration("mqtt-conn-ack-timeout", config.AcknowledgeTimeout, defaultAcknowledgeTimeout),
+		SubscribeTimeout:   parseDuration("mqtt-conn-sub-timeout", config.SubscribeTimeout, defaultSubscribeTimeout),
+		UnsubscribeTimeout: parseDuration("mqtt-conn-unsub-timeout", config.UnsubscribeTimeout, defaultUnsubscribeTimeout),
+	}
+}
+
 type mqttClient struct {
-	mqttConfig *ConnectionConfig
+	mqttConfig *internalConnectionConfig
 	pahoClient pahomqtt.Client
 
 	// incoming topics
@@ -52,7 +78,7 @@ type mqttClient struct {
 	topicCurrentStateGet     string
 }
 
-func newInternalClient(domain string, config *ConnectionConfig, pahoClient pahomqtt.Client) *mqttClient {
+func newInternalClient(domain string, config *internalConnectionConfig, pahoClient pahomqtt.Client) *mqttClient {
 	mqttPrefix := domainAsTopic(domain)
 	return &mqttClient{
 		mqttConfig: config,
@@ -75,10 +101,10 @@ type updateAgentClient struct {
 // NewUpdateAgentClient instantiates a new UpdateAgentClient instance using the provided configuration options.
 func NewUpdateAgentClient(domain string, config *ConnectionConfig) api.UpdateAgentClient {
 	client := &updateAgentClient{
-		mqttClient: newInternalClient(domain, config, nil),
+		mqttClient: newInternalClient(domain, newInternalConnectionConfig(config), nil),
 		domain:     domain,
 	}
-	client.pahoClient = newClient(config, client.onConnect)
+	client.pahoClient = newClient(client.mqttConfig, client.onConnect)
 	return client
 }
 
@@ -90,9 +116,8 @@ func (client *updateAgentClient) Domain() string {
 // Start connects the client to the MQTT broker.
 func (client *updateAgentClient) Start(handler api.UpdateAgentHandler) error {
 	client.handler = handler
-	connectTimeout := convertToMilliseconds(client.mqttConfig.ConnectTimeout)
 	token := client.pahoClient.Connect()
-	if !token.WaitTimeout(connectTimeout) {
+	if !token.WaitTimeout(client.mqttConfig.ConnectTimeout) {
 		return fmt.Errorf("[%s] connect timed out", client.Domain())
 	}
 	return token.Error()
@@ -128,10 +153,9 @@ func (client *updateAgentClient) subscribeStateTopics() error {
 		client.topicCurrentStateGet:     1,
 	}
 	logger.Debug("subscribing for '%s' topics", topics)
-	subscribeTimeout := convertToMilliseconds(client.mqttConfig.SubscribeTimeout)
 	token := client.pahoClient.SubscribeMultiple(topicsMap, client.handleStateRequest)
-	if !token.WaitTimeout(subscribeTimeout) {
-		return fmt.Errorf("cannot subscribe for topics '%s,%s,%s' in '%v' seconds", client.topicDesiredState, client.topicDesiredStateCommand, client.topicCurrentStateGet, subscribeTimeout)
+	if !token.WaitTimeout(client.mqttConfig.SubscribeTimeout) {
+		return fmt.Errorf("cannot subscribe for topics '%s,%s,%s' in '%v'", client.topicDesiredState, client.topicDesiredStateCommand, client.topicCurrentStateGet, client.mqttConfig.SubscribeTimeout)
 	}
 	return token.Error()
 }
@@ -140,9 +164,8 @@ func (client *updateAgentClient) unsubscribeStateTopics() error {
 	topics := []string{client.topicDesiredState, client.topicDesiredStateCommand, client.topicCurrentStateGet}
 	logger.Debug("unsubscribing from '%s' topics", client.Domain(), topics)
 	token := client.pahoClient.Unsubscribe(topics...)
-	unsubscribeTimeout := convertToMilliseconds(client.mqttConfig.UnsubscribeTimeout)
-	if !token.WaitTimeout(unsubscribeTimeout) {
-		return fmt.Errorf("cannot unsubscribe from topics '%s,%s,%s' in '%v' seconds", client.topicDesiredState, client.topicDesiredStateCommand, client.topicCurrentStateGet, unsubscribeTimeout)
+	if !token.WaitTimeout(client.mqttConfig.UnsubscribeTimeout) {
+		return fmt.Errorf("cannot unsubscribe from topics '%s,%s,%s' in '%v'", client.topicDesiredState, client.topicDesiredStateCommand, client.topicCurrentStateGet, client.mqttConfig.UnsubscribeTimeout)
 	}
 	return token.Error()
 }
@@ -225,19 +248,15 @@ func domainAsTopic(domain string) string {
 	return domain + "update"
 }
 
-func convertToMilliseconds(value int64) time.Duration {
-	return time.Duration(value) * time.Millisecond
-}
-
-func newClient(config *ConnectionConfig, onConnect pahomqtt.OnConnectHandler) pahomqtt.Client {
+func newClient(config *internalConnectionConfig, onConnect pahomqtt.OnConnectHandler) pahomqtt.Client {
 	clientOptions := pahomqtt.NewClientOptions().
 		SetClientID(uuid.New().String()).
 		AddBroker(config.Broker).
-		SetKeepAlive(convertToMilliseconds(config.KeepAlive)).
+		SetKeepAlive(config.KeepAlive).
 		SetCleanSession(true).
 		SetAutoReconnect(true).
 		SetProtocolVersion(4).
-		SetConnectTimeout(convertToMilliseconds(config.ConnectTimeout)).
+		SetConnectTimeout(config.ConnectTimeout).
 		SetOnConnectHandler(onConnect).
 		SetUsername(config.Username).
 		SetPassword(config.Password)

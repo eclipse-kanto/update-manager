@@ -40,14 +40,14 @@ func SetupFlags(flagSet *flag.FlagSet, cfg *BaseConfig) {
 
 	// init connection flags
 	flagSet.StringVar(&cfg.MQTT.Broker, "mqtt-conn-broker", EnvToString("MQTT_CONN_BROKER", cfg.MQTT.Broker), "Address of the MQTT server/broker that the update manager will connect for the communication, the format is: scheme://host:port")
-	flagSet.Int64Var(&cfg.MQTT.KeepAlive, "mqtt-conn-keep-alive", EnvToInt("MQTT_CONN_KEEP_ALIVE", cfg.MQTT.KeepAlive), "Keep alive duration in milliseconds for the MQTT requests")
-	flagSet.Int64Var(&cfg.MQTT.DisconnectTimeout, "mqtt-conn-disconnect-timeout", EnvToInt("MQTT_CONN_DISCONNECT_TIMEOUT", cfg.MQTT.DisconnectTimeout), "Disconnect timeout in milliseconds for the MQTT server/broker")
+	flagSet.StringVar(&cfg.MQTT.KeepAlive, "mqtt-conn-keep-alive", EnvToString("MQTT_CONN_KEEP_ALIVE", cfg.MQTT.KeepAlive), "Keep alive duration for the MQTT requests as duration string")
+	flagSet.StringVar(&cfg.MQTT.DisconnectTimeout, "mqtt-conn-disconnect-timeout", EnvToString("MQTT_CONN_DISCONNECT_TIMEOUT", cfg.MQTT.DisconnectTimeout), "Disconnect timeout for the MQTT server/broker as duration string")
 	flagSet.StringVar(&cfg.MQTT.Username, "mqtt-conn-username", EnvToString("MQTT_CONN_USERNAME", cfg.MQTT.Username), "Username that is a part of the credentials")
 	flagSet.StringVar(&cfg.MQTT.Password, "mqtt-conn-password", EnvToString("MQTT_CONN_PASSWORD", cfg.MQTT.Password), "Password that is a part of the credentials")
-	flagSet.Int64Var(&cfg.MQTT.ConnectTimeout, "mqtt-conn-connect-timeout", EnvToInt("MQTT_CONN_CONNECT_TIMEOUT", cfg.MQTT.ConnectTimeout), "Connect timeout in milliseconds for the MQTT server/broker")
-	flagSet.Int64Var(&cfg.MQTT.AcknowledgeTimeout, "mqtt-conn-ack-timeout", EnvToInt("MQTT_CONN_ACK_TIMEOUT", cfg.MQTT.AcknowledgeTimeout), "Acknowledge timeout in milliseconds for the MQTT requests")
-	flagSet.Int64Var(&cfg.MQTT.SubscribeTimeout, "mqtt-conn-sub-timeout", EnvToInt("MQTT_CONN_SUB_TIMEOUT", cfg.MQTT.SubscribeTimeout), "Subscribe timeout in milliseconds for the MQTT requests")
-	flagSet.Int64Var(&cfg.MQTT.UnsubscribeTimeout, "mqtt-conn-unsub-timeout", EnvToInt("MQTT_CONN_UNSUB_TIMEOUT", cfg.MQTT.UnsubscribeTimeout), "Unsubscribe timeout in milliseconds for the MQTT requests")
+	flagSet.StringVar(&cfg.MQTT.ConnectTimeout, "mqtt-conn-connect-timeout", EnvToString("MQTT_CONN_CONNECT_TIMEOUT", cfg.MQTT.ConnectTimeout), "Connect timeout for the MQTT server/broker as duration string")
+	flagSet.StringVar(&cfg.MQTT.AcknowledgeTimeout, "mqtt-conn-ack-timeout", EnvToString("MQTT_CONN_ACK_TIMEOUT", cfg.MQTT.AcknowledgeTimeout), "Acknowledge timeout for the MQTT requests as duration string")
+	flagSet.StringVar(&cfg.MQTT.SubscribeTimeout, "mqtt-conn-sub-timeout", EnvToString("MQTT_CONN_SUB_TIMEOUT", cfg.MQTT.SubscribeTimeout), "Subscribe timeout for the MQTT requests as duration string")
+	flagSet.StringVar(&cfg.MQTT.UnsubscribeTimeout, "mqtt-conn-unsub-timeout", EnvToString("MQTT_CONN_UNSUB_TIMEOUT", cfg.MQTT.UnsubscribeTimeout), "Unsubscribe timeout for the MQTT requests as duration string")
 
 	flagSet.StringVar(&cfg.Domain, "domain", EnvToString("DOMAIN", cfg.Domain), "Specify the Domain of this update agent, used as MQTT topic prefix.")
 
