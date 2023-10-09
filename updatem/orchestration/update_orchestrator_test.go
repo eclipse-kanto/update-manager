@@ -54,7 +54,7 @@ func TestUpdOrchApply(t *testing.T) {
 		domainAgent.EXPECT().Apply(ctx, test.ActivityID, test.DesiredState).DoAndReturn(func(ctx context.Context, activityId string, desiredState *types.DesiredState) {
 			applyChan <- true
 		})
-		domainAgent.EXPECT().Name().Times(2)
+		domainAgent.EXPECT().Name().AnyTimes()
 
 		domainAgents := map[string]api.UpdateManager{
 			"domain1": domainAgent,

@@ -14,6 +14,7 @@ package orchestration
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/eclipse-kanto/update-manager/api"
 	"github.com/eclipse-kanto/update-manager/api/types"
@@ -23,6 +24,7 @@ import (
 type updateOperation struct {
 	activityID string
 
+	statusLock    sync.Mutex
 	status        types.StatusType
 	delayedStatus types.StatusType
 
