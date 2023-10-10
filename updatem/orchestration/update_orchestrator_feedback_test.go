@@ -15,6 +15,7 @@ package orchestration
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/eclipse-kanto/update-manager/api"
 	"github.com/eclipse-kanto/update-manager/api/types"
@@ -73,6 +74,7 @@ func TestFeedbackHandleDesiredStateFeedbackEvent(t *testing.T) {
 				mockUpdateManager.EXPECT().Command(context.Background(), test.ActivityID, generateCommand(types.CommandDownload))
 			},
 		},
+
 		"test_handleDomainIdentified_domainUpdateStatus_StatusIdentificationFailed": {
 			handleStatus:     types.StatusIdentified,
 			updateOrchStatus: types.StatusIdentified,
@@ -85,6 +87,7 @@ func TestFeedbackHandleDesiredStateFeedbackEvent(t *testing.T) {
 			expectedDomainStatus: types.StatusIdentified,
 			testCode:             func() {},
 		},
+
 		"test_handleDomainIdentified_domainUpdateStatus_StatusIdentifiying": {
 			handleStatus:     types.StatusIdentified,
 			updateOrchStatus: types.StatusIdentified,
@@ -97,6 +100,7 @@ func TestFeedbackHandleDesiredStateFeedbackEvent(t *testing.T) {
 			expectedIdentErrMsg:  "",
 			testCode:             func() {},
 		},
+
 		"test_handleDomainIdentified_checkIdentificationStatus": {
 			handleStatus:     types.StatusIdentified,
 			updateOrchStatus: types.StatusIdentified,
@@ -108,6 +112,7 @@ func TestFeedbackHandleDesiredStateFeedbackEvent(t *testing.T) {
 			expectedDomainStatus: types.StatusIdentified,
 			testCode:             func() {},
 		},
+
 		"test_handleDomainIdentified_empty_actions": {
 			emptyIdentActions: true,
 			handleStatus:      types.StatusIdentified,
@@ -120,9 +125,9 @@ func TestFeedbackHandleDesiredStateFeedbackEvent(t *testing.T) {
 			testCode: func() {
 				mockUpdateManager.EXPECT().Name().Return("testDomain1").AnyTimes()
 				eventCallback.EXPECT().HandleDesiredStateFeedbackEvent("device", test.ActivityID, "", types.StatusIdentified, "", gomock.Any())
-				eventCallback.EXPECT().HandleDesiredStateFeedbackEvent("device", test.ActivityID, "", types.StatusRunning, "", gomock.Any())
 			},
 		},
+
 		"test_handleDomainIdentificationFailed_Success": {
 			handleStatus:     types.StatusIdentificationFailed,
 			updateOrchStatus: types.StatusIdentificationFailed,
@@ -134,6 +139,7 @@ func TestFeedbackHandleDesiredStateFeedbackEvent(t *testing.T) {
 			expectedIdentErrMsg:  "[testDomain1]: testMsg",
 			testCode:             func() {},
 		},
+
 		"test_handleDomainIdentificationFailed_domainUpdateStatus_StatusIdentifying": {
 			handleStatus:     types.StatusIdentificationFailed,
 			updateOrchStatus: types.StatusIdentificationFailed,
@@ -171,12 +177,9 @@ func TestFeedbackHandleDesiredStateFeedbackEvent(t *testing.T) {
 			domains: map[string]types.StatusType{
 				"testDomain1": types.StatusRunning,
 			},
-			expectedStatus:       types.StatusRunning,
-			expectedDomainStatus: types.StatusCompleted,
-			testCode: func() {
-				mockUpdateManager.EXPECT().Name().Return("testDomain1").AnyTimes()
-				mockUpdateManager.EXPECT().Command(context.Background(), test.ActivityID, generateCommand(types.CommandCleanup))
-			},
+			expectedStatus:       types.StatusCompleted,
+			expectedDomainStatus: types.BaselineStatusCleanupSuccess,
+			testCode:             func() {},
 		},
 		"test_handleDomainCompletedEvent_orchestration_status_identified": {
 			handleStatus:     types.StatusCompleted,
@@ -184,12 +187,9 @@ func TestFeedbackHandleDesiredStateFeedbackEvent(t *testing.T) {
 			domains: map[string]types.StatusType{
 				"testDomain1": types.StatusIdentified,
 			},
-			expectedStatus:       types.StatusIdentified,
-			expectedDomainStatus: types.StatusCompleted,
-			testCode: func() {
-				mockUpdateManager.EXPECT().Name().Return("testDomain1").AnyTimes()
-				mockUpdateManager.EXPECT().Command(context.Background(), test.ActivityID, generateCommand(types.CommandCleanup))
-			},
+			expectedStatus:       types.StatusCompleted,
+			expectedDomainStatus: types.BaselineStatusCleanupSuccess,
+			testCode:             func() {},
 		},
 		"test_handleDomainCompletedEvent_domain_status_not_from_supported": {
 			handleStatus:     types.StatusCompleted,
@@ -201,19 +201,17 @@ func TestFeedbackHandleDesiredStateFeedbackEvent(t *testing.T) {
 			expectedDomainStatus: types.StatusCompleted,
 			testCode:             func() {},
 		},
+
 		"test_handleDomainIncomplete_Success": {
 			handleStatus:     types.StatusIncomplete,
 			updateOrchStatus: types.StatusRunning,
 			domains: map[string]types.StatusType{
 				"testDomain1": types.StatusRunning,
 			},
-			expectedStatus:        types.StatusRunning,
+			expectedStatus:        types.StatusIncomplete,
 			expectedDelayedStatus: types.StatusIncomplete,
-			expectedDomainStatus:  types.StatusIncomplete,
-			testCode: func() {
-				mockUpdateManager.EXPECT().Name().Return("testDomain1").AnyTimes()
-				mockUpdateManager.EXPECT().Command(context.Background(), test.ActivityID, generateCommand(types.CommandCleanup))
-			},
+			expectedDomainStatus:  types.BaselineStatusCleanupFailure,
+			testCode:              func() {},
 		},
 		"test_handleDomainIncomplete_orchestration_status_identified": {
 			handleStatus:     types.StatusIncomplete,
@@ -221,13 +219,10 @@ func TestFeedbackHandleDesiredStateFeedbackEvent(t *testing.T) {
 			domains: map[string]types.StatusType{
 				"testDomain1": types.StatusIdentified,
 			},
-			expectedStatus:        types.StatusIdentified,
-			expectedDomainStatus:  types.StatusIncomplete,
+			expectedStatus:        types.StatusIncomplete,
+			expectedDomainStatus:  types.BaselineStatusCleanupFailure,
 			expectedDelayedStatus: types.StatusIncomplete,
-			testCode: func() {
-				mockUpdateManager.EXPECT().Name().Return("testDomain1").AnyTimes()
-				mockUpdateManager.EXPECT().Command(context.Background(), test.ActivityID, generateCommand(types.CommandCleanup))
-			},
+			testCode:              func() {},
 		},
 		"test_handleDomainIncomplete_domain_status_not_from_supported": {
 			handleStatus:     types.StatusIncomplete,
@@ -239,6 +234,7 @@ func TestFeedbackHandleDesiredStateFeedbackEvent(t *testing.T) {
 			expectedDomainStatus: types.StatusCompleted,
 			testCode:             func() {},
 		},
+
 		"test_handleDomainDownloading_Success": {
 			handleStatus:     types.BaselineStatusDownloading,
 			updateOrchStatus: types.StatusRunning,
@@ -271,6 +267,7 @@ func TestFeedbackHandleDesiredStateFeedbackEvent(t *testing.T) {
 			expectedDomainStatus: types.StatusCompleted,
 			testCode:             func() {},
 		},
+
 		"test_handleDomainDownloadSuccess_Success": {
 			handleStatus:     types.BaselineStatusDownloadSuccess,
 			updateOrchStatus: types.StatusRunning,
@@ -295,6 +292,7 @@ func TestFeedbackHandleDesiredStateFeedbackEvent(t *testing.T) {
 			expectedDomainStatus: types.StatusRunning,
 			testCode:             func() {},
 		},
+
 		"test_handleDomainDownloadSuccess_domain_status_not_from_supported": {
 			handleStatus:     types.BaselineStatusDownloadSuccess,
 			updateOrchStatus: types.StatusRunning,
@@ -826,7 +824,8 @@ func generateUpdOrch(cfgRebootReqired bool, actions map[string]map[string]*types
 			done:          make(chan bool, 1),
 			domains:       domains,
 		},
-		cfg: createTestConfig(cfgRebootReqired, true),
+		cfg:          createTestConfig(cfgRebootReqired, true),
+		phaseTimeout: 10 * time.Minute,
 	}
 }
 

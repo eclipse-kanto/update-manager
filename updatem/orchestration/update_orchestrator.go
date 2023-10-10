@@ -60,10 +60,9 @@ func (orchestrator *updateOrchestrator) Apply(ctx context.Context, domainAgents 
 			message = applyErr.Error()
 		}
 
-		var status types.StatusType
 		orchestrator.operation.statusLock.Lock()
-		status = orchestrator.operation.status
-		defer orchestrator.operation.statusLock.Unlock()
+		status := orchestrator.operation.status
+		orchestrator.operation.statusLock.Unlock()
 
 		orchestrator.notifyFeedback(status, message)
 		orchestrator.disposeUpdateOperation()

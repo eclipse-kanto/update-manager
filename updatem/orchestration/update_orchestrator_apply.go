@@ -15,6 +15,7 @@ package orchestration
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/eclipse-kanto/update-manager/api"
 	"github.com/eclipse-kanto/update-manager/api/types"
@@ -39,6 +40,9 @@ func (orchestrator *updateOrchestrator) apply(ctx context.Context) (bool, error)
 
 func (orchestrator *updateOrchestrator) waitIdentification(ctx context.Context) error {
 	select {
+	case <-time.After(orchestrator.phaseTimeout):
+		orchestrator.operation.updateStatus(types.StatusIdentificationFailed)
+		return fmt.Errorf("identification phase not completed in %v", orchestrator.phaseTimeout)
 	case <-orchestrator.operation.identErrChan:
 		return fmt.Errorf(orchestrator.operation.identErrMsg)
 	case <-orchestrator.operation.errChan:
@@ -47,19 +51,22 @@ func (orchestrator *updateOrchestrator) waitIdentification(ctx context.Context) 
 		logger.Debug("the identification phase is completed")
 		return nil
 	case <-ctx.Done():
-		orchestrator.operation.status = types.StatusIncomplete
+		orchestrator.operation.updateStatus(types.StatusIncomplete)
 		return fmt.Errorf("the update manager instance is terminated")
 	}
 }
 
 func (orchestrator *updateOrchestrator) waitCompletion(ctx context.Context) error {
 	select {
+	case <-time.After(orchestrator.phaseTimeout):
+		orchestrator.operation.updateStatus(types.StatusIncomplete)
+		return fmt.Errorf("update operation not completed in %v", orchestrator.phaseTimeout)
 	case <-orchestrator.operation.errChan:
 		return fmt.Errorf(orchestrator.operation.errMsg)
 	case <-orchestrator.operation.done:
 		return nil
 	case <-ctx.Done():
-		orchestrator.operation.status = types.StatusIncomplete
+		orchestrator.operation.updateStatus(types.StatusIncomplete)
 		return fmt.Errorf("the update manager instance is terminated")
 	}
 }

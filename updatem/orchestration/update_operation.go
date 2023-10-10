@@ -86,3 +86,10 @@ func newUpdateOperation(domainAgents map[string]api.UpdateManager, activityID st
 		desiredStateCallback: desiredStateCallback,
 	}, nil
 }
+
+func (operation *updateOperation) updateStatus(status types.StatusType) {
+	operation.statusLock.Lock()
+	defer operation.statusLock.Unlock()
+
+	operation.status = status
+}

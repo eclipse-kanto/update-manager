@@ -47,7 +47,8 @@ func TestUpdOrchApply(t *testing.T) {
 		ctx := context.Background()
 
 		updOrchestrator := &updateOrchestrator{
-			cfg: createTestConfig(false, false),
+			cfg:          createTestConfig(false, false),
+			phaseTimeout: 10 * time.Minute,
 		}
 		domainAgent := mocks.NewMockUpdateManager(mockCtrl)
 
@@ -60,7 +61,7 @@ func TestUpdOrchApply(t *testing.T) {
 			"domain1": domainAgent,
 		}
 
-		eventCallback.EXPECT().HandleDesiredStateFeedbackEvent("device", test.ActivityID, "", gomock.Any(), "", []*types.Action{}).Times(4)
+		eventCallback.EXPECT().HandleDesiredStateFeedbackEvent("device", test.ActivityID, "", gomock.Any(), "", []*types.Action{}).Times(3)
 
 		go applyDesiredState(ctx, updOrchestrator, doneChan, domainAgents, test.ActivityID, test.DesiredState, eventCallback)
 
