@@ -70,11 +70,11 @@ pkg/errors (0.9.1)
 * Project: https://github.com/pkg/errors
 * Source:  http://github.com/pkg/errors/releases/tag/v0.9.1
 
-golang.org/x/net (0.7.0)
+golang.org/x/net (0.17.0)
 
 * License: BSD 3-Clause "New" or "Revised" License
 * Project: https://github.com/golang/net
-* Source:  https://github.com/golang/net/releases/tag/v0.7.0
+* Source:  https://github.com/golang/net/releases/tag/v0.17.0
 
 golang.org/x/sync (v0.0.0-20210220032951-036812b2e83c)
 
