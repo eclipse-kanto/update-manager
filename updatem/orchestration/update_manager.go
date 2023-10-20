@@ -34,6 +34,9 @@ type aggregatedUpdateManager struct {
 	version string
 	cfg     *config.Config
 
+	inProgress         bool
+	activityInProgress string
+
 	updateOrchestrator api.UpdateOrchestrator
 	domainsInventory   map[string]*types.Inventory
 
@@ -75,8 +78,10 @@ func (updateManager *aggregatedUpdateManager) Name() string {
 }
 
 func (updateManager *aggregatedUpdateManager) Apply(ctx context.Context, activityID string, desiredState *types.DesiredState) {
-	updateManager.applyLock.Lock()
-	defer updateManager.applyLock.Unlock()
+	if updateManager.checkIfInProgress(activityID) {
+		return
+	}
+	defer updateManager.markApplyCompleted()
 
 	logger.Debug("processing desired state specification - start")
 	rebootRequired := updateManager.updateOrchestrator.Apply(ctx, updateManager.domainAgents, activityID, desiredState, updateManager.eventCallback)
@@ -98,6 +103,33 @@ func (updateManager *aggregatedUpdateManager) Apply(ctx context.Context, activit
 			logger.Warn("reboot required but automatic rebooting is disabled")
 		}
 	}
+}
+
+func (updateManager *aggregatedUpdateManager) checkIfInProgress(activityID string) bool {
+	updateManager.applyLock.Lock()
+	defer updateManager.applyLock.Unlock()
+
+	if updateManager.inProgress { // operation already in progress, reject with status StatusIdentificationFailed
+		logger.Warn("Cannot start update activity %s, another activity %s already in progress", activityID, updateManager.activityInProgress)
+		desiredStateCallback := updateManager.eventCallback
+		if desiredStateCallback != nil {
+			desiredStateCallback.HandleDesiredStateFeedbackEvent(updateManager.Name(), activityID, "", types.StatusIdentificationFailed, "Another update activity in progress - "+updateManager.activityInProgress, nil)
+		}
+		return true
+	}
+	logger.Info("Starting update activity %s ...", activityID)
+	updateManager.inProgress = true
+	updateManager.activityInProgress = activityID
+	return false
+}
+
+func (updateManager *aggregatedUpdateManager) markApplyCompleted() {
+	updateManager.applyLock.Lock()
+	defer updateManager.applyLock.Unlock()
+
+	logger.Info("Finished update activity %s", updateManager.activityInProgress)
+	updateManager.inProgress = false
+	updateManager.activityInProgress = ""
 }
 
 func (updateManager *aggregatedUpdateManager) Command(ctx context.Context, activityID string, command *types.DesiredStateCommand) {

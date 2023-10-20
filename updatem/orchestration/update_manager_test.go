@@ -15,6 +15,7 @@ package orchestration
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -128,6 +129,78 @@ func TestApplyDesiredState(t *testing.T) {
 	eventCallback.EXPECT().HandleCurrentStateEvent("device", test.ActivityID, testInventory)
 
 	updateManager.Apply(ctx, test.ActivityID, desiredState1)
+	assert.False(t, updateManager.inProgress)
+	assert.Equal(t, "", updateManager.activityInProgress)
+}
+
+func TestApplyDesiredStateWhileInProgress(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	desiredState1 := &types.DesiredState{
+		Domains: []*types.Domain{
+			{
+				ID: "testDomain1",
+			},
+		},
+	}
+	testInventory := &types.Inventory{
+		SoftwareNodes: []*types.SoftwareNode{
+			test.MainInventoryNode,
+		},
+	}
+	ctx := context.Background()
+
+	eventCallback := mocks.NewMockUpdateManagerCallback(mockCtrl)
+	mockUpdateOrchestrator := mocks.NewMockUpdateOrchestrator(mockCtrl)
+
+	domainUpdateManager := mocks.NewMockUpdateManager(mockCtrl)
+	domainUpdateManagers := map[string]api.UpdateManager{"testDomain1": domainUpdateManager}
+	domainUpdateManager.EXPECT().Name().Return("testDomain1").AnyTimes()
+
+	updateManager := createTestUpdateManager(eventCallback, domainUpdateManagers, nil, 0, createTestConfig(false, false), mockUpdateOrchestrator, nil, "development")
+
+	var wg sync.WaitGroup
+	chanApplyStarted := make(chan bool)
+	chanRejectDone := make(chan bool)
+
+	domainUpdateManager.EXPECT().Get(ctx, test.ActivityID).Return(nil, nil)
+	mockUpdateOrchestrator.EXPECT().Apply(context.Background(), domainUpdateManagers, test.ActivityID, desiredState1, eventCallback).Times(1).Do(
+		func(ctx context.Context, domainAgents map[string]api.UpdateManager, activityID string, desiredState *types.DesiredState, desiredStateCallback api.DesiredStateFeedbackHandler) {
+			chanApplyStarted <- true
+			// first apply blocks until a signal from test is received.
+			<-chanRejectDone
+			wg.Done()
+		})
+	eventCallback.EXPECT().HandleCurrentStateEvent("device", test.ActivityID, testInventory)
+
+	// start first Apply operation: it blocks until another Apply operation is rejected
+	wg.Add(2)
+	go func() {
+		updateManager.Apply(ctx, test.ActivityID, desiredState1)
+		wg.Done()
+	}()
+	<-chanApplyStarted
+	assert.True(t, updateManager.inProgress)
+	assert.Equal(t, test.ActivityID, updateManager.activityInProgress)
+
+	// second Apply operation, while the first one is in progress: it shall be rejected
+	idRejected := "activity-to-be-rejected"
+	eventCallback.EXPECT().HandleDesiredStateFeedbackEvent("device", idRejected, "", types.StatusIdentificationFailed, "Another update activity in progress - "+test.ActivityID, nil).Do(
+		func(domain string, activityID string, baseline string, status types.StatusType, message string, actions []*types.Action) {
+			// signal first apply to complete
+			chanRejectDone <- true
+		})
+	updateManager.Apply(ctx, idRejected, desiredState1)
+	wg.Wait()
+
+	// third Apply operation, after the first one finishes: it shall be accepted
+	idAccepted := "activity-to-be-accepted"
+	domainUpdateManager.EXPECT().Get(ctx, idAccepted).Return(nil, nil)
+	mockUpdateOrchestrator.EXPECT().Apply(context.Background(), domainUpdateManagers, idAccepted, desiredState1, eventCallback).Times(1)
+	eventCallback.EXPECT().HandleCurrentStateEvent("device", idAccepted, testInventory)
+	updateManager.Apply(ctx, idAccepted, desiredState1)
+	assert.False(t, updateManager.inProgress)
+	assert.Equal(t, "", updateManager.activityInProgress)
 }
 
 func TestDisposeUpdateManager(t *testing.T) {
