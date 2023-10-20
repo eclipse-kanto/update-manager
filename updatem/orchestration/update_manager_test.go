@@ -174,8 +174,11 @@ func TestApplyDesiredStateWhileInProgress(t *testing.T) {
 	eventCallback.EXPECT().HandleCurrentStateEvent("device", test.ActivityID, testInventory)
 
 	// start first Apply operation: it blocks until another Apply operation is rejected
-	wg.Add(1)
-	go updateManager.Apply(ctx, test.ActivityID, desiredState1)
+	wg.Add(2)
+	go func() {
+		updateManager.Apply(ctx, test.ActivityID, desiredState1)
+		wg.Done()
+	}()
 	<-chanApplyStarted
 	assert.True(t, updateManager.inProgress)
 	assert.Equal(t, test.ActivityID, updateManager.activityInProgress)
@@ -195,18 +198,9 @@ func TestApplyDesiredStateWhileInProgress(t *testing.T) {
 	domainUpdateManager.EXPECT().Get(ctx, idAccepted).Return(nil, nil)
 	mockUpdateOrchestrator.EXPECT().Apply(context.Background(), domainUpdateManagers, idAccepted, desiredState1, eventCallback).Times(1)
 	eventCallback.EXPECT().HandleCurrentStateEvent("device", idAccepted, testInventory)
-	for checkIfInProgress(updateManager) {
-		time.Sleep(100 * time.Millisecond)
-	}
 	updateManager.Apply(ctx, idAccepted, desiredState1)
 	assert.False(t, updateManager.inProgress)
 	assert.Equal(t, "", updateManager.activityInProgress)
-}
-
-func checkIfInProgress(updateManager *aggregatedUpdateManager) bool {
-	updateManager.applyLock.Lock()
-	defer updateManager.applyLock.Unlock()
-	return updateManager.inProgress
 }
 
 func TestDisposeUpdateManager(t *testing.T) {
