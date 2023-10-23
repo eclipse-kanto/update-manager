@@ -14,6 +14,7 @@ package mqtt
 
 import (
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -49,6 +50,9 @@ type internalConnectionConfig struct {
 	AcknowledgeTimeout time.Duration
 	SubscribeTimeout   time.Duration
 	UnsubscribeTimeout time.Duration
+	RootCA             string
+	ClientCert         string
+	ClientKey          string
 }
 
 func newInternalConnectionConfig(config *ConnectionConfig) *internalConnectionConfig {
@@ -62,6 +66,9 @@ func newInternalConnectionConfig(config *ConnectionConfig) *internalConnectionCo
 		AcknowledgeTimeout: parseDuration("mqtt-conn-ack-timeout", config.AcknowledgeTimeout, defaultAcknowledgeTimeout),
 		SubscribeTimeout:   parseDuration("mqtt-conn-sub-timeout", config.SubscribeTimeout, defaultSubscribeTimeout),
 		UnsubscribeTimeout: parseDuration("mqtt-conn-unsub-timeout", config.UnsubscribeTimeout, defaultUnsubscribeTimeout),
+		RootCA:             config.RootCA,
+		ClientCert:         config.ClientCert,
+		ClientKey:          config.ClientKey,
 	}
 }
 
@@ -261,7 +268,30 @@ func newClient(config *internalConnectionConfig, onConnect pahomqtt.OnConnectHan
 		SetUsername(config.Username).
 		SetPassword(config.Password)
 
+	u, err := url.Parse(config.Broker)
+	if err != nil {
+		logger.ErrorErr(err, "error while parsing broker URL")
+	} else {
+		if isConnectionSecure(u.Scheme) {
+			tlsConfig, err := NewTLSConfig(config)
+			if err != nil {
+				logger.ErrorErr(err, "error while applying TLS configuration")
+				return nil
+			}
+			clientOptions.SetTLSConfig(tlsConfig)
+		}
+	}
+
 	return pahomqtt.NewClient(clientOptions)
+}
+
+func isConnectionSecure(schema string) bool {
+	switch schema {
+	case "wss", "ssl", "tls", "mqtts", "mqtt+ssl", "tcps":
+		return true
+	default:
+	}
+	return false
 }
 
 func getAndPublishCurrentState(domain string, currentStateGetHandler func(string, int64) error) {

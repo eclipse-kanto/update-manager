@@ -23,6 +23,9 @@ const (
 	defaultAcknowledgeTimeout = "15s"
 	defaultSubscribeTimeout   = "15s"
 	defaultUnsubscribeTimeout = "5s"
+	defaultRootCA             = ""
+	defaultClientCert         = ""
+	defaultClientKey          = ""
 )
 
 // ConnectionConfig represents the mqtt client connection config
@@ -36,6 +39,9 @@ type ConnectionConfig struct {
 	AcknowledgeTimeout string `json:"acknowledgeTimeout,omitempty"`
 	SubscribeTimeout   string `json:"subscribeTimeout,omitempty"`
 	UnsubscribeTimeout string `json:"unsubscribeTimeout,omitempty"`
+	RootCA             string `json:"root_ca"`
+	ClientCert         string `json:"cleint_cert"`
+	ClientKey          string `json:"cleint_key"`
 }
 
 // NewDefaultConfig returns a default mqtt client connection config instance
@@ -50,5 +56,8 @@ func NewDefaultConfig() *ConnectionConfig {
 		AcknowledgeTimeout: defaultAcknowledgeTimeout,
 		SubscribeTimeout:   defaultSubscribeTimeout,
 		UnsubscribeTimeout: defaultUnsubscribeTimeout,
+		RootCA:             defaultRootCA,
+		ClientCert:         defaultClientCert,
+		ClientKey:          defaultClientKey,
 	}
 }
