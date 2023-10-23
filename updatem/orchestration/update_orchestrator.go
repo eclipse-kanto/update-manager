@@ -59,7 +59,12 @@ func (orchestrator *updateOrchestrator) Apply(ctx context.Context, domainAgents 
 		if applyErr != nil {
 			message = applyErr.Error()
 		}
-		orchestrator.notifyFeedback(orchestrator.operation.status, message)
+
+		orchestrator.operation.statusLock.Lock()
+		status := orchestrator.operation.status
+		orchestrator.operation.statusLock.Unlock()
+
+		orchestrator.notifyFeedback(status, message)
 		orchestrator.disposeUpdateOperation()
 	}()
 
