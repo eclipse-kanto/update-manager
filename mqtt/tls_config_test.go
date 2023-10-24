@@ -24,7 +24,7 @@ const (
 	rootCertPath = "./testdata/testRootCert.crt"
 	certPath     = "./testdata/testClientCert.cert"
 	notAbsError  = "invalid TLS configuration provided: provided path must be absolute - " + notAbsolute
-	emptyError   = "invalid TLS configuration provided: TLS configuration data is missing, file must be "
+	emptyError   = "invalid TLS configuration provided: TLS configuration data is missing"
 )
 
 type testTLSConfigError struct {
@@ -43,7 +43,7 @@ func TestNewTLSConfigWithError(t *testing.T) {
 		// missing CACert file
 		{
 			config:   &internalConnectionConfig{},
-			expError: emptyError + ".crt",
+			expError: emptyError,
 		},
 		// CACert must be absolute path
 		{
@@ -57,7 +57,7 @@ func TestNewTLSConfigWithError(t *testing.T) {
 		},
 		{
 			config:   &internalConnectionConfig{RootCA: caCertAbsPath},
-			expError: emptyError + ".cert",
+			expError: emptyError,
 		},
 		// Cert must be absolute path
 		{
@@ -80,7 +80,7 @@ func TestNewTLSConfigWithError(t *testing.T) {
 				RootCA:     caCertAbsPath,
 				ClientCert: certAbsPath,
 			},
-			expError: emptyError + ".key",
+			expError: emptyError,
 		},
 		// Key must be absolute path
 		{
@@ -103,14 +103,10 @@ func TestNewTLSConfigWithError(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		assertCertError(t, test.config, test.expError)
+		tlsConfig, err := NewTLSConfig(test.config)
+		assert.EqualError(t, err, test.expError)
+		assert.Nil(t, tlsConfig)
 	}
-}
-
-func assertCertError(t *testing.T, settings *internalConnectionConfig, expectedErr string) {
-	use, err := NewTLSConfig(settings)
-	assert.EqualError(t, err, expectedErr)
-	assert.Nil(t, use)
 }
 
 func TestNewTLSConfig(t *testing.T) {
@@ -123,7 +119,7 @@ func TestNewTLSConfig(t *testing.T) {
 		ClientCert: certAbsPath,
 		ClientKey:  keyAbsPath,
 	}
-	use, err := NewTLSConfig(tlsConfig)
+	tls, err := NewTLSConfig(tlsConfig)
 	assert.NoError(t, err)
-	assert.NotNil(t, use)
+	assert.NotNil(t, tls)
 }

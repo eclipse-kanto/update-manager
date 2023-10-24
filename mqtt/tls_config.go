@@ -71,27 +71,27 @@ func supportedCipherSuites() []uint16 {
 }
 
 func validateTLSConfig(config *internalConnectionConfig) error {
-	if err := validateTLSConfigFile(config.RootCA, ".crt"); err != nil {
+	if err := validateTLSConfigFile(config.RootCA); err != nil {
 		logger.ErrorErr(err, "problem accessing provided CA file %s", config.RootCA)
 		return err
 	}
-	if err := validateTLSConfigFile(config.ClientCert, ".cert"); err != nil {
+	if err := validateTLSConfigFile(config.ClientCert); err != nil {
 		logger.ErrorErr(err, "problem accessing provided certificate file %s", config.ClientCert)
 		return err
 	}
-	if err := validateTLSConfigFile(config.ClientKey, ".key"); err != nil {
+	if err := validateTLSConfigFile(config.ClientKey); err != nil {
 		logger.ErrorErr(err, "problem accessing provided certificate key file %s", config.ClientKey)
 		return err
 	}
 	return nil
 }
 
-func validateTLSConfigFile(file, expectedFileExt string) error {
+func validateTLSConfigFile(file string) error {
 	if file == "" {
-		return newErrorf("TLS configuration data is missing, file must be %s", expectedFileExt)
+		return errors.New("TLS configuration data is missing")
 	}
 	if !filepath.IsAbs(file) {
-		return newErrorf("provided path must be absolute - %s", file)
+		return errors.New(fmt.Sprintf("provided path must be absolute - %s", file))
 	}
 	if err := fileNotExistEmptyOrDir(file); err != nil {
 		return err
@@ -105,14 +105,10 @@ func fileNotExistEmptyOrDir(filename string) error {
 		return err
 	}
 	if fi.IsDir() {
-		return newErrorf("the provided path %s is a dir path - file is required", filename)
+		return errors.New(fmt.Sprintf("the provided path %s is a dir path - file is required", filename))
 	}
 	if fi.Size() == 0 {
-		return newErrorf("file %s is empty", filename)
+		return errors.New(fmt.Sprintf("file %s is empty", filename))
 	}
 	return nil
-}
-
-func newErrorf(format string, args ...interface{}) error {
-	return errors.New(fmt.Sprintf(format, args...))
 }
