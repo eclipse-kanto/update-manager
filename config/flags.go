@@ -48,9 +48,9 @@ func SetupFlags(flagSet *flag.FlagSet, cfg *BaseConfig) {
 	flagSet.StringVar(&cfg.MQTT.AcknowledgeTimeout, "mqtt-conn-ack-timeout", EnvToString("MQTT_CONN_ACK_TIMEOUT", cfg.MQTT.AcknowledgeTimeout), "Acknowledge timeout for the MQTT requests as duration string")
 	flagSet.StringVar(&cfg.MQTT.SubscribeTimeout, "mqtt-conn-sub-timeout", EnvToString("MQTT_CONN_SUB_TIMEOUT", cfg.MQTT.SubscribeTimeout), "Subscribe timeout for the MQTT requests as duration string")
 	flagSet.StringVar(&cfg.MQTT.UnsubscribeTimeout, "mqtt-conn-unsub-timeout", EnvToString("MQTT_CONN_UNSUB_TIMEOUT", cfg.MQTT.UnsubscribeTimeout), "Unsubscribe timeout for the MQTT requests as duration string")
-	flagSet.StringVar(&cfg.MQTT.RootCA, "mqtt-conn-root-ca", EnvToString("MQTT_CONN_ROOT_CA", cfg.MQTT.RootCA), "Specify the PEM encoded CA certificates file")
-	flagSet.StringVar(&cfg.MQTT.ClientCert, "mqtt-conn-client-cert", EnvToString("MQTT_CONN_CLIENT_CERT", cfg.MQTT.ClientCert), "Specify the PEM encoded certificate file to authenticate to the MQTT server/broker")
-	flagSet.StringVar(&cfg.MQTT.ClientKey, "mqtt-conn-client-key", EnvToString("MQTT_CONN_CLIENT_KEY", cfg.MQTT.ClientKey), "Specify the PEM encoded unencrypted private key file to authenticate to the MQTT server/broker")
+	flagSet.StringVar(&cfg.MQTT.CACert, "mqtt-conn-ca-cert", EnvToString("MQTT_CONN_CA_CERT", cfg.MQTT.CACert), "Specify the PEM encoded CA certificates file")
+	flagSet.StringVar(&cfg.MQTT.Cert, "mqtt-conn-cert", EnvToString("MQTT_CONN_CERT", cfg.MQTT.Cert), "Specify the PEM encoded certificate file to authenticate to the MQTT server/broker")
+	flagSet.StringVar(&cfg.MQTT.Key, "mqtt-conn-key", EnvToString("MQTT_CONN_KEY", cfg.MQTT.Key), "Specify the PEM encoded unencrypted private key file to authenticate to the MQTT server/broker")
 
 	flagSet.StringVar(&cfg.Domain, "domain", EnvToString("DOMAIN", cfg.Domain), "Specify the Domain of this update agent, used as MQTT topic prefix.")
 

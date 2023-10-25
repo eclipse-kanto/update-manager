@@ -50,9 +50,9 @@ type internalConnectionConfig struct {
 	AcknowledgeTimeout time.Duration
 	SubscribeTimeout   time.Duration
 	UnsubscribeTimeout time.Duration
-	RootCA             string
-	ClientCert         string
-	ClientKey          string
+	CACert             string
+	Cert               string
+	Key                string
 }
 
 func newInternalConnectionConfig(config *ConnectionConfig) *internalConnectionConfig {
@@ -66,9 +66,9 @@ func newInternalConnectionConfig(config *ConnectionConfig) *internalConnectionCo
 		AcknowledgeTimeout: parseDuration("mqtt-conn-ack-timeout", config.AcknowledgeTimeout, defaultAcknowledgeTimeout),
 		SubscribeTimeout:   parseDuration("mqtt-conn-sub-timeout", config.SubscribeTimeout, defaultSubscribeTimeout),
 		UnsubscribeTimeout: parseDuration("mqtt-conn-unsub-timeout", config.UnsubscribeTimeout, defaultUnsubscribeTimeout),
-		RootCA:             config.RootCA,
-		ClientCert:         config.ClientCert,
-		ClientKey:          config.ClientKey,
+		CACert:             config.CACert,
+		Cert:               config.Cert,
+		Key:                config.Key,
 	}
 }
 

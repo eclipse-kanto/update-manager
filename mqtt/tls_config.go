@@ -40,19 +40,19 @@ func NewTLSConfig(settings *internalConnectionConfig) (*tls.Config, error) {
 	}
 
 	// load CA cert
-	caCert, err := ioutil.ReadFile(settings.RootCA)
+	caCert, err := ioutil.ReadFile(settings.CACert)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to load CA")
 	}
 	tlsConfig := createDefaultTLSConfig(false)
 	caCertPool := x509.NewCertPool()
 	if !caCertPool.AppendCertsFromPEM(caCert) {
-		return nil, errors.Errorf("failed to parse CA %s", settings.RootCA)
+		return nil, errors.Errorf("failed to parse CA %s", settings.CACert)
 	}
 	tlsConfig.RootCAs = caCertPool
 
 	// load client certificate-key pair
-	cert, err := tls.LoadX509KeyPair(settings.ClientCert, settings.ClientKey)
+	cert, err := tls.LoadX509KeyPair(settings.Cert, settings.Key)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to load X509 key pair")
 	}
@@ -71,16 +71,16 @@ func supportedCipherSuites() []uint16 {
 }
 
 func validateTLSConfig(config *internalConnectionConfig) error {
-	if err := validateTLSConfigFile(config.RootCA); err != nil {
-		logger.ErrorErr(err, "problem accessing provided CA file %s", config.RootCA)
+	if err := validateTLSConfigFile(config.CACert); err != nil {
+		logger.ErrorErr(err, "problem accessing provided CA file %s", config.CACert)
 		return err
 	}
-	if err := validateTLSConfigFile(config.ClientCert); err != nil {
-		logger.ErrorErr(err, "problem accessing provided certificate file %s", config.ClientCert)
+	if err := validateTLSConfigFile(config.Cert); err != nil {
+		logger.ErrorErr(err, "problem accessing provided certificate file %s", config.Cert)
 		return err
 	}
-	if err := validateTLSConfigFile(config.ClientKey); err != nil {
-		logger.ErrorErr(err, "problem accessing provided certificate key file %s", config.ClientKey)
+	if err := validateTLSConfigFile(config.Key); err != nil {
+		logger.ErrorErr(err, "problem accessing provided certificate key file %s", config.Key)
 		return err
 	}
 	return nil
@@ -88,10 +88,10 @@ func validateTLSConfig(config *internalConnectionConfig) error {
 
 func validateTLSConfigFile(file string) error {
 	if file == "" {
-		return errors.New("TLS configuration data is missing")
+		return fmt.Errorf("TLS configuration data is missing")
 	}
 	if !filepath.IsAbs(file) {
-		return errors.New(fmt.Sprintf("provided path must be absolute - %s", file))
+		return fmt.Errorf("provided path must be absolute - %s", file)
 	}
 	if err := fileNotExistEmptyOrDir(file); err != nil {
 		return err
@@ -105,10 +105,10 @@ func fileNotExistEmptyOrDir(filename string) error {
 		return err
 	}
 	if fi.IsDir() {
-		return errors.New(fmt.Sprintf("the provided path %s is a dir path - file is required", filename))
+		return fmt.Errorf("the provided path %s is a dir path - file is required", filename)
 	}
 	if fi.Size() == 0 {
-		return errors.New(fmt.Sprintf("file %s is empty", filename))
+		return fmt.Errorf("file %s is empty", filename)
 	}
 	return nil
 }

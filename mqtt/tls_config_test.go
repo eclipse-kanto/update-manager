@@ -20,11 +20,11 @@ import (
 )
 
 const (
-	notAbsolute  = "not-absolute-path"
-	rootCertPath = "./testdata/testRootCert.crt"
-	certPath     = "./testdata/testClientCert.cert"
-	notAbsError  = "invalid TLS configuration provided: provided path must be absolute - " + notAbsolute
-	emptyError   = "invalid TLS configuration provided: TLS configuration data is missing"
+	notAbsolute = "not-absolute-path"
+	caCertPath  = "./testdata/testCaCert.crt"
+	certPath    = "./testdata/testCert.cert"
+	notAbsError = "invalid TLS configuration provided: provided path must be absolute - " + notAbsolute
+	emptyError  = "invalid TLS configuration provided: TLS configuration data is missing"
 )
 
 type testTLSConfigError struct {
@@ -34,7 +34,7 @@ type testTLSConfigError struct {
 
 func TestNewTLSConfigWithError(t *testing.T) {
 	nonExisting, _ := filepath.Abs("./nonexisting.test")
-	caCertAbsPath, _ := filepath.Abs(rootCertPath)
+	caCertAbsPath, _ := filepath.Abs(caCertPath)
 	certAbsPath, _ := filepath.Abs(certPath)
 	emptyAbsPath, _ := filepath.Abs("./testdata/emptyTestCertFile.crt")
 	dirAbsPath, _ := filepath.Abs("./")
@@ -47,56 +47,56 @@ func TestNewTLSConfigWithError(t *testing.T) {
 		},
 		// CACert must be absolute path
 		{
-			config:   &internalConnectionConfig{RootCA: notAbsolute},
+			config:   &internalConnectionConfig{CACert: notAbsolute},
 			expError: notAbsError,
 		},
 		// Cannot find file
 		{
-			config:   &internalConnectionConfig{RootCA: nonExisting},
+			config:   &internalConnectionConfig{CACert: nonExisting},
 			expError: "invalid TLS configuration provided: stat " + nonExisting + ": no such file or directory",
 		},
 		{
-			config:   &internalConnectionConfig{RootCA: caCertAbsPath},
+			config:   &internalConnectionConfig{CACert: caCertAbsPath},
 			expError: emptyError,
 		},
 		// Cert must be absolute path
 		{
 			config: &internalConnectionConfig{
-				RootCA:     caCertAbsPath,
-				ClientCert: notAbsolute,
+				CACert: caCertAbsPath,
+				Cert:   notAbsolute,
 			},
 			expError: notAbsError,
 		},
 		// Cert file is directory
 		{
 			config: &internalConnectionConfig{
-				RootCA:     caCertAbsPath,
-				ClientCert: dirAbsPath,
+				CACert: caCertAbsPath,
+				Cert:   dirAbsPath,
 			},
 			expError: "invalid TLS configuration provided: the provided path " + dirAbsPath + " is a dir path - file is required",
 		},
 		{
 			config: &internalConnectionConfig{
-				RootCA:     caCertAbsPath,
-				ClientCert: certAbsPath,
+				CACert: caCertAbsPath,
+				Cert:   certAbsPath,
 			},
 			expError: emptyError,
 		},
 		// Key must be absolute path
 		{
 			config: &internalConnectionConfig{
-				RootCA:     caCertAbsPath,
-				ClientCert: certAbsPath,
-				ClientKey:  notAbsolute,
+				CACert: caCertAbsPath,
+				Cert:   certAbsPath,
+				Key:    notAbsolute,
 			},
 			expError: notAbsError,
 		},
 		// Key file is empty
 		{
 			config: &internalConnectionConfig{
-				RootCA:     caCertAbsPath,
-				ClientCert: certAbsPath,
-				ClientKey:  emptyAbsPath,
+				CACert: caCertAbsPath,
+				Cert:   certAbsPath,
+				Key:    emptyAbsPath,
 			},
 			expError: "invalid TLS configuration provided: file " + emptyAbsPath + " is empty",
 		},
@@ -110,16 +110,16 @@ func TestNewTLSConfigWithError(t *testing.T) {
 }
 
 func TestNewTLSConfig(t *testing.T) {
-	caCertAbsPath, _ := filepath.Abs(rootCertPath)
+	caCertAbsPath, _ := filepath.Abs(caCertPath)
 	certAbsPath, _ := filepath.Abs(certPath)
-	keyAbsPath, _ := filepath.Abs("./testdata/testClientKey.key")
+	keyAbsPath, _ := filepath.Abs("./testdata/testKey.key")
 
-	tlsConfig := &internalConnectionConfig{
-		RootCA:     caCertAbsPath,
-		ClientCert: certAbsPath,
-		ClientKey:  keyAbsPath,
+	config := &internalConnectionConfig{
+		CACert: caCertAbsPath,
+		Cert:   certAbsPath,
+		Key:    keyAbsPath,
 	}
-	tls, err := NewTLSConfig(tlsConfig)
+	tlsConfig, err := NewTLSConfig(config)
 	assert.NoError(t, err)
-	assert.NotNil(t, tls)
+	assert.NotNil(t, tlsConfig)
 }
