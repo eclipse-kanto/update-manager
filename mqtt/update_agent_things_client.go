@@ -45,7 +45,7 @@ type updateAgentThingsClient struct {
 }
 
 // NewUpdateAgentThingsClient instantiates a new UpdateAgentClient instance using the provided configuration options.
-func NewUpdateAgentThingsClient(domain string, config *ConnectionConfig) api.UpdateAgentClient {
+func NewUpdateAgentThingsClient(domain string, config *ConnectionConfig) (api.UpdateAgentClient, error) {
 	internalConfig := newInternalConnectionConfig(config)
 	client := &updateAgentThingsClient{
 		updateAgentClient: &updateAgentClient{
@@ -53,8 +53,11 @@ func NewUpdateAgentThingsClient(domain string, config *ConnectionConfig) api.Upd
 			domain:     domain,
 		},
 	}
-	client.pahoClient = newClient(internalConfig, client.onConnect)
-	return client
+	pahoClient, err := newClient(internalConfig, client.onConnect)
+	if err == nil {
+		client.pahoClient = pahoClient
+	}
+	return client, err
 }
 
 // Domain returns the name of the domain that is handled by this client.

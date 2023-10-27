@@ -22,6 +22,7 @@ import (
 	"github.com/eclipse-kanto/update-manager/api"
 	"github.com/eclipse-kanto/update-manager/api/types"
 	"github.com/eclipse-kanto/update-manager/logger"
+	"github.com/eclipse-kanto/update-manager/util/tls"
 
 	pahomqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/google/uuid"
@@ -106,13 +107,16 @@ type updateAgentClient struct {
 }
 
 // NewUpdateAgentClient instantiates a new UpdateAgentClient instance using the provided configuration options.
-func NewUpdateAgentClient(domain string, config *ConnectionConfig) api.UpdateAgentClient {
+func NewUpdateAgentClient(domain string, config *ConnectionConfig) (api.UpdateAgentClient, error) {
 	client := &updateAgentClient{
 		mqttClient: newInternalClient(domain, newInternalConnectionConfig(config), nil),
 		domain:     domain,
 	}
-	client.pahoClient = newClient(client.mqttConfig, client.onConnect)
-	return client
+	pahoClient, err := newClient(client.mqttConfig, client.onConnect)
+	if err == nil {
+		client.pahoClient = pahoClient
+	}
+	return client, err
 }
 
 // Domain returns the name of the domain that is handled by this client.
@@ -255,7 +259,7 @@ func domainAsTopic(domain string) string {
 	return domain + "update"
 }
 
-func newClient(config *internalConnectionConfig, onConnect pahomqtt.OnConnectHandler) pahomqtt.Client {
+func newClient(config *internalConnectionConfig, onConnect pahomqtt.OnConnectHandler) (pahomqtt.Client, error) {
 	clientOptions := pahomqtt.NewClientOptions().
 		SetClientID(uuid.New().String()).
 		AddBroker(config.Broker).
@@ -270,19 +274,21 @@ func newClient(config *internalConnectionConfig, onConnect pahomqtt.OnConnectHan
 
 	u, err := url.Parse(config.Broker)
 	if err != nil {
-		logger.ErrorErr(err, "error while parsing broker URL")
-	} else {
-		if isConnectionSecure(u.Scheme) {
-			tlsConfig, err := NewTLSConfig(config)
-			if err != nil {
-				logger.ErrorErr(err, "error while applying TLS configuration")
-				return nil
-			}
-			clientOptions.SetTLSConfig(tlsConfig)
+		return nil, err
+	}
+	if isConnectionSecure(u.Scheme) {
+		if len(config.CACert) == 0 {
+			return nil, errors.New("connection is secure, but no TLS configuration is provided")
 		}
+		tlsConfig, err := tls.NewTLSConfig(config.CACert, config.Cert, config.Key)
+		if err != nil {
+			logger.ErrorErr(err, "error while applying TLS configuration")
+			return nil, err
+		}
+		clientOptions.SetTLSConfig(tlsConfig)
 	}
 
-	return pahomqtt.NewClient(clientOptions)
+	return pahomqtt.NewClient(clientOptions), nil
 }
 
 func isConnectionSecure(schema string) bool {
