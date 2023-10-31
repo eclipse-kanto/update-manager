@@ -282,7 +282,6 @@ func newClient(config *internalConnectionConfig, onConnect pahomqtt.OnConnectHan
 		}
 		tlsConfig, err := tls.NewTLSConfig(config.CACert, config.Cert, config.Key)
 		if err != nil {
-			logger.ErrorErr(err, "error while applying TLS configuration")
 			return nil, err
 		}
 		clientOptions.SetTLSConfig(tlsConfig)

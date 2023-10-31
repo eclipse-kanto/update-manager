@@ -39,9 +39,9 @@ type ConnectionConfig struct {
 	AcknowledgeTimeout string `json:"acknowledgeTimeout,omitempty"`
 	SubscribeTimeout   string `json:"subscribeTimeout,omitempty"`
 	UnsubscribeTimeout string `json:"unsubscribeTimeout,omitempty"`
-	CACert             string `json:"caCert"`
-	Cert               string `json:"cert"`
-	Key                string `json:"key"`
+	CACert             string `json:"caCert,omitempty"`
+	Cert               string `json:"cert,omitempty"`
+	Key                string `json:"key,omitempty"`
 }
 
 // NewDefaultConfig returns a default mqtt client connection config instance
