@@ -14,6 +14,7 @@ package mqtt
 
 import (
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -21,6 +22,7 @@ import (
 	"github.com/eclipse-kanto/update-manager/api"
 	"github.com/eclipse-kanto/update-manager/api/types"
 	"github.com/eclipse-kanto/update-manager/logger"
+	"github.com/eclipse-kanto/update-manager/util/tls"
 
 	pahomqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/google/uuid"
@@ -49,6 +51,9 @@ type internalConnectionConfig struct {
 	AcknowledgeTimeout time.Duration
 	SubscribeTimeout   time.Duration
 	UnsubscribeTimeout time.Duration
+	CACert             string
+	Cert               string
+	Key                string
 }
 
 func newInternalConnectionConfig(config *ConnectionConfig) *internalConnectionConfig {
@@ -62,6 +67,9 @@ func newInternalConnectionConfig(config *ConnectionConfig) *internalConnectionCo
 		AcknowledgeTimeout: parseDuration("mqtt-conn-ack-timeout", config.AcknowledgeTimeout, defaultAcknowledgeTimeout),
 		SubscribeTimeout:   parseDuration("mqtt-conn-sub-timeout", config.SubscribeTimeout, defaultSubscribeTimeout),
 		UnsubscribeTimeout: parseDuration("mqtt-conn-unsub-timeout", config.UnsubscribeTimeout, defaultUnsubscribeTimeout),
+		CACert:             config.CACert,
+		Cert:               config.Cert,
+		Key:                config.Key,
 	}
 }
 
@@ -99,13 +107,16 @@ type updateAgentClient struct {
 }
 
 // NewUpdateAgentClient instantiates a new UpdateAgentClient instance using the provided configuration options.
-func NewUpdateAgentClient(domain string, config *ConnectionConfig) api.UpdateAgentClient {
+func NewUpdateAgentClient(domain string, config *ConnectionConfig) (api.UpdateAgentClient, error) {
 	client := &updateAgentClient{
 		mqttClient: newInternalClient(domain, newInternalConnectionConfig(config), nil),
 		domain:     domain,
 	}
-	client.pahoClient = newClient(client.mqttConfig, client.onConnect)
-	return client
+	pahoClient, err := newClient(client.mqttConfig, client.onConnect)
+	if err == nil {
+		client.pahoClient = pahoClient
+	}
+	return client, err
 }
 
 // Domain returns the name of the domain that is handled by this client.
@@ -248,7 +259,7 @@ func domainAsTopic(domain string) string {
 	return domain + "update"
 }
 
-func newClient(config *internalConnectionConfig, onConnect pahomqtt.OnConnectHandler) pahomqtt.Client {
+func newClient(config *internalConnectionConfig, onConnect pahomqtt.OnConnectHandler) (pahomqtt.Client, error) {
 	clientOptions := pahomqtt.NewClientOptions().
 		SetClientID(uuid.New().String()).
 		AddBroker(config.Broker).
@@ -261,7 +272,31 @@ func newClient(config *internalConnectionConfig, onConnect pahomqtt.OnConnectHan
 		SetUsername(config.Username).
 		SetPassword(config.Password)
 
-	return pahomqtt.NewClient(clientOptions)
+	u, err := url.Parse(config.Broker)
+	if err != nil {
+		return nil, err
+	}
+	if isConnectionSecure(u.Scheme) {
+		if len(config.CACert) == 0 {
+			return nil, errors.New("connection is secure, but no TLS configuration is provided")
+		}
+		tlsConfig, err := tls.NewTLSConfig(config.CACert, config.Cert, config.Key)
+		if err != nil {
+			return nil, err
+		}
+		clientOptions.SetTLSConfig(tlsConfig)
+	}
+
+	return pahomqtt.NewClient(clientOptions), nil
+}
+
+func isConnectionSecure(schema string) bool {
+	switch schema {
+	case "wss", "ssl", "tls", "mqtts", "mqtt+ssl", "tcps":
+		return true
+	default:
+	}
+	return false
 }
 
 func getAndPublishCurrentState(domain string, currentStateGetHandler func(string, int64) error) {

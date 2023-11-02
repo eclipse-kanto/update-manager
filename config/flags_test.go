@@ -89,6 +89,18 @@ func TestSetupFlags(t *testing.T) {
 			flag:         "mqtt-conn-unsub-timeout",
 			expectedType: reflect.String.String(),
 		},
+		"test_flags_mqtt-conn-ca-cert": {
+			flag:         "mqtt-conn-ca-cert",
+			expectedType: reflect.String.String(),
+		},
+		"test_flags_mqtt-conn-cert": {
+			flag:         "mqtt-conn-cert",
+			expectedType: reflect.String.String(),
+		},
+		"test_flags_mqtt-conn-key": {
+			flag:         "mqtt-conn-key",
+			expectedType: reflect.String.String(),
+		},
 		"test_flags_domain": {
 			flag:         "domain",
 			expectedType: reflect.String.String(),

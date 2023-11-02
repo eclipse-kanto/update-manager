@@ -47,7 +47,8 @@ func TestNewUpdateManager(t *testing.T) {
 
 	cfg := createTestConfig(false, false)
 	t.Run("test_no_error", func(t *testing.T) {
-		uaClient := mqtt.NewUpdateAgentClient("device", &mqtt.ConnectionConfig{})
+		uaClient, err := mqtt.NewUpdateAgentClient("device", &mqtt.ConnectionConfig{})
+		assert.NoError(t, err)
 		apiUpdateManager, err := NewUpdateManager("dummyVersion", cfg, uaClient, nil)
 		assert.NoError(t, err)
 		updateManager := apiUpdateManager.(*aggregatedUpdateManager)

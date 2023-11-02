@@ -43,13 +43,15 @@ func main() {
 
 	var client api.UpdateAgentClient
 	if cfg.ThingsEnabled {
-		client = mqtt.NewUpdateAgentThingsClient(cfg.Domain, cfg.MQTT)
+		client, err = mqtt.NewUpdateAgentThingsClient(cfg.Domain, cfg.MQTT)
 	} else {
-		client = mqtt.NewUpdateAgentClient(cfg.Domain, cfg.MQTT)
+		client, err = mqtt.NewUpdateAgentClient(cfg.Domain, cfg.MQTT)
 	}
-	updateManager, err := orchestration.NewUpdateManager(version, cfg, client, orchestration.NewUpdateOrchestrator(cfg))
 	if err == nil {
-		err = app.Launch(cfg, client, updateManager)
+		updateManager, err := orchestration.NewUpdateManager(version, cfg, client, orchestration.NewUpdateOrchestrator(cfg))
+		if err == nil {
+			err = app.Launch(cfg, client, updateManager)
+		}
 	}
 
 	if err != nil {
