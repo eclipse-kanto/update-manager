@@ -1,6 +1,8 @@
-![Kanto logo](https://github.com/eclipse-kanto/kanto/raw/main/logo/kanto.svg)
+[![Kanto logo](https://github.com/eclipse-kanto/kanto/raw/main/logo/kanto.svg)](https://eclipse.dev/kanto/)
 
 # Eclipse Kanto - Update Manager
+
+[![Coverage](https://github.com/eclipse-kanto/update-manager/wiki/coverage.svg)](#)
 
 The update manager is a component responsible for the orchestration of OTA Updates towards a target device in a smarter way. The general idea is that the update manager receives a desired state specification for the whole target device and it is responsible to take the proper actions so that the current state of the target device matches the desired state.
 
