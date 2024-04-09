@@ -46,8 +46,7 @@ func TestApply(t *testing.T) {
 			operation: &updateOperation{
 				desiredState:         &types.DesiredState{},
 				desiredStateCallback: eventCallback,
-				identDone:            make(chan bool, 1),
-				done:                 make(chan bool, 1),
+				phaseChannels:        generatePhaseChannels(),
 				activityID:           test.ActivityID,
 				actions: map[string]map[string]*types.Action{
 					"action1": {
@@ -64,9 +63,8 @@ func TestApply(t *testing.T) {
 			mockUpdateManager: statePerDomain,
 		}
 
-		orchestrator.operation.identDone <- true
-		orchestrator.operation.done <- true
-
+		orchestrator.operation.phaseChannels[phaseIdentification] <- true
+		orchestrator.operation.phaseChannels[phaseDownload] <- false
 		expectedActions := []*types.Action{
 			{
 				Message: "testMsg",
@@ -98,10 +96,7 @@ func TestApply(t *testing.T) {
 			operation: &updateOperation{
 				desiredState:         &types.DesiredState{},
 				desiredStateCallback: eventCallback,
-				identDone:            make(chan bool, 1),
-				identErrChan:         make(chan bool, 1),
 				errChan:              make(chan bool, 1),
-				done:                 make(chan bool, 1),
 				errMsg:               "testErrMsg",
 				activityID:           test.ActivityID,
 				actions: map[string]map[string]*types.Action{
@@ -119,7 +114,6 @@ func TestApply(t *testing.T) {
 			mockUpdateManager: statePerDomain,
 		}
 		orchestrator.operation.errChan <- true
-		orchestrator.operation.done <- true
 		expectedActions := []*types.Action{
 			{
 				Message: "testMsg",
@@ -149,35 +143,39 @@ func applyCall(ctx context.Context, orchestrator *updateOrchestrator, done chan 
 	done <- true
 }
 
-func TestWaitIdentification(t *testing.T) {
+func TestWaitPhase(t *testing.T) {
 	const (
-		identDone    = "1"
-		errChan      = "2"
-		identErrChan = "3"
-		none         = "4"
+		phaseDone = "1"
+		errChan   = "2"
+		none      = "4"
 	)
 	testCases := map[string]struct {
 		ctx              context.Context
 		testChan         string
+		phase            phase
+		phaseDone        bool
 		terminateContext bool
+		expectedWait     bool
 		expectedErr      error
 		expectedStatus   types.StatusType
 	}{
-		"test_case_identErrChan": {
-			ctx:            context.Background(),
-			testChan:       identErrChan,
-			expectedErr:    fmt.Errorf("testIdentErrMsg"),
-			expectedStatus: types.StatusIdentifying,
-		},
 		"test_case_errChan": {
 			ctx:            context.Background(),
 			testChan:       errChan,
 			expectedErr:    fmt.Errorf("testErrMsg"),
 			expectedStatus: types.StatusIdentifying,
 		},
-		"test_case_identDone": {
+		"test_case_phaseDone_identification": {
 			ctx:            context.Background(),
-			testChan:       identDone,
+			testChan:       phaseDone,
+			phase:          phaseIdentification,
+			expectedWait:   true,
+			expectedStatus: types.StatusIdentifying,
+		},
+		"test_case_phaseDone_cleanup": {
+			ctx:            context.Background(),
+			testChan:       phaseDone,
+			phase:          phaseCleanup,
 			expectedStatus: types.StatusIdentifying,
 		},
 		"test_case_terminateContext": {
@@ -187,105 +185,160 @@ func TestWaitIdentification(t *testing.T) {
 			expectedStatus:   types.StatusIncomplete,
 			terminateContext: true,
 		},
+		"test_case_timeout_identification": {
+			ctx:            context.Background(),
+			testChan:       none,
+			phase:          phaseIdentification,
+			expectedErr:    fmt.Errorf("identification phase not done in 1s"),
+			expectedStatus: types.StatusIdentificationFailed,
+		},
+		"test_case_timeout_download": {
+			ctx:            context.Background(),
+			testChan:       none,
+			phase:          phaseDownload,
+			expectedErr:    fmt.Errorf("download phase not done in 1s"),
+			expectedStatus: types.StatusIncomplete,
+		},
 	}
 
 	for testName, testCase := range testCases {
 		t.Run(testName, func(t *testing.T) {
 			orchestrator := &updateOrchestrator{
 				operation: &updateOperation{
-					identErrChan: make(chan bool, 1),
-					errChan:      make(chan bool, 1),
-					identDone:    make(chan bool, 1),
-					identErrMsg:  "testIdentErrMsg",
-					errMsg:       "testErrMsg",
-					status:       types.StatusIdentifying,
+					errChan:       make(chan bool, 1),
+					phaseChannels: generatePhaseChannels(),
+					errMsg:        "testErrMsg",
+					status:        types.StatusIdentifying,
 				},
+				phaseTimeout: time.Second,
 			}
 
-			if testCase.testChan == identDone {
-				orchestrator.operation.identDone <- true
-			} else if testCase.testChan == errChan {
+			wg := sync.WaitGroup{}
+			var phaseHandler phaseHandler
+
+			if testCase.testChan == errChan {
 				orchestrator.operation.errChan <- true
-			} else if testCase.testChan == identErrChan {
-				orchestrator.operation.identErrChan <- true
+			} else if testCase.testChan == phaseDone {
+				if testCase.phase == phaseIdentification {
+					wg.Add(1)
+					phaseHandler = func(ctx context.Context, phase phase, orchestrator *updateOrchestrator) {
+						wg.Done()
+					}
+				}
+				orchestrator.operation.phaseChannels[testCase.phase] <- testCase.expectedWait
 			}
 
 			var actualErr error
+			var actualWait bool
 			if testCase.terminateContext {
 				newContext, cancel := context.WithTimeout(testCase.ctx, time.Second)
 				cancel()
-				actualErr = orchestrator.waitIdentification(newContext)
+				actualWait, actualErr = orchestrator.waitPhase(newContext, testCase.phase, phaseHandler)
 			} else {
-				actualErr = orchestrator.waitIdentification(testCase.ctx)
+				actualWait, actualErr = orchestrator.waitPhase(testCase.ctx, testCase.phase, phaseHandler)
 			}
 
 			assert.Equal(t, testCase.expectedErr, actualErr)
+			assert.Equal(t, testCase.expectedWait, actualWait)
 			assert.Equal(t, testCase.expectedStatus, orchestrator.operation.status)
+
+			wg.Wait()
 		})
 	}
 }
 
-func TestWaitCompletion(t *testing.T) {
-	const (
-		errChan = "1"
-		done    = "2"
-		none    = "4"
-	)
-	testCases := map[string]struct {
-		ctx              context.Context
-		testChan         string
-		terminateContext bool
-		expectedErr      error
-		expectedStatus   types.StatusType
-	}{
-		"test_case_errChan": {
-			ctx:            context.Background(),
-			testChan:       errChan,
-			expectedErr:    fmt.Errorf("testErrMsg"),
-			expectedStatus: types.StatusIdentifying,
-		},
-		"test_case_done": {
-			ctx:            context.Background(),
-			testChan:       done,
-			expectedStatus: types.StatusIdentifying,
-		},
-		"test_case_terminateContext": {
-			ctx:              context.Background(),
-			testChan:         none,
-			expectedErr:      fmt.Errorf("the update manager instance is terminated"),
-			expectedStatus:   types.StatusIncomplete,
-			terminateContext: true,
+func TestHandlePhaseCompletion(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	mockUpdateManager := mocks.NewMockUpdateManager(mockCtrl)
+
+	testDomain1 := "testName1"
+	testDomain2 := "testName2"
+	operation := &updateOperation{
+		activityID: test.ActivityID,
+		domains: map[string]types.StatusType{
+			testDomain1: types.StatusIdentifying,
+			testDomain2: types.StatusIdentifying,
 		},
 	}
+	operation.statesPerDomain = map[api.UpdateManager]*types.DesiredState{
+		mockUpdateManager: {},
+	}
+	orchestrator := &updateOrchestrator{}
 
+	mockCommand := func(mockUpdateManager *mocks.MockUpdateManager, command types.CommandType, domains ...string) func() {
+		return func() {
+			for _, domain := range domains {
+				mockUpdateManager.EXPECT().Name().Return(domain).Times(1)
+				mockUpdateManager.EXPECT().Command(context.Background(), test.ActivityID, generateCommand(command))
+			}
+		}
+	}
+
+	testCases := map[string]struct {
+		noOperation   bool
+		domainStatus1 types.StatusType
+		domainStatus2 types.StatusType
+		phase         phase
+		expectedCalls func()
+	}{
+		"test_handle_phase_completion_identify": {
+			domainStatus1: types.StatusIdentified,
+			domainStatus2: types.StatusIdentified,
+			phase:         phaseIdentification,
+			expectedCalls: mockCommand(mockUpdateManager, types.CommandDownload, testDomain1, testDomain2),
+		},
+		"test_handle_phase_completion_download": {
+			domainStatus1: types.BaselineStatusDownloadSuccess,
+			domainStatus2: types.BaselineStatusDownloadFailure,
+			phase:         phaseDownload,
+			expectedCalls: mockCommand(mockUpdateManager, types.CommandUpdate, testDomain1),
+		},
+		"test_handle_phase_completion_update": {
+			domainStatus1: types.BaselineStatusUpdateSuccess,
+			domainStatus2: types.BaselineStatusUpdateFailure,
+			phase:         phaseUpdate,
+			expectedCalls: mockCommand(mockUpdateManager, types.CommandActivate, testDomain1),
+		},
+		"test_handle_phase_completion_activate": {
+			domainStatus1: types.BaselineStatusActivationSuccess,
+			domainStatus2: types.BaselineStatusActivationFailure,
+			phase:         phaseActivation,
+			expectedCalls: mockCommand(mockUpdateManager, types.CommandCleanup, testDomain1),
+		},
+		"test_handle_phase_completion_cleanup": {
+			domainStatus1: types.BaselineStatusCleanupSuccess,
+			domainStatus2: types.BaselineStatusCleanupFailure,
+			phase:         phaseCleanup,
+			expectedCalls: func() {},
+		},
+		"test_handle_phase_completion_update_failure": {
+			domainStatus1: types.BaselineStatusUpdateFailure,
+			domainStatus2: types.BaselineStatusUpdateFailure,
+			phase:         phaseUpdate,
+			expectedCalls: mockCommand(mockUpdateManager, types.CommandActivate),
+		},
+		"test_handle_phase_completion_no_operation": {
+			noOperation: true,
+		},
+		"test_handle_phase_completion_unknown_phase": {
+			domainStatus1: types.BaselineStatusCleanupSuccess,
+			domainStatus2: types.BaselineStatusCleanupFailure,
+			phase:         phase("unknown"),
+			expectedCalls: func() {},
+		},
+	}
 	for testName, testCase := range testCases {
 		t.Run(testName, func(t *testing.T) {
-			orchestrator := &updateOrchestrator{
-				operation: &updateOperation{
-					errChan: make(chan bool, 1),
-					done:    make(chan bool, 1),
-					errMsg:  "testErrMsg",
-					status:  types.StatusIdentifying,
-				},
-			}
-
-			if testCase.testChan == done {
-				orchestrator.operation.done <- true
-			} else if testCase.testChan == errChan {
-				orchestrator.operation.errChan <- true
-			}
-
-			var actualErr error
-			if testCase.terminateContext {
-				newContext, cancel := context.WithTimeout(testCase.ctx, time.Second)
-				cancel()
-				actualErr = orchestrator.waitCompletion(newContext)
+			if testCase.noOperation {
+				orchestrator.operation = nil
 			} else {
-				actualErr = orchestrator.waitCompletion(testCase.ctx)
+				orchestrator.operation = operation
+				orchestrator.operation.domains[testDomain1] = testCase.domainStatus1
+				orchestrator.operation.domains[testDomain2] = testCase.domainStatus2
+				testCase.expectedCalls()
 			}
-
-			assert.Equal(t, testCase.expectedErr, actualErr)
-			assert.Equal(t, testCase.expectedStatus, orchestrator.operation.status)
+			handlePhaseCompletion(context.Background(), testCase.phase, orchestrator)
 		})
 	}
 }
@@ -345,15 +398,11 @@ func TestSetupUpdateOperation(t *testing.T) {
 
 		err := orchestrator.setupUpdateOperation(domainAgents, test.ActivityID, test.DesiredState, handler)
 
-		assert.NotNil(t, orchestrator.operation.done)
+		assert.NotNil(t, orchestrator.operation.phaseChannels)
 		assert.NotNil(t, orchestrator.operation.errChan)
-		assert.NotNil(t, orchestrator.operation.identDone)
-		assert.NotNil(t, orchestrator.operation.identErrChan)
 
-		orchestrator.operation.done = nil
 		orchestrator.operation.errChan = nil
-		orchestrator.operation.identDone = nil
-		orchestrator.operation.identErrChan = nil
+		orchestrator.operation.phaseChannels = nil
 
 		assert.Equal(t, expectedOp, orchestrator.operation)
 		assert.Nil(t, err)

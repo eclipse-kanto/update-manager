@@ -80,18 +80,23 @@ func handleDomainIdentified(orchestrator *updateOrchestrator, domain, message st
 	if !orchestrator.checkIdentificationStatus(domain) {
 		return
 	}
-	isIdentificationFailed := false
 	if len(actions) == 0 {
 		// no actions, any further commands shall not be sent
 		orchestrator.operation.domains[domain] = types.BaselineStatusCleanupSuccess
 	} else {
 		orchestrator.operation.domains[domain] = types.StatusIdentified
 	}
+
+	isIdentificationFailed := false
+	isIdentified := false
 	for _, domainUpdateStatus := range orchestrator.operation.domains {
 		if domainUpdateStatus == types.StatusIdentificationFailed {
 			isIdentificationFailed = true
+		} else if domainUpdateStatus == types.StatusIdentified {
+			isIdentified = true
 		}
 		if domainUpdateStatus == types.StatusIdentifying {
+			// there are domains still identifying, wait for them
 			return
 		}
 	}
@@ -99,22 +104,16 @@ func handleDomainIdentified(orchestrator *updateOrchestrator, domain, message st
 		orchestrator.updateStatusIdentificationFailed(domain, "")
 		return
 	}
+
 	orchestrator.notifyFeedback(types.StatusIdentified, "")
-	hasIdentified := false
-	for domain, status := range orchestrator.operation.domains {
-		if status == types.StatusIdentified {
-			if !hasIdentified {
-				orchestrator.notifyFeedback(types.StatusRunning, "")
-				orchestrator.operation.updateStatus(types.StatusRunning)
-			}
-			hasIdentified = true
-			orchestrator.command(context.Background(), orchestrator.operation.activityID, domain, types.CommandDownload)
-		}
-	}
-	orchestrator.operation.identDone <- true
-	if !hasIdentified {
+	if isIdentified {
+		orchestrator.domainUpdateRunning()
+		orchestrator.operation.updateStatus(types.StatusRunning)
+		orchestrator.operation.phaseChannels[phaseIdentification] <- true
+	} else {
+		// no actions(status CleanupSuccess for all domains), operation is done
 		orchestrator.operation.updateStatus(types.StatusCompleted)
-		orchestrator.operation.done <- true
+		orchestrator.operation.phaseChannels[phaseIdentification] <- false
 	}
 }
 
@@ -161,7 +160,12 @@ func handleDomainDownloadSuccess(orchestrator *updateOrchestrator, domain, messa
 		return
 	}
 	orchestrator.operation.domains[domain] = types.BaselineStatusDownloadSuccess
-	orchestrator.command(context.Background(), orchestrator.operation.activityID, domain, types.CommandUpdate)
+	for _, status := range orchestrator.operation.domains {
+		if status == types.StatusIdentified || status == types.BaselineStatusDownloading {
+			return
+		}
+	}
+	orchestrator.operation.phaseChannels[phaseDownload] <- true
 	orchestrator.domainUpdateRunning()
 }
 
@@ -198,7 +202,12 @@ func handleDomainUpdateSuccess(orchestrator *updateOrchestrator, domain, message
 		return
 	}
 	orchestrator.operation.domains[domain] = types.BaselineStatusUpdateSuccess
-	orchestrator.command(context.Background(), orchestrator.operation.activityID, domain, types.CommandActivate)
+	for _, status := range orchestrator.operation.domains {
+		if status == types.BaselineStatusDownloadSuccess || status == types.BaselineStatusUpdating {
+			return
+		}
+	}
+	orchestrator.operation.phaseChannels[phaseUpdate] <- true
 	orchestrator.domainUpdateRunning()
 }
 
@@ -235,7 +244,13 @@ func handleDomainActivationSuccess(orchestrator *updateOrchestrator, domain, mes
 		return
 	}
 	orchestrator.operation.domains[domain] = types.BaselineStatusActivationSuccess
-	orchestrator.command(context.Background(), orchestrator.operation.activityID, domain, types.CommandCleanup)
+
+	for _, status := range orchestrator.operation.domains {
+		if status == types.BaselineStatusUpdateSuccess || status == types.BaselineStatusActivating {
+			return
+		}
+	}
+	orchestrator.operation.phaseChannels[phaseActivation] <- true
 	orchestrator.domainUpdateRunning()
 }
 
@@ -316,8 +331,7 @@ func (orchestrator *updateOrchestrator) domainUpdateCompleted() {
 		return
 	}
 	orchestrator.operation.updateStatus(types.StatusCompleted)
-	orchestrator.operation.identDone <- true
-	orchestrator.operation.done <- true
+	orchestrator.operation.phaseChannels[phaseCleanup] <- false
 }
 
 func (orchestrator *updateOrchestrator) domainUpdateRunning() {
@@ -326,8 +340,8 @@ func (orchestrator *updateOrchestrator) domainUpdateRunning() {
 
 func (orchestrator *updateOrchestrator) updateStatusIdentificationFailed(domain, errMsg string) {
 	orchestrator.operation.updateStatus(types.StatusIdentificationFailed)
-	orchestrator.operation.identErrMsg = fmt.Sprintf("[%s]: %s", domain, errMsg)
-	orchestrator.operation.identErrChan <- true
+	orchestrator.operation.errMsg = fmt.Sprintf("[%s]: %s", domain, errMsg)
+	orchestrator.operation.errChan <- true
 }
 
 func (orchestrator *updateOrchestrator) checkIdentificationStatus(domain string) bool {
