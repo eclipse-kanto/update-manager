@@ -14,6 +14,7 @@ package orchestration
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -42,11 +43,25 @@ var testUpdateActions = []*types.Action{
 	},
 }
 
+type testWaitChannel func(map[phase]chan bool) error
+
 func TestFeedbackHandleDesiredStateFeedbackEvent(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 	eventCallback := mocks.NewMockUpdateManagerCallback(mockCtrl)
 	mockUpdateManager := mocks.NewMockUpdateManager(mockCtrl)
+
+	waitPhaseChannel := func(currentPhase phase) testWaitChannel {
+		return func(phases map[phase]chan bool) error {
+			timeout := time.Second
+			select {
+			case <-phases[currentPhase]:
+				return nil
+			case <-time.After(timeout):
+				return fmt.Errorf("%s phase not done in %v", currentPhase, timeout)
+			}
+		}
+	}
 
 	testCases := map[string]struct {
 		emptyIdentActions     bool
@@ -56,8 +71,9 @@ func TestFeedbackHandleDesiredStateFeedbackEvent(t *testing.T) {
 		expectedStatus        types.StatusType
 		expectedDelayedStatus types.StatusType
 		expectedDomainStatus  types.StatusType
-		expectedIdentErrMsg   string
+		expectedErrMsg        string
 		testCode              func()
+		waitChannel           testWaitChannel
 	}{
 		"test_handleDomainIdentified_Success": {
 			handleStatus:     types.StatusIdentified,
@@ -70,9 +86,8 @@ func TestFeedbackHandleDesiredStateFeedbackEvent(t *testing.T) {
 			testCode: func() {
 				eventCallback.EXPECT().HandleDesiredStateFeedbackEvent("device", test.ActivityID, "", types.StatusIdentified, "", gomock.Any())
 				eventCallback.EXPECT().HandleDesiredStateFeedbackEvent("device", test.ActivityID, "", types.StatusRunning, "", gomock.Any())
-				mockUpdateManager.EXPECT().Name().Return("testDomain1").AnyTimes()
-				mockUpdateManager.EXPECT().Command(context.Background(), test.ActivityID, generateCommand(types.CommandDownload))
 			},
+			waitChannel: waitPhaseChannel(phaseIdentification),
 		},
 
 		"test_handleDomainIdentified_domainUpdateStatus_StatusIdentificationFailed": {
@@ -83,7 +98,7 @@ func TestFeedbackHandleDesiredStateFeedbackEvent(t *testing.T) {
 				"testDomain2": types.StatusIdentificationFailed,
 			},
 			expectedStatus:       types.StatusIdentificationFailed,
-			expectedIdentErrMsg:  "[testDomain1]: ",
+			expectedErrMsg:       "[testDomain1]: ",
 			expectedDomainStatus: types.StatusIdentified,
 			testCode:             func() {},
 		},
@@ -97,7 +112,6 @@ func TestFeedbackHandleDesiredStateFeedbackEvent(t *testing.T) {
 			},
 			expectedStatus:       types.StatusIdentified,
 			expectedDomainStatus: types.StatusIdentified,
-			expectedIdentErrMsg:  "",
 			testCode:             func() {},
 		},
 
@@ -108,7 +122,6 @@ func TestFeedbackHandleDesiredStateFeedbackEvent(t *testing.T) {
 				"testDomain1": types.StatusIdentified,
 			},
 			expectedStatus:       types.StatusIdentified,
-			expectedIdentErrMsg:  "",
 			expectedDomainStatus: types.StatusIdentified,
 			testCode:             func() {},
 		},
@@ -136,7 +149,7 @@ func TestFeedbackHandleDesiredStateFeedbackEvent(t *testing.T) {
 			},
 			expectedStatus:       types.StatusIdentificationFailed,
 			expectedDomainStatus: types.StatusIdentificationFailed,
-			expectedIdentErrMsg:  "[testDomain1]: testMsg",
+			expectedErrMsg:       "[testDomain1]: testMsg",
 			testCode:             func() {},
 		},
 
@@ -211,6 +224,7 @@ func TestFeedbackHandleDesiredStateFeedbackEvent(t *testing.T) {
 			expectedStatus:        types.StatusIncomplete,
 			expectedDelayedStatus: types.StatusIncomplete,
 			expectedDomainStatus:  types.BaselineStatusCleanupFailure,
+			expectedErrMsg:        "the update process is incompleted",
 			testCode:              func() {},
 		},
 		"test_handleDomainIncomplete_orchestration_status_identified": {
@@ -222,6 +236,7 @@ func TestFeedbackHandleDesiredStateFeedbackEvent(t *testing.T) {
 			expectedStatus:        types.StatusIncomplete,
 			expectedDomainStatus:  types.BaselineStatusCleanupFailure,
 			expectedDelayedStatus: types.StatusIncomplete,
+			expectedErrMsg:        "the update process is incompleted",
 			testCode:              func() {},
 		},
 		"test_handleDomainIncomplete_domain_status_not_from_supported": {
@@ -277,10 +292,9 @@ func TestFeedbackHandleDesiredStateFeedbackEvent(t *testing.T) {
 			expectedStatus:       types.StatusRunning,
 			expectedDomainStatus: types.BaselineStatusDownloadSuccess,
 			testCode: func() {
-				mockUpdateManager.EXPECT().Name().Return("testDomain1").AnyTimes()
-				mockUpdateManager.EXPECT().Command(context.Background(), test.ActivityID, generateCommand(types.CommandUpdate))
 				eventCallback.EXPECT().HandleDesiredStateFeedbackEvent("device", test.ActivityID, "", types.StatusRunning, "", gomock.Any())
 			},
+			waitChannel: waitPhaseChannel(phaseDownload),
 		},
 		"test_handleDomainDownloadSuccess_orchestration_status_not_running": {
 			handleStatus:     types.BaselineStatusDownloadSuccess,
@@ -378,10 +392,9 @@ func TestFeedbackHandleDesiredStateFeedbackEvent(t *testing.T) {
 			expectedStatus:       types.StatusRunning,
 			expectedDomainStatus: types.BaselineStatusUpdateSuccess,
 			testCode: func() {
-				mockUpdateManager.EXPECT().Name().Return("testDomain1").AnyTimes()
-				mockUpdateManager.EXPECT().Command(context.Background(), test.ActivityID, generateCommand(types.CommandActivate))
 				eventCallback.EXPECT().HandleDesiredStateFeedbackEvent("device", test.ActivityID, "", types.StatusRunning, "", gomock.Any())
 			},
+			waitChannel: waitPhaseChannel(phaseUpdate),
 		},
 		"test_handleDomainUpdateSuccess_orchestration_status_not_running": {
 			handleStatus:     types.BaselineStatusUpdateSuccess,
@@ -478,10 +491,9 @@ func TestFeedbackHandleDesiredStateFeedbackEvent(t *testing.T) {
 			expectedStatus:       types.StatusRunning,
 			expectedDomainStatus: types.BaselineStatusActivationSuccess,
 			testCode: func() {
-				mockUpdateManager.EXPECT().Name().Return("testDomain1").AnyTimes()
-				mockUpdateManager.EXPECT().Command(context.Background(), test.ActivityID, generateCommand(types.CommandCleanup))
 				eventCallback.EXPECT().HandleDesiredStateFeedbackEvent("device", test.ActivityID, "", types.StatusRunning, "", gomock.Any())
 			},
+			waitChannel: waitPhaseChannel(phaseActivation),
 		},
 		"test_handleDomainActivationSuccess_orchestration_status_not_running": {
 			handleStatus:     types.BaselineStatusActivationSuccess,
@@ -578,6 +590,7 @@ func TestFeedbackHandleDesiredStateFeedbackEvent(t *testing.T) {
 			expectedStatus:       types.StatusCompleted,
 			expectedDomainStatus: types.BaselineStatusCleanupSuccess,
 			testCode:             func() {},
+			waitChannel:          waitPhaseChannel(phaseCleanup),
 		},
 		"test_handleDomainCleanupSuccess_orchestration_status_not_running": {
 			handleStatus:     types.BaselineStatusCleanupSuccess,
@@ -665,10 +678,8 @@ func TestFeedbackHandleDesiredStateFeedbackEvent(t *testing.T) {
 					desiredStateCallback: eventCallback,
 					actions:              testOperationActions,
 					status:               testCase.updateOrchStatus,
-					identDone:            make(chan bool, 1),
-					identErrChan:         make(chan bool, 1),
+					phaseChannels:        generatePhaseChannels(),
 					errChan:              make(chan bool, 1),
-					done:                 make(chan bool, 1),
 					statesPerDomain: map[api.UpdateManager]*types.DesiredState{
 						mockUpdateManager: {},
 					},
@@ -677,13 +688,22 @@ func TestFeedbackHandleDesiredStateFeedbackEvent(t *testing.T) {
 			}
 
 			testCase.testCode()
+			errorChan := make(chan error, 1)
+			go func() {
+				if testCase.waitChannel != nil {
+					errorChan <- testCase.waitChannel(testUpdOrch.operation.phaseChannels)
+				}
+				errorChan <- nil
+			}()
 
 			testUpdOrch.HandleDesiredStateFeedbackEvent("testDomain1", test.ActivityID, "", testCase.handleStatus, "testMsg", updateActions)
 
 			assert.Equal(t, testCase.expectedDomainStatus, testUpdOrch.operation.domains["testDomain1"])
 			assert.Equal(t, testCase.expectedStatus, testUpdOrch.operation.status)
 			assert.Equal(t, testCase.expectedDelayedStatus, testUpdOrch.operation.delayedStatus)
-			assert.Equal(t, testCase.expectedIdentErrMsg, testUpdOrch.operation.identErrMsg)
+			assert.Equal(t, testCase.expectedErrMsg, testUpdOrch.operation.errMsg)
+
+			assert.Nil(t, <-errorChan)
 		})
 	}
 }
@@ -727,24 +747,21 @@ func TestDomainUpdateCompleted(t *testing.T) {
 		domain                 map[string]types.StatusType
 		errChanLen             bool
 		doneChanLen            bool
-		identDoneChanLen       bool
 		expectedRebootRequired bool
 		expectedStatus         types.StatusType
 		expectedErrMsg         string
 	}{
 		"test_CfgNoRebootRequired_status_complete": {
-			actions:          make(map[string]map[string]*types.Action),
-			delayedStatus:    types.StatusCompleted,
-			doneChanLen:      true,
-			identDoneChanLen: true,
-			expectedStatus:   types.StatusCompleted,
+			actions:        make(map[string]map[string]*types.Action),
+			delayedStatus:  types.StatusCompleted,
+			doneChanLen:    true,
+			expectedStatus: types.StatusCompleted,
 		},
 		"test_actions_moreThanZero_and_CfgRebootRequired": {
 			cfgRebootReqired:       true,
 			actions:                testActions,
 			delayedStatus:          types.StatusCompleted,
 			doneChanLen:            true,
-			identDoneChanLen:       true,
 			expectedRebootRequired: true,
 			expectedStatus:         types.StatusCompleted,
 		},
@@ -764,7 +781,6 @@ func TestDomainUpdateCompleted(t *testing.T) {
 				"d2": types.BaselineStatusCleanupFailure,
 			},
 			doneChanLen:            true,
-			identDoneChanLen:       true,
 			expectedStatus:         types.StatusCompleted,
 			expectedRebootRequired: true,
 		},
@@ -793,16 +809,10 @@ func TestDomainUpdateCompleted(t *testing.T) {
 				assert.Equal(t, 0, len(orchestrator.operation.errChan))
 			}
 			if testCase.doneChanLen {
-				assert.Equal(t, 1, len(orchestrator.operation.done))
-				assert.True(t, <-orchestrator.operation.done)
+				assert.Equal(t, 1, len(orchestrator.operation.phaseChannels[phaseCleanup]))
+				assert.False(t, <-orchestrator.operation.phaseChannels[phaseCleanup])
 			} else {
-				assert.Equal(t, 0, len(orchestrator.operation.done))
-			}
-			if testCase.identDoneChanLen {
-				assert.Equal(t, 1, len(orchestrator.operation.identDone))
-				assert.True(t, <-orchestrator.operation.identDone)
-			} else {
-				assert.Equal(t, 0, len(orchestrator.operation.identDone))
+				assert.Equal(t, 0, len(orchestrator.operation.phaseChannels[phaseCleanup]))
 			}
 
 			assert.Equal(t, testCase.expectedStatus, orchestrator.operation.status)
@@ -820,8 +830,7 @@ func generateUpdOrch(cfgRebootReqired bool, actions map[string]map[string]*types
 			status:        types.StatusIdentifying,
 			errMsg:        "",
 			errChan:       make(chan bool, 1),
-			identDone:     make(chan bool, 1),
-			done:          make(chan bool, 1),
+			phaseChannels: generatePhaseChannels(),
 			domains:       domains,
 		},
 		cfg:          createTestConfig(cfgRebootReqired, true),

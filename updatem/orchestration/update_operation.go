@@ -34,14 +34,10 @@ type updateOperation struct {
 	desiredState    *types.DesiredState
 	statesPerDomain map[api.UpdateManager]*types.DesiredState
 
-	done chan bool
+	phaseChannels map[phase]chan bool
 
 	errChan chan bool
 	errMsg  string
-
-	identDone    chan bool
-	identErrChan chan bool
-	identErrMsg  string
 
 	rebootRequired bool
 
@@ -76,12 +72,9 @@ func newUpdateOperation(domainAgents map[string]api.UpdateManager, activityID st
 
 		statesPerDomain: statesPerDomain,
 		desiredState:    desiredState,
+		phaseChannels:   generatePhaseChannels(),
 
-		done:    make(chan bool, 1),
 		errChan: make(chan bool, 1),
-
-		identDone:    make(chan bool, 1),
-		identErrChan: make(chan bool, 1),
 
 		desiredStateCallback: desiredStateCallback,
 	}, nil
@@ -92,4 +85,12 @@ func (operation *updateOperation) updateStatus(status types.StatusType) {
 	defer operation.statusLock.Unlock()
 
 	operation.status = status
+}
+
+func generatePhaseChannels() map[phase]chan bool {
+	phaseChannels := make(map[phase]chan bool, len(orderedPhases))
+	for _, phase := range orderedPhases {
+		phaseChannels[phase] = make(chan bool, 1)
+	}
+	return phaseChannels
 }

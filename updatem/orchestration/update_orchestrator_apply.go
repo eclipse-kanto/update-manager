@@ -30,44 +30,69 @@ func (orchestrator *updateOrchestrator) apply(ctx context.Context) (bool, error)
 		}(updateManagerForDomain, statePerDomain)
 	}
 
-	if err := orchestrator.waitIdentification(ctx); err != nil {
+	wait, err := orchestrator.waitPhase(ctx, phaseIdentification, handlePhaseCompletion)
+	if err != nil {
 		return false, err
 	}
 
-	err := orchestrator.waitCompletion(ctx)
+	for i := 1; i < len(orderedPhases) && wait; i++ {
+		wait, err = orchestrator.waitPhase(ctx, orderedPhases[i], handlePhaseCompletion)
+	}
 	return orchestrator.operation.rebootRequired && orchestrator.operation.status == types.StatusCompleted, err
 }
 
-func (orchestrator *updateOrchestrator) waitIdentification(ctx context.Context) error {
+type phaseHandler func(ctx context.Context, phase phase, orchestrator *updateOrchestrator)
+
+func (orchestrator *updateOrchestrator) waitPhase(ctx context.Context, currentPhase phase, handle phaseHandler) (bool, error) {
 	select {
 	case <-time.After(orchestrator.phaseTimeout):
-		orchestrator.operation.updateStatus(types.StatusIdentificationFailed)
-		return fmt.Errorf("identification phase not completed in %v", orchestrator.phaseTimeout)
-	case <-orchestrator.operation.identErrChan:
-		return fmt.Errorf(orchestrator.operation.identErrMsg)
+		if currentPhase == phaseIdentification {
+			orchestrator.operation.updateStatus(types.StatusIdentificationFailed)
+		} else {
+			orchestrator.operation.updateStatus(types.StatusIncomplete)
+		}
+		return false, fmt.Errorf("%s phase not done in %v", currentPhase, orchestrator.phaseTimeout)
 	case <-orchestrator.operation.errChan:
-		return fmt.Errorf(orchestrator.operation.errMsg)
-	case <-orchestrator.operation.identDone:
-		logger.Debug("the identification phase is completed")
-		return nil
+		return false, fmt.Errorf(orchestrator.operation.errMsg)
+	case running := <-orchestrator.operation.phaseChannels[currentPhase]:
+		logger.Info("the %s phase is done", currentPhase)
+		if running {
+			go handle(ctx, currentPhase, orchestrator)
+			return true, nil
+		}
+		return false, nil
 	case <-ctx.Done():
 		orchestrator.operation.updateStatus(types.StatusIncomplete)
-		return fmt.Errorf("the update manager instance is terminated")
+		return false, fmt.Errorf("the update manager instance is terminated")
 	}
 }
 
-func (orchestrator *updateOrchestrator) waitCompletion(ctx context.Context) error {
-	select {
-	case <-time.After(orchestrator.phaseTimeout):
-		orchestrator.operation.updateStatus(types.StatusIncomplete)
-		return fmt.Errorf("update operation not completed in %v", orchestrator.phaseTimeout)
-	case <-orchestrator.operation.errChan:
-		return fmt.Errorf(orchestrator.operation.errMsg)
-	case <-orchestrator.operation.done:
-		return nil
-	case <-ctx.Done():
-		orchestrator.operation.updateStatus(types.StatusIncomplete)
-		return fmt.Errorf("the update manager instance is terminated")
+func handlePhaseCompletion(ctx context.Context, completedPhase phase, orchestrator *updateOrchestrator) {
+	orchestrator.operationLock.Lock()
+	defer orchestrator.operationLock.Unlock()
+
+	if orchestrator.operation == nil {
+		return
+	}
+
+	executeCommand := func(status types.StatusType, command types.CommandType) {
+		for domain, domainStatus := range orchestrator.operation.domains {
+			if domainStatus == status {
+				orchestrator.command(ctx, orchestrator.operation.activityID, domain, command)
+			}
+		}
+	}
+	switch completedPhase {
+	case phaseIdentification:
+		executeCommand(types.StatusIdentified, types.CommandDownload)
+	case phaseDownload:
+		executeCommand(types.BaselineStatusDownloadSuccess, types.CommandUpdate)
+	case phaseUpdate:
+		executeCommand(types.BaselineStatusUpdateSuccess, types.CommandActivate)
+	case phaseActivation:
+		executeCommand(types.BaselineStatusActivationSuccess, types.CommandCleanup)
+	default:
+		logger.Error("unknown phase %s", completedPhase)
 	}
 }
 
