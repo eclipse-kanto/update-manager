@@ -21,6 +21,7 @@ import (
 
 	"github.com/eclipse-kanto/update-manager/api"
 	"github.com/eclipse-kanto/update-manager/api/types"
+	"github.com/eclipse-kanto/update-manager/config"
 	"github.com/eclipse-kanto/update-manager/test"
 	"github.com/eclipse-kanto/update-manager/test/mocks"
 	"github.com/golang/mock/gomock"
@@ -260,11 +261,12 @@ func TestHandlePhaseCompletion(t *testing.T) {
 			testDomain1: types.StatusIdentifying,
 			testDomain2: types.StatusIdentifying,
 		},
+		errChan: make(chan bool, 1),
 	}
 	operation.statesPerDomain = map[api.UpdateManager]*types.DesiredState{
 		mockUpdateManager: {},
 	}
-	orchestrator := &updateOrchestrator{}
+	orchestrator := &updateOrchestrator{cfg: &config.Config{}}
 
 	mockCommand := func(mockUpdateManager *mocks.MockUpdateManager, command types.CommandType, domains ...string) func() {
 		return func() {
@@ -276,11 +278,12 @@ func TestHandlePhaseCompletion(t *testing.T) {
 	}
 
 	testCases := map[string]struct {
-		noOperation   bool
-		domainStatus1 types.StatusType
-		domainStatus2 types.StatusType
-		phase         phase
-		expectedCalls func()
+		noOperation     bool
+		noConsentClient bool
+		domainStatus1   types.StatusType
+		domainStatus2   types.StatusType
+		phase           phase
+		expectedCalls   func()
 	}{
 		"test_handle_phase_completion_identify": {
 			domainStatus1: types.StatusIdentified,
@@ -327,9 +330,21 @@ func TestHandlePhaseCompletion(t *testing.T) {
 			phase:         phase("unknown"),
 			expectedCalls: func() {},
 		},
+		"test_handle_phase_completion_consent_error": {
+			noConsentClient: true,
+			domainStatus1:   types.StatusIdentified,
+			phase:           phaseIdentification,
+			expectedCalls:   func() {},
+		},
 	}
 	for testName, testCase := range testCases {
 		t.Run(testName, func(t *testing.T) {
+			if testCase.noConsentClient {
+				orchestrator.cfg.OwnerConsentPhases = []string{"download"}
+				go func() {
+					<-orchestrator.operation.errChan
+				}()
+			}
 			if testCase.noOperation {
 				orchestrator.operation = nil
 			} else {
@@ -400,9 +415,11 @@ func TestSetupUpdateOperation(t *testing.T) {
 
 		assert.NotNil(t, orchestrator.operation.phaseChannels)
 		assert.NotNil(t, orchestrator.operation.errChan)
+		assert.NotNil(t, orchestrator.operation.ownerConsented)
 
 		orchestrator.operation.errChan = nil
 		orchestrator.operation.phaseChannels = nil
+		orchestrator.operation.ownerConsented = nil
 
 		assert.Equal(t, expectedOp, orchestrator.operation)
 		assert.Nil(t, err)
@@ -447,4 +464,112 @@ func TestDisposeUpdateOperation(t *testing.T) {
 		orchestrator.disposeUpdateOperation()
 		assert.Nil(t, orchestrator.operation)
 	})
+}
+
+func TestGetOwnerConsent(t *testing.T) {
+	tests := map[string]struct {
+		updateOrchestrator *updateOrchestrator
+		currentPhase       phase
+		expectedErr        error
+		mock               func(*gomock.Controller) (*mocks.MockOwnerConsentClient, chan bool)
+	}{
+		"test_no_next_phase": {
+			updateOrchestrator: &updateOrchestrator{},
+			currentPhase:       phaseCleanup,
+		},
+		"test_consent_not_needed": {
+			updateOrchestrator: &updateOrchestrator{cfg: &config.Config{OwnerConsentPhases: []string{"download"}}},
+			currentPhase:       phaseUpdate,
+		},
+		"test_no_consent_for_cleanup": {
+			updateOrchestrator: &updateOrchestrator{cfg: &config.Config{OwnerConsentPhases: []string{"cleanup"}}},
+			currentPhase:       phaseActivation,
+		},
+		"test_no_owner_consent_client": {
+			updateOrchestrator: &updateOrchestrator{cfg: &config.Config{OwnerConsentPhases: []string{"download"}}},
+			currentPhase:       phaseIdentification,
+			expectedErr:        fmt.Errorf("owner consent client not available"),
+		},
+		"test_owner_consent_client_start_err": {
+			updateOrchestrator: &updateOrchestrator{cfg: &config.Config{OwnerConsentPhases: []string{"download"}}},
+			currentPhase:       phaseIdentification,
+			expectedErr:        fmt.Errorf("start error"),
+			mock: func(ctrl *gomock.Controller) (*mocks.MockOwnerConsentClient, chan bool) {
+				mockClient := mocks.NewMockOwnerConsentClient(ctrl)
+				mockClient.EXPECT().Start(gomock.Any()).Return(fmt.Errorf("start error"))
+				return mockClient, nil
+			},
+		},
+		"test_owner_consent_client_send_err": {
+			updateOrchestrator: &updateOrchestrator{cfg: &config.Config{OwnerConsentPhases: []string{"download"}}},
+			currentPhase:       phaseIdentification,
+			expectedErr:        fmt.Errorf("send error"),
+			mock: func(ctrl *gomock.Controller) (*mocks.MockOwnerConsentClient, chan bool) {
+				mockClient := mocks.NewMockOwnerConsentClient(ctrl)
+				mockClient.EXPECT().Start(gomock.Any()).Return(nil)
+				mockClient.EXPECT().Stop().Return(nil)
+				mockClient.EXPECT().SendOwnerConsentGet(test.ActivityID, gomock.Any()).Return(fmt.Errorf("send error"))
+				return mockClient, nil
+			},
+		},
+		"test_owner_consent_approved": {
+			updateOrchestrator: &updateOrchestrator{cfg: &config.Config{OwnerConsentPhases: []string{"download"}}},
+			currentPhase:       phaseIdentification,
+			mock: func(ctrl *gomock.Controller) (*mocks.MockOwnerConsentClient, chan bool) {
+				mockClient := mocks.NewMockOwnerConsentClient(ctrl)
+				mockClient.EXPECT().Start(gomock.Any()).Return(nil)
+				mockClient.EXPECT().Stop().Return(nil)
+				mockClient.EXPECT().SendOwnerConsentGet(test.ActivityID, gomock.Any()).Return(nil)
+				ch := make(chan bool)
+				go func() {
+					ch <- true
+				}()
+				return mockClient, ch
+			},
+		},
+		"test_owner_consent_denied": {
+			updateOrchestrator: &updateOrchestrator{cfg: &config.Config{OwnerConsentPhases: []string{"download"}}},
+			currentPhase:       phaseIdentification,
+			expectedErr:        fmt.Errorf("owner approval not granted"),
+			mock: func(ctrl *gomock.Controller) (*mocks.MockOwnerConsentClient, chan bool) {
+				mockClient := mocks.NewMockOwnerConsentClient(ctrl)
+				mockClient.EXPECT().Start(gomock.Any()).Return(nil)
+				mockClient.EXPECT().Stop().Return(nil)
+				mockClient.EXPECT().SendOwnerConsentGet(test.ActivityID, gomock.Any()).Return(nil)
+				ch := make(chan bool)
+				go func() {
+					ch <- false
+				}()
+				return mockClient, ch
+			},
+		},
+		"test_owner_consent_timeout": {
+			updateOrchestrator: &updateOrchestrator{cfg: &config.Config{OwnerConsentPhases: []string{"download"}}},
+			currentPhase:       phaseIdentification,
+			expectedErr:        fmt.Errorf("owner consent not granted in %v", test.Interval),
+			mock: func(ctrl *gomock.Controller) (*mocks.MockOwnerConsentClient, chan bool) {
+				mockClient := mocks.NewMockOwnerConsentClient(ctrl)
+				mockClient.EXPECT().Start(gomock.Any()).Return(nil)
+				mockClient.EXPECT().Stop().Return(nil)
+				mockClient.EXPECT().SendOwnerConsentGet(test.ActivityID, gomock.Any()).Return(nil)
+				return mockClient, make(chan bool)
+			},
+		},
+	}
+
+	for testName, testCase := range tests {
+		t.Run(testName, func(t *testing.T) {
+			mockCtrl := gomock.NewController(t)
+			defer mockCtrl.Finish()
+
+			orch := testCase.updateOrchestrator
+			orch.operation = &updateOperation{activityID: test.ActivityID}
+			orch.phaseTimeout = test.Interval
+			if testCase.mock != nil {
+				orch.ownerConsentClient, orch.operation.ownerConsented = testCase.mock(mockCtrl)
+			}
+			err := orch.getOwnerConsent(context.Background(), testCase.currentPhase)
+			assert.Equal(t, testCase.expectedErr, err)
+		})
+	}
 }

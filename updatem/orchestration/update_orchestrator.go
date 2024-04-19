@@ -28,8 +28,9 @@ type updateOrchestrator struct {
 	operationLock sync.Mutex
 	actionsLock   sync.Mutex
 
-	cfg          *config.Config
-	phaseTimeout time.Duration
+	cfg                *config.Config
+	phaseTimeout       time.Duration
+	ownerConsentClient api.OwnerConsentClient
 
 	operation *updateOperation
 }
@@ -39,11 +40,13 @@ func (orchestrator *updateOrchestrator) Name() string {
 }
 
 // NewUpdateOrchestrator creates a new update orchestrator that does not handle cross-domain dependencies
-func NewUpdateOrchestrator(cfg *config.Config) api.UpdateOrchestrator {
-	return &updateOrchestrator{
-		cfg:          cfg,
-		phaseTimeout: util.ParseDuration("phase-timeout", cfg.PhaseTimeout, 10*time.Minute, 10*time.Minute),
+func NewUpdateOrchestrator(cfg *config.Config, ownerApprovalClient api.OwnerConsentClient) api.UpdateOrchestrator {
+	ua := &updateOrchestrator{
+		cfg:                cfg,
+		phaseTimeout:       util.ParseDuration("phase-timeout", cfg.PhaseTimeout, 10*time.Minute, 10*time.Minute),
+		ownerConsentClient: ownerApprovalClient,
 	}
+	return ua
 }
 
 // Apply is called by the update manager.
@@ -76,4 +79,12 @@ func (orchestrator *updateOrchestrator) Apply(ctx context.Context, domainAgents 
 
 	rebootRequired, applyErr := orchestrator.apply(ctx)
 	return rebootRequired
+}
+
+func (orchestrator *updateOrchestrator) HandleOwnerConsent(activityID string, timestamp int64, consent *types.OwnerConsent) error {
+	if orchestrator.operation != nil && activityID == orchestrator.operation.activityID {
+		logger.Info("owner consent received with status: %v, timestamp: %d", consent.Status, timestamp)
+		orchestrator.operation.ownerConsented <- consent.Status == types.StatusApproved
+	}
+	return nil
 }

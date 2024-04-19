@@ -15,6 +15,7 @@ package orchestration
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/eclipse-kanto/update-manager/api"
@@ -75,6 +76,13 @@ func handlePhaseCompletion(ctx context.Context, completedPhase phase, orchestrat
 		return
 	}
 
+	if err := orchestrator.getOwnerConsent(ctx, completedPhase); err != nil {
+		// should a rollback be performed at this point?
+		orchestrator.operation.errChan <- true
+		orchestrator.operation.errMsg = err.Error()
+		return
+	}
+
 	executeCommand := func(status types.StatusType, command types.CommandType) {
 		for domain, domainStatus := range orchestrator.operation.domains {
 			if domainStatus == status {
@@ -82,6 +90,7 @@ func handlePhaseCompletion(ctx context.Context, completedPhase phase, orchestrat
 			}
 		}
 	}
+
 	switch completedPhase {
 	case phaseIdentification:
 		executeCommand(types.StatusIdentified, types.CommandDownload)
@@ -91,8 +100,50 @@ func handlePhaseCompletion(ctx context.Context, completedPhase phase, orchestrat
 		executeCommand(types.BaselineStatusUpdateSuccess, types.CommandActivate)
 	case phaseActivation:
 		executeCommand(types.BaselineStatusActivationSuccess, types.CommandCleanup)
+	case phaseCleanup:
+		// nothing to do
 	default:
 		logger.Error("unknown phase %s", completedPhase)
+	}
+}
+
+func (orchestrator *updateOrchestrator) getOwnerConsent(ctx context.Context, completedPhase phase) error {
+	nextPhase := completedPhase.next()
+	if nextPhase == "" || !slices.Contains(orchestrator.cfg.OwnerConsentPhases, string(nextPhase)) {
+		return nil
+	}
+	if nextPhase == phaseCleanup || nextPhase == phaseIdentification {
+		// no need for owner consent
+		return nil
+	}
+
+	if orchestrator.ownerConsentClient == nil {
+		return fmt.Errorf("owner consent client not available")
+	}
+
+	if err := orchestrator.ownerConsentClient.Start(orchestrator); err != nil {
+		return err
+	}
+	defer func() {
+		if err := orchestrator.ownerConsentClient.Stop(); err != nil {
+			logger.Error("failed to stop owner consent client: %v", err)
+		}
+	}()
+
+	if err := orchestrator.ownerConsentClient.SendOwnerConsentGet(orchestrator.operation.activityID, orchestrator.operation.desiredState); err != nil {
+		return err
+	}
+
+	select {
+	case approved := <-orchestrator.operation.ownerConsented:
+		if !approved {
+			return fmt.Errorf("owner approval not granted")
+		}
+		return nil
+	case <-time.After(orchestrator.phaseTimeout):
+		return fmt.Errorf("owner consent not granted in %v", orchestrator.phaseTimeout)
+	case <-ctx.Done():
+		return fmt.Errorf("the update manager instance is terminated")
 	}
 }
 

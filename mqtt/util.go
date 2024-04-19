@@ -10,25 +10,21 @@
 //
 // SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
 
-package orchestration
+package mqtt
 
-type phase string
+import (
+	"fmt"
 
-const (
-	phaseIdentification phase = "identification"
-	phaseDownload       phase = "download"
-	phaseUpdate         phase = "update"
-	phaseActivation     phase = "activation"
-	phaseCleanup        phase = "cleanup"
+	"github.com/eclipse-kanto/update-manager/api"
 )
 
-var orderedPhases = []phase{phaseIdentification, phaseDownload, phaseUpdate, phaseActivation, phaseCleanup}
-
-func (p phase) next() phase {
-	for i := 0; i < len(orderedPhases)-1; i++ {
-		if orderedPhases[i] == p {
-			return orderedPhases[i+1]
-		}
+func getMQTTClient(client api.UpdateAgentClient) (*mqttClient, error) {
+	switch v := client.(type) {
+	case *updateAgentClient:
+		return client.(*updateAgentClient).mqttClient, nil
+	case *updateAgentThingsClient:
+		return client.(*updateAgentThingsClient).mqttClient, nil
+	default:
+		return nil, fmt.Errorf("unexpected type: %T", v)
 	}
-	return ""
 }

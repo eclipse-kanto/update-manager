@@ -24,6 +24,7 @@
   "reportFeedbackInterval": "2m",
   "currentStateDelay": "1m",
   "phaseTimeout": "2m",
+  "ownerConsentPhases": ["download"],
   "agents": {
     "self-update": {
       "rebootRequired": false,

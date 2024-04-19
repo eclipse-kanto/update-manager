@@ -33,7 +33,7 @@ func TestNewUpdateOrchestrator(t *testing.T) {
 		},
 		phaseTimeout: 10 * time.Minute,
 	}
-	assert.Equal(t, expectedOrchestrator, NewUpdateOrchestrator(&config.Config{RebootEnabled: true}))
+	assert.Equal(t, expectedOrchestrator, NewUpdateOrchestrator(&config.Config{RebootEnabled: true}, nil))
 }
 
 func TestUpdOrchApply(t *testing.T) {
@@ -83,6 +83,42 @@ func TestUpdOrchApply(t *testing.T) {
 		eventCallback.EXPECT().HandleDesiredStateFeedbackEvent("device", "", "", types.StatusIncomplete, "the desired state manifest does not contain any supported domain", []*types.Action{})
 
 		assert.False(t, updOrchestrator.Apply(context.Background(), nil, test.ActivityID, desiredState, eventCallback))
+	})
+}
+
+func TestHandleOwnerConsent(t *testing.T) {
+	updateOrchestrator := &updateOrchestrator{
+		operation: &updateOperation{
+			activityID:     test.ActivityID,
+			ownerConsented: make(chan bool),
+		},
+	}
+	t.Run("test_handle_owner_approved", func(t *testing.T) {
+		go updateOrchestrator.HandleOwnerConsent(test.ActivityID, 0, &types.OwnerConsent{Status: types.StatusApproved})
+		select {
+		case consented := <-updateOrchestrator.operation.ownerConsented:
+			assert.True(t, consented)
+		case <-time.After(1 * time.Second):
+			t.Fatal("owner consent not received")
+		}
+	})
+	t.Run("test_handle_owner_denied", func(t *testing.T) {
+		go updateOrchestrator.HandleOwnerConsent(test.ActivityID, 0, &types.OwnerConsent{Status: types.StatusDenied})
+		select {
+		case consented := <-updateOrchestrator.operation.ownerConsented:
+			assert.False(t, consented)
+		case <-time.After(1 * time.Second):
+			t.Fatal("owner consent not received")
+		}
+	})
+	t.Run("test_handle_owner_approved_another_activity", func(t *testing.T) {
+		go updateOrchestrator.HandleOwnerConsent("anotherActivity", 0, &types.OwnerConsent{Status: types.StatusApproved})
+		select {
+		case <-updateOrchestrator.operation.ownerConsented:
+			t.Fatal("unexpected owner consent")
+		case <-time.After(1 * time.Second):
+			// do nothing
+		}
 	})
 }
 

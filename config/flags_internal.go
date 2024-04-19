@@ -24,14 +24,17 @@ import (
 
 const (
 	// domains flag
-	domainsFlagID = "domains"
+	domainsFlagID            = "domains"
+	domainsDesc              = "Specify a comma-separated list of domains handled by the update manager"
+	ownerConsentPhasesFlagID = "owner-consent-phases"
+	ownerConsentPhasesDesc   = "Specify a comma-separated list of update phase, before which an owner consent should be granted. Possible values are: 'download', 'update', 'activation'"
 )
 
 // SetupAllUpdateManagerFlags adds all flags for the configuration of the update manager
 func SetupAllUpdateManagerFlags(flagSet *flag.FlagSet, cfg *Config) {
 	SetupFlags(flagSet, cfg.BaseConfig)
 
-	flagSet.String(domainsFlagID, "", "Specify a comma-separated list of domains handled by the update manager")
+	flagSet.String(domainsFlagID, "", domainsDesc)
 
 	flagSet.BoolVar(&cfg.RebootEnabled, "reboot-enabled", EnvToBool("REBOOT_ENABLED", cfg.RebootEnabled), "Specify a flag that controls the enabling/disabling of the reboot process after successful update operation")
 	flagSet.StringVar(&cfg.RebootAfter, "reboot-after", EnvToString("REBOOT_AFTER", cfg.RebootAfter), "Specify the timeout in cron format to wait before a reboot process is initiated after successful update operation. Value should be a positive integer number followed by a unit suffix, such as '60s', '10m', etc")
@@ -39,13 +42,16 @@ func SetupAllUpdateManagerFlags(flagSet *flag.FlagSet, cfg *Config) {
 	flagSet.StringVar(&cfg.PhaseTimeout, "phase-timeout", EnvToString("PHASE_TIMEOUT", cfg.PhaseTimeout), "Specify the timeout for completing an Update Orchestration phase. Value should be a positive integer number followed by a unit suffix, such as '60s', '10m', etc")
 	flagSet.StringVar(&cfg.ReportFeedbackInterval, "report-feedback-interval", EnvToString("REPORT_FEEDBACK_INTERVAL", cfg.ReportFeedbackInterval), "Specify the time interval for reporting intermediate desired state feedback messages during an active update operation. Value should be a positive integer number followed by a unit suffix, such as '60s', '10m', etc")
 	flagSet.StringVar(&cfg.CurrentStateDelay, "current-state-delay", EnvToString("CURRENT_STATE_DELAY", cfg.CurrentStateDelay), "Specify the time delay for reporting current state messages. Value should be a positive integer number followed by a unit suffix, such as '60s', '10m', etc")
-
+	flagSet.String(ownerConsentPhasesFlagID, "", "Specify a comma-separated list of update phase, before which an owner consent should be granted. Possible values are: 'download', 'update', 'activation'")
 	setupAgentsConfigFlags(flagSet, cfg)
 }
 
 func parseFlags(cfg *Config, version string) {
 	domains := parseDomainsFlag()
 	prepareAgentsConfig(cfg, domains)
+	if ownerConsentPhases := parseOwnerConsentPhasesFlag(); len(ownerConsentPhases) > 0 {
+		cfg.OwnerConsentPhases = ownerConsentPhases
+	}
 
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 	flagSet := flag.CommandLine
@@ -63,11 +69,30 @@ func parseFlags(cfg *Config, version string) {
 	}
 }
 
+func parseOwnerConsentPhasesFlag() []string {
+	var listPhases string
+	flagSet := flag.NewFlagSet("", flag.ContinueOnError)
+	flagSet.SetOutput(io.Discard)
+	flagSet.StringVar(&listPhases, ownerConsentPhasesFlagID, EnvToString("OWNER_CONSENT_PHASES", ""), ownerConsentPhasesDesc)
+	if err := flagSet.Parse(getFlagArgs(ownerConsentPhasesFlagID)); err != nil {
+		logger.ErrorErr(err, "Cannot parse %s flag", ownerConsentPhasesFlagID)
+	}
+
+	var result []string
+	for _, phase := range strings.Split(listPhases, ",") {
+		p := strings.TrimSpace(phase)
+		if len(p) > 0 {
+			result = append(result, p)
+		}
+	}
+	return result
+}
+
 func parseDomainsFlag() map[string]bool {
 	var listDomains string
 	flagSet := flag.NewFlagSet("", flag.ContinueOnError)
 	flagSet.SetOutput(io.Discard)
-	flagSet.StringVar(&listDomains, domainsFlagID, EnvToString("DOMAINS", ""), "Specify a comma-separated list of domains handled by the update manager")
+	flagSet.StringVar(&listDomains, domainsFlagID, EnvToString("DOMAINS", ""), domainsDesc)
 	if err := flagSet.Parse(getFlagArgs(domainsFlagID)); err != nil {
 		logger.ErrorErr(err, "Cannot parse domain flag")
 	}

@@ -136,6 +136,7 @@ func TestLoadConfigFromFile(t *testing.T) {
 			ReportFeedbackInterval: "2m",
 			CurrentStateDelay:      "1m",
 			PhaseTimeout:           "2m",
+			OwnerConsentPhases:     []string{"download"},
 		}
 		assert.True(t, reflect.DeepEqual(*cfg, expectedConfigValues))
 	})

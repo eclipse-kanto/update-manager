@@ -10,25 +10,20 @@
 //
 // SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
 
-package orchestration
+package types
 
-type phase string
+// ConsentStatusType defines values for status within the owner consent
+type ConsentStatusType string
 
 const (
-	phaseIdentification phase = "identification"
-	phaseDownload       phase = "download"
-	phaseUpdate         phase = "update"
-	phaseActivation     phase = "activation"
-	phaseCleanup        phase = "cleanup"
+	// StatusApproved denotes that the owner has consented.
+	StatusApproved ConsentStatusType = "APPROVED"
+	// StatusDenied denotes that the owner has not consented.
+	StatusDenied ConsentStatusType = "DENIED"
 )
 
-var orderedPhases = []phase{phaseIdentification, phaseDownload, phaseUpdate, phaseActivation, phaseCleanup}
-
-func (p phase) next() phase {
-	for i := 0; i < len(orderedPhases)-1; i++ {
-		if orderedPhases[i] == p {
-			return orderedPhases[i+1]
-		}
-	}
-	return ""
+// OwnerConsent defines the payload for Owner Consent response.
+type OwnerConsent struct {
+	Status ConsentStatusType `json:"status,omitempty"`
+	// time field for scheduling could be added here
 }

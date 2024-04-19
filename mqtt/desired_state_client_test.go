@@ -66,14 +66,14 @@ func TestNewDesiredStateClient(t *testing.T) {
 		},
 		"test_error": {
 			client: mockClient,
-			err:    fmt.Sprintf("Unexpected type: %T", mockClient),
+			err:    fmt.Sprintf("unexpected type: %T", mockClient),
 		},
 	}
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			client, err := NewDesiredStateClient("testDomain", test.client)
 			if test.err != "" {
-				assert.EqualError(t, err, fmt.Sprintf("Unexpected type: %T", test.client))
+				assert.EqualError(t, err, fmt.Sprintf("unexpected type: %T", test.client))
 			} else {
 				assert.NoError(t, err)
 				assert.NotNil(t, client)

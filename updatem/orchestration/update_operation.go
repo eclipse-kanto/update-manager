@@ -39,6 +39,8 @@ type updateOperation struct {
 	errChan chan bool
 	errMsg  string
 
+	ownerConsented chan bool
+
 	rebootRequired bool
 
 	desiredStateCallback api.DesiredStateFeedbackHandler
@@ -74,7 +76,8 @@ func newUpdateOperation(domainAgents map[string]api.UpdateManager, activityID st
 		desiredState:    desiredState,
 		phaseChannels:   generatePhaseChannels(),
 
-		errChan: make(chan bool, 1),
+		errChan:        make(chan bool, 1),
+		ownerConsented: make(chan bool),
 
 		desiredStateCallback: desiredStateCallback,
 	}, nil
