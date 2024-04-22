@@ -78,5 +78,5 @@ type OwnerConsentClient interface {
 	BaseClient
 
 	Start(OwnerConsentHandler) error
-	SendOwnerConsentGet(string, *types.DesiredState) error
+	SendOwnerConsentGet(string) error
 }

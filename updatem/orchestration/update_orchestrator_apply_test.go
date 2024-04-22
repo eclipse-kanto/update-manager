@@ -508,7 +508,7 @@ func TestGetOwnerConsent(t *testing.T) {
 				mockClient := mocks.NewMockOwnerConsentClient(ctrl)
 				mockClient.EXPECT().Start(gomock.Any()).Return(nil)
 				mockClient.EXPECT().Stop().Return(nil)
-				mockClient.EXPECT().SendOwnerConsentGet(test.ActivityID, gomock.Any()).Return(fmt.Errorf("send error"))
+				mockClient.EXPECT().SendOwnerConsentGet(test.ActivityID).Return(fmt.Errorf("send error"))
 				return mockClient, nil
 			},
 		},
@@ -519,7 +519,7 @@ func TestGetOwnerConsent(t *testing.T) {
 				mockClient := mocks.NewMockOwnerConsentClient(ctrl)
 				mockClient.EXPECT().Start(gomock.Any()).Return(nil)
 				mockClient.EXPECT().Stop().Return(nil)
-				mockClient.EXPECT().SendOwnerConsentGet(test.ActivityID, gomock.Any()).Return(nil)
+				mockClient.EXPECT().SendOwnerConsentGet(test.ActivityID).Return(nil)
 				ch := make(chan bool)
 				go func() {
 					ch <- true
@@ -535,7 +535,7 @@ func TestGetOwnerConsent(t *testing.T) {
 				mockClient := mocks.NewMockOwnerConsentClient(ctrl)
 				mockClient.EXPECT().Start(gomock.Any()).Return(nil)
 				mockClient.EXPECT().Stop().Return(nil)
-				mockClient.EXPECT().SendOwnerConsentGet(test.ActivityID, gomock.Any()).Return(nil)
+				mockClient.EXPECT().SendOwnerConsentGet(test.ActivityID).Return(nil)
 				ch := make(chan bool)
 				go func() {
 					ch <- false
@@ -551,7 +551,7 @@ func TestGetOwnerConsent(t *testing.T) {
 				mockClient := mocks.NewMockOwnerConsentClient(ctrl)
 				mockClient.EXPECT().Start(gomock.Any()).Return(nil)
 				mockClient.EXPECT().Stop().Return(nil)
-				mockClient.EXPECT().SendOwnerConsentGet(test.ActivityID, gomock.Any()).Return(nil)
+				mockClient.EXPECT().SendOwnerConsentGet(test.ActivityID).Return(nil)
 				return mockClient, make(chan bool)
 			},
 		},

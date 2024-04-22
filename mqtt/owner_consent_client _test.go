@@ -139,27 +139,21 @@ func TestSendOwnerConsentGet(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			testDesiredState := &types.DesiredState{
-				Domains: []*types.Domain{
-					{ID: test.domain},
-				},
-			}
 			client, _ := NewOwnerConsentClient(test.domain, &updateAgentClient{
 				mqttClient: newInternalClient("testDomain", mqttTestConfig, mockPaho),
 			})
 			mockPaho.EXPECT().Publish(test.domain+"update/ownerconsent/get", uint8(1), false, gomock.Any()).DoAndReturn(
 				func(topic string, qos byte, retained bool, payload interface{}) pahomqtt.Token {
-					desiresState := &types.DesiredState{}
-					envelope, err := types.FromEnvelope(payload.([]byte), desiresState)
+					envelope, err := types.FromEnvelope(payload.([]byte), nil)
 					assert.NoError(t, err)
 					assert.Equal(t, name, envelope.ActivityID)
 					assert.True(t, envelope.Timestamp > 0)
-					assert.Equal(t, testDesiredState, desiresState)
+					assert.Nil(t, envelope.Payload)
 					return mockToken
 				})
 			setupMockToken(mockToken, mqttTestConfig.AcknowledgeTimeout, test.isTimedOut)
 
-			assertOutgoingResult(t, test.isTimedOut, client.SendOwnerConsentGet(name, testDesiredState))
+			assertOutgoingResult(t, test.isTimedOut, client.SendOwnerConsentGet(name))
 		})
 	}
 }

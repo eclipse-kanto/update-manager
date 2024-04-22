@@ -130,7 +130,7 @@ func (orchestrator *updateOrchestrator) getOwnerConsent(ctx context.Context, com
 		}
 	}()
 
-	if err := orchestrator.ownerConsentClient.SendOwnerConsentGet(orchestrator.operation.activityID, orchestrator.operation.desiredState); err != nil {
+	if err := orchestrator.ownerConsentClient.SendOwnerConsentGet(orchestrator.operation.activityID); err != nil {
 		return err
 	}
 

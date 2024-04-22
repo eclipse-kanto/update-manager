@@ -582,17 +582,17 @@ func (mr *MockOwnerConsentClientMockRecorder) Domain() *gomock.Call {
 }
 
 // SendOwnerConsentGet mocks base method.
-func (m *MockOwnerConsentClient) SendOwnerConsentGet(arg0 string, arg1 *types.DesiredState) error {
+func (m *MockOwnerConsentClient) SendOwnerConsentGet(arg0 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SendOwnerConsentGet", arg0, arg1)
+	ret := m.ctrl.Call(m, "SendOwnerConsentGet", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SendOwnerConsentGet indicates an expected call of SendOwnerConsentGet.
-func (mr *MockOwnerConsentClientMockRecorder) SendOwnerConsentGet(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockOwnerConsentClientMockRecorder) SendOwnerConsentGet(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendOwnerConsentGet", reflect.TypeOf((*MockOwnerConsentClient)(nil).SendOwnerConsentGet), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendOwnerConsentGet", reflect.TypeOf((*MockOwnerConsentClient)(nil).SendOwnerConsentGet), arg0)
 }
 
 // Start mocks base method.

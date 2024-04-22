@@ -100,13 +100,13 @@ func (client *ownerConsentClient) handleMessage(mqttClient pahomqtt.Client, mess
 	}
 }
 
-func (client *ownerConsentClient) SendOwnerConsentGet(activityID string, desiredState *types.DesiredState) error {
+func (client *ownerConsentClient) SendOwnerConsentGet(activityID string) error {
 	logger.Debug("publishing to topic '%s'", client.topicOwnerConsentGet)
-	desiredStateBytes, err := types.ToEnvelope(activityID, desiredState)
+	consentGetBytes, err := types.ToEnvelope(activityID, nil)
 	if err != nil {
 		return errors.Wrapf(err, "cannot marshal owner consent get message for activity-id %s", activityID)
 	}
-	token := client.pahoClient.Publish(client.topicOwnerConsentGet, 1, false, desiredStateBytes)
+	token := client.pahoClient.Publish(client.topicOwnerConsentGet, 1, false, consentGetBytes)
 	if !token.WaitTimeout(client.mqttConfig.AcknowledgeTimeout) {
 		return fmt.Errorf("cannot publish to topic '%s' in '%v'", client.topicOwnerConsentGet, client.mqttConfig.AcknowledgeTimeout)
 	}
