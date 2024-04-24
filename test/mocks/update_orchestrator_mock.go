@@ -74,16 +74,16 @@ func (mr *MockUpdateOrchestratorMockRecorder) HandleDesiredStateFeedbackEvent(do
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleDesiredStateFeedbackEvent", reflect.TypeOf((*MockUpdateOrchestrator)(nil).HandleDesiredStateFeedbackEvent), domain, activityID, baseline, status, message, actions)
 }
 
-// HandleOwnerConsent mocks base method.
-func (m *MockUpdateOrchestrator) HandleOwnerConsent(arg0 string, arg1 int64, arg2 *types.OwnerConsent) error {
+// HandleOwnerConsentFeedback mocks base method.
+func (m *MockUpdateOrchestrator) HandleOwnerConsentFeedback(arg0 string, arg1 int64, arg2 *types.OwnerConsentFeedback) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "HandleOwnerConsent", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// HandleOwnerConsent indicates an expected call of HandleOwnerConsent.
-func (mr *MockUpdateOrchestratorMockRecorder) HandleOwnerConsent(arg0, arg1, arg2 interface{}) *gomock.Call {
+// HandleOwnerConsentFeedback indicates an expected call of HandleOwnerConsentFeedback.
+func (mr *MockUpdateOrchestratorMockRecorder) HandleOwnerConsentFeedback(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleOwnerConsent", reflect.TypeOf((*MockUpdateOrchestrator)(nil).HandleOwnerConsent), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleOwnerConsentFeedback", reflect.TypeOf((*MockUpdateOrchestrator)(nil).HandleOwnerConsentFeedback), arg0, arg1, arg2)
 }

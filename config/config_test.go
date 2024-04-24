@@ -17,6 +17,7 @@ import (
 	"testing"
 
 	"github.com/eclipse-kanto/update-manager/api"
+	"github.com/eclipse-kanto/update-manager/api/types"
 
 	"github.com/eclipse-kanto/update-manager/logger"
 	"github.com/eclipse-kanto/update-manager/mqtt"
@@ -136,7 +137,7 @@ func TestLoadConfigFromFile(t *testing.T) {
 			ReportFeedbackInterval: "2m",
 			CurrentStateDelay:      "1m",
 			PhaseTimeout:           "2m",
-			OwnerConsentPhases:     []string{"download"},
+			OwnerConsentCommands:   []types.CommandType{types.CommandDownload},
 		}
 		assert.True(t, reflect.DeepEqual(*cfg, expectedConfigValues))
 	})

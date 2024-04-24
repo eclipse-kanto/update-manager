@@ -109,11 +109,11 @@ func handleDomainIdentified(orchestrator *updateOrchestrator, domain, message st
 	if isIdentified {
 		orchestrator.domainUpdateRunning()
 		orchestrator.operation.updateStatus(types.StatusRunning)
-		orchestrator.operation.phaseChannels[phaseIdentification] <- true
+		orchestrator.operation.commandChannels[types.CommandDownload] <- true
 	} else {
 		// no actions(status CleanupSuccess for all domains), operation is done
 		orchestrator.operation.updateStatus(types.StatusCompleted)
-		orchestrator.operation.phaseChannels[phaseIdentification] <- false
+		orchestrator.operation.commandChannels[types.CommandDownload] <- false
 	}
 }
 
@@ -165,7 +165,7 @@ func handleDomainDownloadSuccess(orchestrator *updateOrchestrator, domain, messa
 			return
 		}
 	}
-	orchestrator.operation.phaseChannels[phaseDownload] <- true
+	orchestrator.operation.commandChannels[types.CommandUpdate] <- true
 	orchestrator.domainUpdateRunning()
 }
 
@@ -207,7 +207,7 @@ func handleDomainUpdateSuccess(orchestrator *updateOrchestrator, domain, message
 			return
 		}
 	}
-	orchestrator.operation.phaseChannels[phaseUpdate] <- true
+	orchestrator.operation.commandChannels[types.CommandActivate] <- true
 	orchestrator.domainUpdateRunning()
 }
 
@@ -250,7 +250,7 @@ func handleDomainActivationSuccess(orchestrator *updateOrchestrator, domain, mes
 			return
 		}
 	}
-	orchestrator.operation.phaseChannels[phaseActivation] <- true
+	orchestrator.operation.commandChannels[types.CommandCleanup] <- true
 	orchestrator.domainUpdateRunning()
 }
 
@@ -331,7 +331,7 @@ func (orchestrator *updateOrchestrator) domainUpdateCompleted() {
 		return
 	}
 	orchestrator.operation.updateStatus(types.StatusCompleted)
-	orchestrator.operation.phaseChannels[phaseCleanup] <- false
+	orchestrator.operation.done <- true
 }
 
 func (orchestrator *updateOrchestrator) domainUpdateRunning() {

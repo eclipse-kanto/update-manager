@@ -22,8 +22,13 @@ const (
 	StatusDenied ConsentStatusType = "DENIED"
 )
 
-// OwnerConsent defines the payload for Owner Consent response.
-type OwnerConsent struct {
+// OwnerConsentFeedback defines the payload for Owner Consent Feedback.
+type OwnerConsentFeedback struct {
 	Status ConsentStatusType `json:"status,omitempty"`
 	// time field for scheduling could be added here
+}
+
+// OwnerConsent defines the payload for Owner Consent.
+type OwnerConsent struct {
+	Command CommandType `json:"command,omitempty"`
 }

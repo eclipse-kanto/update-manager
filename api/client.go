@@ -57,7 +57,7 @@ type DesiredStateClient interface {
 
 // OwnerConsentAgentHandler defines functions for handling the owner consent requests
 type OwnerConsentAgentHandler interface {
-	HandleOwnerConsentGet(string, int64, *types.OwnerConsent) error
+	HandleOwnerConsent(string, int64, *types.OwnerConsent) error
 }
 
 // OwnerConsentAgentClient defines an interface for handling for owner consent requests
@@ -65,12 +65,12 @@ type OwnerConsentAgentClient interface {
 	BaseClient
 
 	Start(OwnerConsentAgentHandler) error
-	SendOwnerConsent(string, *types.OwnerConsent) error
+	SendOwnerConsentFeedback(string, *types.OwnerConsentFeedback) error
 }
 
-// OwnerConsentHandler defines functions for handling the owner consent
+// OwnerConsentHandler defines functions for handling the owner consent feedback
 type OwnerConsentHandler interface {
-	HandleOwnerConsent(string, int64, *types.OwnerConsent) error
+	HandleOwnerConsentFeedback(string, int64, *types.OwnerConsentFeedback) error
 }
 
 // OwnerConsentClient defines an interface for triggering requests for owner consent
@@ -78,5 +78,5 @@ type OwnerConsentClient interface {
 	BaseClient
 
 	Start(OwnerConsentHandler) error
-	SendOwnerConsentGet(string) error
+	SendOwnerConsent(string, *types.OwnerConsent) error
 }

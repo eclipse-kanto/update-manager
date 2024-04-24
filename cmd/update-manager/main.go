@@ -70,7 +70,7 @@ func initUpdateManager(cfg *config.Config) (api.UpdateAgentClient, api.UpdateMan
 		return nil, nil, err
 	}
 
-	if len(cfg.OwnerConsentPhases) != 0 {
+	if len(cfg.OwnerConsentCommands) != 0 {
 		if occ, err = mqtt.NewOwnerConsentClient(cfg.Domain, uac); err != nil {
 			return nil, nil, err
 		}

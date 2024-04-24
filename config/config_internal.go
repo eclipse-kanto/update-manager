@@ -14,6 +14,7 @@ package config
 
 import (
 	"github.com/eclipse-kanto/update-manager/api"
+	"github.com/eclipse-kanto/update-manager/api/types"
 )
 
 const (
@@ -44,7 +45,7 @@ type Config struct {
 	ReportFeedbackInterval string                              `json:"reportFeedbackInterval"`
 	CurrentStateDelay      string                              `json:"currentStateDelay"`
 	PhaseTimeout           string                              `json:"phaseTimeout"`
-	OwnerConsentPhases     []string                            `json:"ownerConsentPhases"`
+	OwnerConsentCommands   []types.CommandType                 `json:"ownerConsentCommands"`
 }
 
 func newDefaultConfig() *Config {

@@ -19,15 +19,16 @@ import (
 	"os"
 	"strings"
 
+	"github.com/eclipse-kanto/update-manager/api/types"
 	"github.com/eclipse-kanto/update-manager/logger"
 )
 
 const (
 	// domains flag
-	domainsFlagID            = "domains"
-	domainsDesc              = "Specify a comma-separated list of domains handled by the update manager"
-	ownerConsentPhasesFlagID = "owner-consent-phases"
-	ownerConsentPhasesDesc   = "Specify a comma-separated list of update phase, before which an owner consent should be granted. Possible values are: 'download', 'update', 'activation'"
+	domainsFlagID              = "domains"
+	domainsDesc                = "Specify a comma-separated list of domains handled by the update manager"
+	ownerConsentCommandsFlagID = "owner-consent-commands"
+	ownerConsentCommandsDesc   = "Specify a comma-separated list of commands, before which an owner consent should be granted. Possible values are: 'download', 'update', 'activate'"
 )
 
 // SetupAllUpdateManagerFlags adds all flags for the configuration of the update manager
@@ -42,15 +43,15 @@ func SetupAllUpdateManagerFlags(flagSet *flag.FlagSet, cfg *Config) {
 	flagSet.StringVar(&cfg.PhaseTimeout, "phase-timeout", EnvToString("PHASE_TIMEOUT", cfg.PhaseTimeout), "Specify the timeout for completing an Update Orchestration phase. Value should be a positive integer number followed by a unit suffix, such as '60s', '10m', etc")
 	flagSet.StringVar(&cfg.ReportFeedbackInterval, "report-feedback-interval", EnvToString("REPORT_FEEDBACK_INTERVAL", cfg.ReportFeedbackInterval), "Specify the time interval for reporting intermediate desired state feedback messages during an active update operation. Value should be a positive integer number followed by a unit suffix, such as '60s', '10m', etc")
 	flagSet.StringVar(&cfg.CurrentStateDelay, "current-state-delay", EnvToString("CURRENT_STATE_DELAY", cfg.CurrentStateDelay), "Specify the time delay for reporting current state messages. Value should be a positive integer number followed by a unit suffix, such as '60s', '10m', etc")
-	flagSet.String(ownerConsentPhasesFlagID, "", "Specify a comma-separated list of update phase, before which an owner consent should be granted. Possible values are: 'download', 'update', 'activation'")
+	flagSet.String(ownerConsentCommandsFlagID, "", ownerConsentCommandsDesc)
 	setupAgentsConfigFlags(flagSet, cfg)
 }
 
 func parseFlags(cfg *Config, version string) {
 	domains := parseDomainsFlag()
 	prepareAgentsConfig(cfg, domains)
-	if ownerConsentPhases := parseOwnerConsentPhasesFlag(); len(ownerConsentPhases) > 0 {
-		cfg.OwnerConsentPhases = ownerConsentPhases
+	if ownerConsentPhases := parseOwnerConsentCommandsFlag(); len(ownerConsentPhases) > 0 {
+		cfg.OwnerConsentCommands = ownerConsentPhases
 	}
 
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
@@ -69,20 +70,20 @@ func parseFlags(cfg *Config, version string) {
 	}
 }
 
-func parseOwnerConsentPhasesFlag() []string {
-	var listPhases string
+func parseOwnerConsentCommandsFlag() []types.CommandType {
+	var listCommands string
 	flagSet := flag.NewFlagSet("", flag.ContinueOnError)
 	flagSet.SetOutput(io.Discard)
-	flagSet.StringVar(&listPhases, ownerConsentPhasesFlagID, EnvToString("OWNER_CONSENT_PHASES", ""), ownerConsentPhasesDesc)
-	if err := flagSet.Parse(getFlagArgs(ownerConsentPhasesFlagID)); err != nil {
-		logger.ErrorErr(err, "Cannot parse %s flag", ownerConsentPhasesFlagID)
+	flagSet.StringVar(&listCommands, ownerConsentCommandsFlagID, EnvToString("OWNER_CONSENT_COMMANDS", ""), ownerConsentCommandsDesc)
+	if err := flagSet.Parse(getFlagArgs(ownerConsentCommandsFlagID)); err != nil {
+		logger.ErrorErr(err, "Cannot parse %s flag", ownerConsentCommandsFlagID)
 	}
 
-	var result []string
-	for _, phase := range strings.Split(listPhases, ",") {
-		p := strings.TrimSpace(phase)
-		if len(p) > 0 {
-			result = append(result, p)
+	var result []types.CommandType
+	for _, command := range strings.Split(listCommands, ",") {
+		c := strings.TrimSpace(command)
+		if len(c) > 0 {
+			result = append(result, types.CommandType(strings.ToUpper(c)))
 		}
 	}
 	return result

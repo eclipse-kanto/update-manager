@@ -78,10 +78,13 @@ func (orchestrator *updateOrchestrator) Apply(ctx context.Context, domainAgents 
 	}
 
 	rebootRequired, applyErr := orchestrator.apply(ctx)
+	if applyErr != nil {
+		logger.Error("failed to apply '%s' desired state: %v", activityID, applyErr)
+	}
 	return rebootRequired
 }
 
-func (orchestrator *updateOrchestrator) HandleOwnerConsent(activityID string, timestamp int64, consent *types.OwnerConsent) error {
+func (orchestrator *updateOrchestrator) HandleOwnerConsentFeedback(activityID string, timestamp int64, consent *types.OwnerConsentFeedback) error {
 	if orchestrator.operation != nil && activityID == orchestrator.operation.activityID {
 		logger.Info("owner consent received with status: %v, timestamp: %d", consent.Status, timestamp)
 		orchestrator.operation.ownerConsented <- consent.Status == types.StatusApproved

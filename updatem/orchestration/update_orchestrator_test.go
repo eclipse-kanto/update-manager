@@ -86,42 +86,6 @@ func TestUpdOrchApply(t *testing.T) {
 	})
 }
 
-func TestHandleOwnerConsent(t *testing.T) {
-	updateOrchestrator := &updateOrchestrator{
-		operation: &updateOperation{
-			activityID:     test.ActivityID,
-			ownerConsented: make(chan bool),
-		},
-	}
-	t.Run("test_handle_owner_approved", func(t *testing.T) {
-		go updateOrchestrator.HandleOwnerConsent(test.ActivityID, 0, &types.OwnerConsent{Status: types.StatusApproved})
-		select {
-		case consented := <-updateOrchestrator.operation.ownerConsented:
-			assert.True(t, consented)
-		case <-time.After(1 * time.Second):
-			t.Fatal("owner consent not received")
-		}
-	})
-	t.Run("test_handle_owner_denied", func(t *testing.T) {
-		go updateOrchestrator.HandleOwnerConsent(test.ActivityID, 0, &types.OwnerConsent{Status: types.StatusDenied})
-		select {
-		case consented := <-updateOrchestrator.operation.ownerConsented:
-			assert.False(t, consented)
-		case <-time.After(1 * time.Second):
-			t.Fatal("owner consent not received")
-		}
-	})
-	t.Run("test_handle_owner_approved_another_activity", func(t *testing.T) {
-		go updateOrchestrator.HandleOwnerConsent("anotherActivity", 0, &types.OwnerConsent{Status: types.StatusApproved})
-		select {
-		case <-updateOrchestrator.operation.ownerConsented:
-			t.Fatal("unexpected owner consent")
-		case <-time.After(1 * time.Second):
-			// do nothing
-		}
-	})
-}
-
 func applyDesiredState(ctx context.Context, updOrch *updateOrchestrator, done chan bool, domainAgents map[string]api.UpdateManager, activityID string, desiredState *types.DesiredState, apiDesState api.DesiredStateFeedbackHandler) {
 	updOrch.Apply(ctx, domainAgents, activityID, desiredState, apiDesState)
 	done <- true

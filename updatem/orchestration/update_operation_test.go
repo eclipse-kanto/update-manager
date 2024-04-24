@@ -59,7 +59,7 @@ func TestNewUpdateOperation(t *testing.T) {
 		assert.Equal(t, types.StatusIdentifying, testOp.domains["domain2"])
 		assert.NotNil(t, testOp.actions)
 		assert.NotNil(t, testOp.statesPerDomain)
-		assert.NotNil(t, testOp.phaseChannels)
+		assert.NotNil(t, testOp.commandChannels)
 		assert.False(t, testOp.rebootRequired)
 		assert.Equal(t, handler, testOp.desiredStateCallback)
 	})

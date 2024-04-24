@@ -44,9 +44,9 @@ func NewOwnerConsentAgentClient(domain string, config *ConnectionConfig) (api.Ow
 
 func (client *ownerConsentAgentClient) onConnect(_ pahomqtt.Client) {
 	if err := client.subscribe(); err != nil {
-		logger.ErrorErr(err, "[%s] error subscribing for OwnerConsentGet requests", client.Domain())
+		logger.ErrorErr(err, "[%s] error subscribing for OwnerConsent requests", client.Domain())
 	} else {
-		logger.Debug("[%s] subscribed for OwnerConsentGet requests", client.Domain())
+		logger.Debug("[%s] subscribed for OwnerConsent requests", client.Domain())
 	}
 }
 
@@ -64,12 +64,12 @@ func (client *ownerConsentAgentClient) Domain() string {
 	return client.domain
 }
 
-// Stop removes the client subscription to the MQTT broker for the MQTT topics for getting owner consent.
+// Stop removes the client subscription to the MQTT broker for the MQTT topics for requesting owner consent.
 func (client *ownerConsentAgentClient) Stop() error {
 	if err := client.unsubscribe(); err != nil {
-		logger.WarnErr(err, "[%s] error unsubscribing for OwnerConsentGet requests", client.Domain())
+		logger.WarnErr(err, "[%s] error unsubscribing for OwnerConsent requests", client.Domain())
 	} else {
-		logger.Debug("[%s] unsubscribed for OwnerConsentGet messages", client.Domain())
+		logger.Debug("[%s] unsubscribed for OwnerConsent messages", client.Domain())
 	}
 	client.pahoClient.Disconnect(disconnectQuiesce)
 	client.handler = nil
@@ -77,19 +77,19 @@ func (client *ownerConsentAgentClient) Stop() error {
 }
 
 func (client *ownerConsentAgentClient) subscribe() error {
-	logger.Debug("subscribing for '%v' topic", client.topicOwnerConsentGet)
-	token := client.pahoClient.Subscribe(client.topicOwnerConsentGet, 1, client.handleMessage)
+	logger.Debug("subscribing for '%v' topic", client.topicOwnerConsent)
+	token := client.pahoClient.Subscribe(client.topicOwnerConsent, 1, client.handleMessage)
 	if !token.WaitTimeout(client.mqttConfig.SubscribeTimeout) {
-		return fmt.Errorf("cannot subscribe for topic '%s' in '%v'", client.topicOwnerConsentGet, client.mqttConfig.SubscribeTimeout)
+		return fmt.Errorf("cannot subscribe for topic '%s' in '%v'", client.topicOwnerConsent, client.mqttConfig.SubscribeTimeout)
 	}
 	return token.Error()
 }
 
 func (client *ownerConsentAgentClient) unsubscribe() error {
-	logger.Debug("unsubscribing from '%s' topic", client.topicOwnerConsentGet)
-	token := client.pahoClient.Unsubscribe(client.topicOwnerConsentGet)
+	logger.Debug("unsubscribing from '%s' topic", client.topicOwnerConsent)
+	token := client.pahoClient.Unsubscribe(client.topicOwnerConsent)
 	if !token.WaitTimeout(client.mqttConfig.UnsubscribeTimeout) {
-		return fmt.Errorf("cannot unsubscribe from topic '%s' in '%v'", client.topicOwnerConsentGet, client.mqttConfig.UnsubscribeTimeout)
+		return fmt.Errorf("cannot unsubscribe from topic '%s' in '%v'", client.topicOwnerConsent, client.mqttConfig.UnsubscribeTimeout)
 	}
 	return token.Error()
 }
@@ -97,28 +97,28 @@ func (client *ownerConsentAgentClient) unsubscribe() error {
 func (client *ownerConsentAgentClient) handleMessage(mqttClient pahomqtt.Client, message pahomqtt.Message) {
 	topic := message.Topic()
 	logger.Debug("[%s] received %s message", client.Domain(), topic)
-	if topic == client.topicOwnerConsentGet {
+	if topic == client.topicOwnerConsent {
 		consent := &types.OwnerConsent{}
 		envelope, err := types.FromEnvelope(message.Payload(), consent)
 		if err != nil {
-			logger.ErrorErr(err, "[%s] cannot parse owner conset get message", client.Domain())
+			logger.ErrorErr(err, "[%s] cannot parse owner consent message", client.Domain())
 			return
 		}
-		if err := client.handler.HandleOwnerConsentGet(envelope.ActivityID, envelope.Timestamp, consent); err != nil {
-			logger.ErrorErr(err, "[%s] error processing owner consent get message", client.Domain())
+		if err := client.handler.HandleOwnerConsent(envelope.ActivityID, envelope.Timestamp, consent); err != nil {
+			logger.ErrorErr(err, "[%s] error processing owner consent message", client.Domain())
 		}
 	}
 }
 
-func (client *ownerConsentAgentClient) SendOwnerConsent(activityID string, consent *types.OwnerConsent) error {
-	logger.Debug("publishing to topic '%s'", client.topicOwnerConsent)
-	desiredStateBytes, err := types.ToEnvelope(activityID, consent)
+func (client *ownerConsentAgentClient) SendOwnerConsentFeedback(activityID string, consentFeedback *types.OwnerConsentFeedback) error {
+	logger.Debug("publishing to topic '%s'", client.topicOwnerConsentFeedback)
+	desiredStateBytes, err := types.ToEnvelope(activityID, consentFeedback)
 	if err != nil {
-		return errors.Wrapf(err, "cannot marshal owner consent message for activity-id %s", activityID)
+		return errors.Wrapf(err, "cannot marshal owner consent feedback message for activity-id %s", activityID)
 	}
-	token := client.pahoClient.Publish(client.topicOwnerConsent, 1, false, desiredStateBytes)
+	token := client.pahoClient.Publish(client.topicOwnerConsentFeedback, 1, false, desiredStateBytes)
 	if !token.WaitTimeout(client.mqttConfig.AcknowledgeTimeout) {
-		return fmt.Errorf("cannot publish to topic '%s' in '%v'", client.topicOwnerConsent, client.mqttConfig.AcknowledgeTimeout)
+		return fmt.Errorf("cannot publish to topic '%s' in '%v'", client.topicOwnerConsentFeedback, client.mqttConfig.AcknowledgeTimeout)
 	}
 	return token.Error()
 }
