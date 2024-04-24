@@ -264,13 +264,14 @@ func TestHandleCommandSignal(t *testing.T) {
 			testDomain1: types.StatusIdentifying,
 			testDomain2: types.StatusIdentifying,
 		},
-		errChan: make(chan bool, 1),
+		errChan:      make(chan bool, 1),
+		rollbackChan: make(chan bool, 1),
 	}
 	operation.statesPerDomain = map[api.UpdateManager]*types.DesiredState{
 		mockUpdateManager1: {},
 		mockUpdateManager2: {},
 	}
-	orchestrator := &updateOrchestrator{cfg: &config.Config{}}
+	orchestrator := &updateOrchestrator{cfg: &config.Config{}} //, ownerConsentClient: mocks.NewMockOwnerConsentClient(mockCtrl)}
 
 	mockUpdateManager1.EXPECT().Name().Return(testDomain1).AnyTimes()
 	mockUpdateManager2.EXPECT().Name().Return(testDomain2).AnyTimes()
@@ -288,11 +289,12 @@ func TestHandleCommandSignal(t *testing.T) {
 	}
 
 	testCases := map[string]struct {
-		noOperation   bool
-		domainStatus1 types.StatusType
-		domainStatus2 types.StatusType
-		command       types.CommandType
-		expectedCalls func()
+		noOperation          bool
+		domainStatus1        types.StatusType
+		domainStatus2        types.StatusType
+		command              types.CommandType
+		ownerConsentCommands []types.CommandType
+		expectedCalls        func()
 	}{
 		"test_handle_command_signal_download": {
 			domainStatus1: types.StatusIdentified,
@@ -333,12 +335,25 @@ func TestHandleCommandSignal(t *testing.T) {
 			command:       types.CommandType("unknown"),
 			expectedCalls: func() {},
 		},
+		"test_handle_command_signal_consent_error": {
+			ownerConsentCommands: []types.CommandType{types.CommandDownload},
+			domainStatus1:        types.StatusIdentified,
+			command:              types.CommandDownload,
+			expectedCalls:        func() {},
+		},
+		"test_handle_command_signal_consent_error_rollback": {
+			ownerConsentCommands: []types.CommandType{types.CommandUpdate},
+			domainStatus1:        types.BaselineStatusDownloadSuccess,
+			command:              types.CommandUpdate,
+			expectedCalls:        mockCommand(types.CommandRollback, testDomain1),
+		},
 	}
 	for testName, testCase := range testCases {
 		t.Run(testName, func(t *testing.T) {
 			if testCase.noOperation {
 				orchestrator.operation = nil
 			} else {
+				orchestrator.cfg.OwnerConsentCommands = testCase.ownerConsentCommands
 				orchestrator.operation = operation
 				orchestrator.operation.domains[testDomain1] = testCase.domainStatus1
 				orchestrator.operation.domains[testDomain2] = testCase.domainStatus2
@@ -459,4 +474,117 @@ func TestDisposeUpdateOperation(t *testing.T) {
 		orchestrator.disposeUpdateOperation()
 		assert.Nil(t, orchestrator.operation)
 	})
+}
+
+func TestGetOwnerConsent(t *testing.T) {
+	testOwnerConsent := &types.OwnerConsent{Command: types.CommandDownload}
+	ownerConsentCommands := []types.CommandType{types.CommandDownload}
+	tests := map[string]struct {
+		ownerConsentCommands []types.CommandType
+		command              types.CommandType
+		expectedErr          error
+		mock                 func(*gomock.Controller) (*mocks.MockOwnerConsentClient, chan bool)
+	}{
+		"test_no_consent_for_cleanup": {
+			ownerConsentCommands: ownerConsentCommands,
+			command:              types.CommandCleanup,
+		},
+		"test_no_consent_for_rollback": {
+			ownerConsentCommands: []types.CommandType{types.CommandRollback},
+			command:              types.CommandRollback,
+		},
+		"test_no_owner_consent_client": {
+			ownerConsentCommands: ownerConsentCommands,
+			command:              types.CommandDownload,
+			expectedErr:          fmt.Errorf("owner consent client not available"),
+		},
+		"test_consent_not_needed": {
+			ownerConsentCommands: ownerConsentCommands,
+			command:              types.CommandUpdate,
+		},
+		"test_owner_consent_client_start_err": {
+			ownerConsentCommands: ownerConsentCommands,
+			command:              types.CommandDownload,
+			expectedErr:          fmt.Errorf("start error"),
+			mock: func(ctrl *gomock.Controller) (*mocks.MockOwnerConsentClient, chan bool) {
+				mockClient := mocks.NewMockOwnerConsentClient(ctrl)
+				mockClient.EXPECT().Start(gomock.Any()).Return(fmt.Errorf("start error"))
+				return mockClient, nil
+			},
+		},
+		"test_owner_consent_client_send_err": {
+			ownerConsentCommands: ownerConsentCommands,
+			command:              types.CommandDownload,
+			expectedErr:          fmt.Errorf("send error"),
+			mock: func(ctrl *gomock.Controller) (*mocks.MockOwnerConsentClient, chan bool) {
+				mockClient := mocks.NewMockOwnerConsentClient(ctrl)
+				mockClient.EXPECT().Start(gomock.Any()).Return(nil)
+				mockClient.EXPECT().Stop().Return(nil)
+				mockClient.EXPECT().SendOwnerConsent(test.ActivityID, testOwnerConsent).Return(fmt.Errorf("send error"))
+				return mockClient, nil
+			},
+		},
+		"test_owner_consent_approved": {
+			ownerConsentCommands: ownerConsentCommands,
+			command:              types.CommandDownload,
+			mock: func(ctrl *gomock.Controller) (*mocks.MockOwnerConsentClient, chan bool) {
+				mockClient := mocks.NewMockOwnerConsentClient(ctrl)
+				mockClient.EXPECT().Start(gomock.Any()).Return(nil)
+				mockClient.EXPECT().Stop().Return(nil)
+				mockClient.EXPECT().SendOwnerConsent(test.ActivityID, testOwnerConsent).Return(nil)
+				ch := make(chan bool)
+				go func() {
+					ch <- true
+				}()
+				return mockClient, ch
+			},
+		},
+		"test_owner_consent_denied": {
+			ownerConsentCommands: ownerConsentCommands,
+			command:              types.CommandDownload,
+			expectedErr:          fmt.Errorf("owner approval not granted"),
+			mock: func(ctrl *gomock.Controller) (*mocks.MockOwnerConsentClient, chan bool) {
+				mockClient := mocks.NewMockOwnerConsentClient(ctrl)
+				mockClient.EXPECT().Start(gomock.Any()).Return(nil)
+				mockClient.EXPECT().Stop().Return(nil)
+				mockClient.EXPECT().SendOwnerConsent(test.ActivityID, testOwnerConsent).Return(nil)
+				ch := make(chan bool)
+				go func() {
+					ch <- false
+				}()
+				return mockClient, ch
+			},
+		},
+		"test_owner_consent_timeout": {
+			ownerConsentCommands: ownerConsentCommands,
+			command:              types.CommandDownload,
+			expectedErr:          fmt.Errorf("owner consent not granted in %v", test.Interval),
+			mock: func(ctrl *gomock.Controller) (*mocks.MockOwnerConsentClient, chan bool) {
+				mockClient := mocks.NewMockOwnerConsentClient(ctrl)
+				mockClient.EXPECT().Start(gomock.Any()).Return(nil)
+				mockClient.EXPECT().Stop().Return(nil)
+				mockClient.EXPECT().SendOwnerConsent(test.ActivityID, testOwnerConsent).Return(nil)
+				return mockClient, make(chan bool)
+			},
+		},
+	}
+
+	for testName, testCase := range tests {
+		t.Run(testName, func(t *testing.T) {
+			mockCtrl := gomock.NewController(t)
+			defer mockCtrl.Finish()
+
+			orch := &updateOrchestrator{
+				cfg:                 &config.Config{OwnerConsentCommands: testCase.ownerConsentCommands},
+				operation:           &updateOperation{activityID: test.ActivityID},
+				ownerConsentTimeout: test.Interval,
+			}
+
+			if testCase.mock != nil {
+				orch.ownerConsentClient, orch.operation.ownerConsented = testCase.mock(mockCtrl)
+			}
+			err := orch.getOwnerConsent(context.Background(), testCase.command)
+			assert.Equal(t, testCase.expectedErr, err)
+		})
+	}
 }

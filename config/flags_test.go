@@ -17,9 +17,11 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"slices"
 	"testing"
 
 	"github.com/eclipse-kanto/update-manager/api"
+	"github.com/eclipse-kanto/update-manager/api/types"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -129,6 +131,10 @@ func TestSetupFlags(t *testing.T) {
 			flag:         "phase-timeout",
 			expectedType: reflect.String.String(),
 		},
+		"test_flags_owner_consent_timeout": {
+			flag:         "owner-consent-timeout",
+			expectedType: reflect.String.String(),
+		},
 	}
 	for testName, testCase := range tests {
 		t.Run(testName, func(t *testing.T) {
@@ -227,6 +233,47 @@ func TestParseDomainsFlag(t *testing.T) {
 		actualDomains := parseDomainsFlag()
 		if len(actualDomains) != 0 {
 			t.Errorf("\"incorrect value: %v , expecting: empty \"", actualDomains)
+		}
+	})
+}
+
+func TestParseOwnerConsentCommandsFlag(t *testing.T) {
+	oldArgs := os.Args
+	defer func() { os.Args = oldArgs }()
+	testCommand := types.CommandDownload
+
+	t.Run("test_parse_consent_commands_flag_1", func(t *testing.T) {
+		actualConsentCommands := parseOwnerConsentCommandsFlag("download,update")
+		if len(actualConsentCommands) != 1 && !slices.Contains(actualConsentCommands, testCommand) {
+			t.Error("consent phase not set")
+		}
+	})
+
+	t.Run("test_parse_consent_commands_flag_2", func(t *testing.T) {
+		actualConsentPhases := parseOwnerConsentCommandsFlag("update,download")
+		if len(actualConsentPhases) != 1 && !slices.Contains(actualConsentPhases, testCommand) {
+			t.Error("consent phase not set")
+		}
+	})
+
+	t.Run("test_parse_consent_commands_flag_3", func(t *testing.T) {
+		actualConsentPhases := parseOwnerConsentCommandsFlag("DoWnLoAd")
+		if len(actualConsentPhases) != 1 && !slices.Contains(actualConsentPhases, testCommand) {
+			t.Error("consent phase not set")
+		}
+	})
+
+	t.Run("test_parse_consent_commands_flag_4", func(t *testing.T) {
+		actualConsentPhases := parseOwnerConsentCommandsFlag("UPDATE,DOWNLOAD")
+		if len(actualConsentPhases) != 1 && !slices.Contains(actualConsentPhases, testCommand) {
+			t.Error("consent phase not set")
+		}
+	})
+
+	t.Run("test_parse_consent_commands_flag_err_1", func(t *testing.T) {
+		actualConsentPhases := parseOwnerConsentCommandsFlag("")
+		if len(actualConsentPhases) != 0 {
+			t.Errorf("\"incorrect value: %v , expecting: empty \"", actualConsentPhases)
 		}
 	})
 }
@@ -371,5 +418,38 @@ func TestParseFlags(t *testing.T) {
 		}
 		parseFlags(cfg, testVersion)
 		assert.Equal(t, expectedAgents, cfg.Agents)
+	})
+	t.Run("test_owner_consent_commands", func(t *testing.T) {
+		oldArgs := os.Args
+		defer func() { os.Args = oldArgs }()
+
+		testConfigPath := "../config/testdata/config.json"
+		expectedCommands := []types.CommandType{types.CommandDownload}
+
+		os.Args = []string{oldArgs[0], fmt.Sprintf("--%s=%s", configFileFlagID, testConfigPath)}
+		cfg := newDefaultConfig()
+		configFilePath := ParseConfigFilePath()
+		if configFilePath != "" {
+			assert.NoError(t, LoadConfigFromFile(configFilePath, cfg))
+		}
+		parseFlags(cfg, testVersion)
+		assert.Equal(t, expectedCommands, cfg.OwnerConsentCommands)
+	})
+	t.Run("test_overwrite_owner_consent_commands", func(t *testing.T) {
+		oldArgs := os.Args
+		defer func() { os.Args = oldArgs }()
+
+		testConfigPath := "../config/testdata/config.json"
+		expectedCommands := []types.CommandType{types.CommandUpdate, types.CommandActivate}
+
+		os.Args = []string{oldArgs[0], fmt.Sprintf("--%s=%s", configFileFlagID, testConfigPath),
+			fmt.Sprintf("--%s=%s", ownerConsentCommandsFlagID, "update,activate")}
+		cfg := newDefaultConfig()
+		configFilePath := ParseConfigFilePath()
+		if configFilePath != "" {
+			assert.NoError(t, LoadConfigFromFile(configFilePath, cfg))
+		}
+		parseFlags(cfg, testVersion)
+		assert.Equal(t, expectedCommands, cfg.OwnerConsentCommands)
 	})
 }
