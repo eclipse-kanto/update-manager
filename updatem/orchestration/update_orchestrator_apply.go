@@ -34,25 +34,28 @@ func (orchestrator *updateOrchestrator) apply(ctx context.Context) (bool, error)
 	}
 
 	// send DOWNLOAD command when identification is done
-	running, err := orchestrator.waitCommandSignal(ctx, types.CommandDownload, handleCommandSignal)
+	running, rollback, err := orchestrator.waitCommandSignal(ctx, types.CommandDownload, handleCommandSignal)
 	if err != nil {
 		return false, err
 	}
 	// send the rest of the commands in order
 	for i := 1; i < len(orderedCommands) && running; i++ {
-		running, err = orchestrator.waitCommandSignal(ctx, orderedCommands[i], handleCommandSignal)
+		if rollback && orderedCommands[i] != types.CommandCleanup {
+			continue
+		}
+		running, rollback, err = orchestrator.waitCommandSignal(ctx, orderedCommands[i], handleCommandSignal)
 	}
 	// wait for the last command(CLEANUP) to finish
 	if running {
-		_, _, err = orchestrator.waitSignal(ctx, orchestrator.operation.done)
+		_, _, _, err = orchestrator.waitSignal(ctx, orchestrator.operation.done)
 	}
 	return orchestrator.operation.rebootRequired && orchestrator.operation.status == types.StatusCompleted, err
 }
 
 type commandSignalHandler func(ctx context.Context, command types.CommandType, orchestrator *updateOrchestrator)
 
-func (orchestrator *updateOrchestrator) waitCommandSignal(ctx context.Context, command types.CommandType, handle commandSignalHandler) (bool, error) {
-	signalValue, timeout, err := orchestrator.waitSignal(ctx, orchestrator.operation.commandChannels[command])
+func (orchestrator *updateOrchestrator) waitCommandSignal(ctx context.Context, command types.CommandType, handle commandSignalHandler) (bool, bool, error) {
+	signalValue, rollback, timeout, err := orchestrator.waitSignal(ctx, orchestrator.operation.commandChannels[command])
 	if err != nil {
 		if timeout {
 			if command == types.CommandDownload {
@@ -61,25 +64,27 @@ func (orchestrator *updateOrchestrator) waitCommandSignal(ctx context.Context, c
 				orchestrator.operation.updateStatus(types.StatusIncomplete)
 			}
 		}
-		return false, fmt.Errorf("failed to wait for command '%s' signal: %v", command, err)
+		return false, false, fmt.Errorf("failed to wait for command '%s' signal: %v", command, err)
 	}
-	if signalValue {
+	if signalValue && !rollback {
 		go handle(ctx, command, orchestrator)
 	}
-	return signalValue, nil
+	return signalValue, rollback, nil
 }
 
-func (orchestrator *updateOrchestrator) waitSignal(ctx context.Context, signal chan bool) (bool, bool, error) {
+func (orchestrator *updateOrchestrator) waitSignal(ctx context.Context, signal chan bool) (bool, bool, bool, error) {
 	select {
 	case <-time.After(orchestrator.phaseTimeout):
-		return false, true, fmt.Errorf("not received in %v", orchestrator.phaseTimeout)
+		return false, false, true, fmt.Errorf("not received in %v", orchestrator.phaseTimeout)
 	case <-orchestrator.operation.errChan:
-		return false, false, fmt.Errorf(orchestrator.operation.errMsg)
+		return false, false, false, fmt.Errorf(orchestrator.operation.errMsg)
+	case <-orchestrator.operation.rollbackChan:
+		return true, true, false, nil
 	case value := <-signal:
-		return value, false, nil
+		return value, false, false, nil
 	case <-ctx.Done():
 		orchestrator.operation.updateStatus(types.StatusIncomplete)
-		return false, false, fmt.Errorf("the update manager instance is terminated")
+		return false, false, false, fmt.Errorf("the update manager instance is terminated")
 	}
 }
 
@@ -92,15 +97,21 @@ func handleCommandSignal(ctx context.Context, command types.CommandType, orchest
 	}
 
 	if err := orchestrator.getOwnerConsent(ctx, command); err != nil {
-		// should a rollback be performed at this point?
-		orchestrator.operation.errMsg = err.Error()
-		orchestrator.operation.errChan <- true
-		return
+		if command != types.CommandUpdate && command != types.CommandActivate {
+			orchestrator.operation.updateStatus(types.StatusIncomplete)
+			orchestrator.operation.errMsg = err.Error()
+			orchestrator.operation.errChan <- true
+			return
+		}
+		command = types.CommandRollback
+		orchestrator.operation.delayedStatus = types.StatusIncomplete
+		orchestrator.operation.delayedErrMsg = err.Error()
+		orchestrator.operation.rollbackChan <- true
 	}
 
-	executeCommand := func(status types.StatusType) {
+	executeCommand := func(statuses ...types.StatusType) {
 		for domain, domainStatus := range orchestrator.operation.domains {
-			if domainStatus == status {
+			if slices.Contains(statuses, domainStatus) {
 				orchestrator.command(ctx, orchestrator.operation.activityID, domain, command)
 			}
 		}
@@ -114,9 +125,9 @@ func handleCommandSignal(ctx context.Context, command types.CommandType, orchest
 	case types.CommandActivate:
 		executeCommand(types.BaselineStatusUpdateSuccess)
 	case types.CommandCleanup:
-		executeCommand(types.BaselineStatusActivationSuccess)
+		executeCommand(types.BaselineStatusActivationSuccess, types.BaselineStatusRollbackSuccess)
 	case types.CommandRollback:
-		// nothing to do
+		executeCommand(types.BaselineStatusDownloadSuccess, types.BaselineStatusUpdateSuccess)
 	default:
 		logger.Error("unknown command %s", command)
 	}

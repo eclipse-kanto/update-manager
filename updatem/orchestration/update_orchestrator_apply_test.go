@@ -236,9 +236,9 @@ func TestWaitCommandSignal(t *testing.T) {
 			if testCase.terminateContext {
 				newContext, cancel := context.WithTimeout(testCase.ctx, time.Second)
 				cancel()
-				actualWait, actualErr = orchestrator.waitCommandSignal(newContext, testCase.command, commandHandler)
+				actualWait, _, actualErr = orchestrator.waitCommandSignal(newContext, testCase.command, commandHandler)
 			} else {
-				actualWait, actualErr = orchestrator.waitCommandSignal(testCase.ctx, testCase.command, commandHandler)
+				actualWait, _, actualErr = orchestrator.waitCommandSignal(testCase.ctx, testCase.command, commandHandler)
 			}
 
 			assert.Equal(t, testCase.expectedErr, actualErr)
@@ -400,11 +400,13 @@ func TestSetupUpdateOperation(t *testing.T) {
 		assert.NotNil(t, orchestrator.operation.errChan)
 		assert.NotNil(t, orchestrator.operation.done)
 		assert.NotNil(t, orchestrator.operation.ownerConsented)
+		assert.NotNil(t, orchestrator.operation.rollbackChan)
 
 		orchestrator.operation.errChan = nil
 		orchestrator.operation.done = nil
 		orchestrator.operation.commandChannels = nil
 		orchestrator.operation.ownerConsented = nil
+		orchestrator.operation.rollbackChan = nil
 
 		assert.Equal(t, expectedOp, orchestrator.operation)
 		assert.Nil(t, err)

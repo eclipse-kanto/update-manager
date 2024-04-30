@@ -16,9 +16,9 @@ package types
 type ConsentStatusType string
 
 const (
-	// StatusApproved denotes that the owner has consented.
+	// StatusApproved denotes that the owner approved the update operation.
 	StatusApproved ConsentStatusType = "APPROVED"
-	// StatusDenied denotes that the owner has not consented.
+	// StatusDenied denotes that the owner denied the update operation.
 	StatusDenied ConsentStatusType = "DENIED"
 )
 

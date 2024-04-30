@@ -43,16 +43,12 @@ func SetupAllUpdateManagerFlags(flagSet *flag.FlagSet, cfg *Config) {
 	flagSet.StringVar(&cfg.PhaseTimeout, "phase-timeout", EnvToString("PHASE_TIMEOUT", cfg.PhaseTimeout), "Specify the timeout for completing an Update Orchestration phase. Value should be a positive integer number followed by a unit suffix, such as '60s', '10m', etc")
 	flagSet.StringVar(&cfg.ReportFeedbackInterval, "report-feedback-interval", EnvToString("REPORT_FEEDBACK_INTERVAL", cfg.ReportFeedbackInterval), "Specify the time interval for reporting intermediate desired state feedback messages during an active update operation. Value should be a positive integer number followed by a unit suffix, such as '60s', '10m', etc")
 	flagSet.StringVar(&cfg.CurrentStateDelay, "current-state-delay", EnvToString("CURRENT_STATE_DELAY", cfg.CurrentStateDelay), "Specify the time delay for reporting current state messages. Value should be a positive integer number followed by a unit suffix, such as '60s', '10m', etc")
-	flagSet.String(ownerConsentCommandsFlagID, "", ownerConsentCommandsDesc)
 	setupAgentsConfigFlags(flagSet, cfg)
 }
 
 func parseFlags(cfg *Config, version string) {
 	domains := parseDomainsFlag()
 	prepareAgentsConfig(cfg, domains)
-	if ownerConsentPhases := parseOwnerConsentCommandsFlag(); len(ownerConsentPhases) > 0 {
-		cfg.OwnerConsentCommands = ownerConsentPhases
-	}
 
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 	flagSet := flag.CommandLine
@@ -60,6 +56,7 @@ func parseFlags(cfg *Config, version string) {
 	SetupAllUpdateManagerFlags(flagSet, cfg)
 
 	fVersion := flagSet.Bool("version", false, "Prints current version and exits")
+	listCommands := flagSet.String(ownerConsentCommandsFlagID, "", ownerConsentCommandsDesc)
 	if err := flagSet.Parse(os.Args[1:]); err != nil {
 		logger.ErrorErr(err, "Cannot parse command flags")
 	}
@@ -68,17 +65,13 @@ func parseFlags(cfg *Config, version string) {
 		fmt.Println(version)
 		os.Exit(0)
 	}
+
+	if len(*listCommands) != 0 {
+		cfg.OwnerConsentCommands = parseOwnerConsentCommandsFlag(*listCommands)
+	}
 }
 
-func parseOwnerConsentCommandsFlag() []types.CommandType {
-	var listCommands string
-	flagSet := flag.NewFlagSet("", flag.ContinueOnError)
-	flagSet.SetOutput(io.Discard)
-	flagSet.StringVar(&listCommands, ownerConsentCommandsFlagID, EnvToString("OWNER_CONSENT_COMMANDS", ""), ownerConsentCommandsDesc)
-	if err := flagSet.Parse(getFlagArgs(ownerConsentCommandsFlagID)); err != nil {
-		logger.ErrorErr(err, "Cannot parse %s flag", ownerConsentCommandsFlagID)
-	}
-
+func parseOwnerConsentCommandsFlag(listCommands string) []types.CommandType {
 	var result []types.CommandType
 	for _, command := range strings.Split(listCommands, ",") {
 		c := strings.TrimSpace(command)

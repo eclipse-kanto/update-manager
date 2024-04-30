@@ -27,6 +27,7 @@ type updateOperation struct {
 	statusLock    sync.Mutex
 	status        types.StatusType
 	delayedStatus types.StatusType
+	delayedErrMsg string
 
 	domains map[string]types.StatusType
 	actions map[string]map[string]*types.Action
@@ -41,6 +42,7 @@ type updateOperation struct {
 	errMsg  string
 
 	ownerConsented chan bool
+	rollbackChan   chan bool
 
 	rebootRequired bool
 
@@ -80,7 +82,8 @@ func newUpdateOperation(domainAgents map[string]api.UpdateManager, activityID st
 		done: make(chan bool, 1),
 
 		errChan:        make(chan bool, 1),
-		ownerConsented: make(chan bool),
+		ownerConsented: make(chan bool, 1),
+		rollbackChan:   make(chan bool, 1),
 
 		desiredStateCallback: desiredStateCallback,
 	}, nil
