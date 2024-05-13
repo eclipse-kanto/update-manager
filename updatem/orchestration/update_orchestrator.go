@@ -28,9 +28,10 @@ type updateOrchestrator struct {
 	operationLock sync.Mutex
 	actionsLock   sync.Mutex
 
-	cfg                *config.Config
-	phaseTimeout       time.Duration
-	ownerConsentClient api.OwnerConsentClient
+	cfg                 *config.Config
+	phaseTimeout        time.Duration
+	ownerConsentTimeout time.Duration
+	ownerConsentClient  api.OwnerConsentClient
 
 	operation *updateOperation
 }
@@ -42,9 +43,10 @@ func (orchestrator *updateOrchestrator) Name() string {
 // NewUpdateOrchestrator creates a new update orchestrator that does not handle cross-domain dependencies
 func NewUpdateOrchestrator(cfg *config.Config, ownerApprovalClient api.OwnerConsentClient) api.UpdateOrchestrator {
 	ua := &updateOrchestrator{
-		cfg:                cfg,
-		phaseTimeout:       util.ParseDuration("phase-timeout", cfg.PhaseTimeout, 10*time.Minute, 10*time.Minute),
-		ownerConsentClient: ownerApprovalClient,
+		cfg:                 cfg,
+		phaseTimeout:        util.ParseDuration("phase-timeout", cfg.PhaseTimeout, 10*time.Minute, 10*time.Minute),
+		ownerConsentTimeout: util.ParseDuration("owner-consent-timeout", cfg.OwnerConsentTimeout, 30*time.Minute, 30*time.Minute),
+		ownerConsentClient:  ownerApprovalClient,
 	}
 	return ua
 }

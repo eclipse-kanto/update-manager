@@ -32,6 +32,7 @@ const (
 	currentStateDelayDefault      = "30s"
 	phaseTimeoutDefault           = "10m"
 	readTimeoutDefault            = "1m"
+	ownerConsentTimeoutDefault    = "30m"
 
 	domainContainers = "containers"
 )
@@ -46,6 +47,7 @@ type Config struct {
 	CurrentStateDelay      string                              `json:"currentStateDelay"`
 	PhaseTimeout           string                              `json:"phaseTimeout"`
 	OwnerConsentCommands   []types.CommandType                 `json:"ownerConsentCommands"`
+	OwnerConsentTimeout    string                              `json:"ownerConsentTimeout"`
 }
 
 func newDefaultConfig() *Config {
@@ -57,6 +59,7 @@ func newDefaultConfig() *Config {
 		ReportFeedbackInterval: reportFeedbackIntervalDefault,
 		CurrentStateDelay:      currentStateDelayDefault,
 		PhaseTimeout:           phaseTimeoutDefault,
+		OwnerConsentTimeout:    ownerConsentTimeoutDefault,
 	}
 }
 

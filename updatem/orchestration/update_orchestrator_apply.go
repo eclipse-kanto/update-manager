@@ -165,8 +165,8 @@ func (orchestrator *updateOrchestrator) getOwnerConsent(ctx context.Context, com
 			return fmt.Errorf("owner approval not granted")
 		}
 		return nil
-	case <-time.After(orchestrator.phaseTimeout):
-		return fmt.Errorf("owner consent not granted in %v", orchestrator.phaseTimeout)
+	case <-time.After(orchestrator.ownerConsentTimeout):
+		return fmt.Errorf("owner consent not granted in %v", orchestrator.ownerConsentTimeout)
 	case <-ctx.Done():
 		return fmt.Errorf("the update manager instance is terminated")
 	}

@@ -43,6 +43,7 @@ func SetupAllUpdateManagerFlags(flagSet *flag.FlagSet, cfg *Config) {
 	flagSet.StringVar(&cfg.PhaseTimeout, "phase-timeout", EnvToString("PHASE_TIMEOUT", cfg.PhaseTimeout), "Specify the timeout for completing an Update Orchestration phase. Value should be a positive integer number followed by a unit suffix, such as '60s', '10m', etc")
 	flagSet.StringVar(&cfg.ReportFeedbackInterval, "report-feedback-interval", EnvToString("REPORT_FEEDBACK_INTERVAL", cfg.ReportFeedbackInterval), "Specify the time interval for reporting intermediate desired state feedback messages during an active update operation. Value should be a positive integer number followed by a unit suffix, such as '60s', '10m', etc")
 	flagSet.StringVar(&cfg.CurrentStateDelay, "current-state-delay", EnvToString("CURRENT_STATE_DELAY", cfg.CurrentStateDelay), "Specify the time delay for reporting current state messages. Value should be a positive integer number followed by a unit suffix, such as '60s', '10m', etc")
+	flagSet.StringVar(&cfg.OwnerConsentTimeout, "owner-consent-timeout", EnvToString("OWNER_CONSENT_TIMEOUT", cfg.OwnerConsentTimeout), "Specify the timeout to wait for owner consent. Value should be a positive integer number followed by a unit suffix, such as '60s', '10m', etc")
 	setupAgentsConfigFlags(flagSet, cfg)
 }
 

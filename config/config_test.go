@@ -64,6 +64,7 @@ func TestNewDefaultConfig(t *testing.T) {
 		ReportFeedbackInterval: "1m",
 		CurrentStateDelay:      "30s",
 		PhaseTimeout:           "10m",
+		OwnerConsentTimeout:    "30m",
 	}
 
 	cfg := newDefaultConfig()
@@ -137,6 +138,7 @@ func TestLoadConfigFromFile(t *testing.T) {
 			ReportFeedbackInterval: "2m",
 			CurrentStateDelay:      "1m",
 			PhaseTimeout:           "2m",
+			OwnerConsentTimeout:    "4m",
 			OwnerConsentCommands:   []types.CommandType{types.CommandDownload},
 		}
 		assert.True(t, reflect.DeepEqual(*cfg, expectedConfigValues))

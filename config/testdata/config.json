@@ -25,6 +25,7 @@
   "currentStateDelay": "1m",
   "phaseTimeout": "2m",
   "ownerConsentCommands": ["DOWNLOAD"],
+  "ownerConsentTimeout": "4m",
   "agents": {
     "self-update": {
       "rebootRequired": false,

@@ -213,7 +213,7 @@ func TestWaitCommandSignal(t *testing.T) {
 					errMsg:          "testErrMsg",
 					status:          types.StatusIdentifying,
 				},
-				phaseTimeout: time.Second,
+				phaseTimeout: test.Interval,
 			}
 
 			wg := sync.WaitGroup{}
@@ -253,7 +253,8 @@ func TestWaitCommandSignal(t *testing.T) {
 func TestHandleCommandSignal(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
-	mockUpdateManager := mocks.NewMockUpdateManager(mockCtrl)
+	mockUpdateManager1 := mocks.NewMockUpdateManager(mockCtrl)
+	mockUpdateManager2 := mocks.NewMockUpdateManager(mockCtrl)
 
 	testDomain1 := "testName1"
 	testDomain2 := "testName2"
@@ -266,15 +267,22 @@ func TestHandleCommandSignal(t *testing.T) {
 		errChan: make(chan bool, 1),
 	}
 	operation.statesPerDomain = map[api.UpdateManager]*types.DesiredState{
-		mockUpdateManager: {},
+		mockUpdateManager1: {},
+		mockUpdateManager2: {},
 	}
 	orchestrator := &updateOrchestrator{cfg: &config.Config{}}
 
-	mockCommand := func(mockUpdateManager *mocks.MockUpdateManager, command types.CommandType, domains ...string) func() {
+	mockUpdateManager1.EXPECT().Name().Return(testDomain1).AnyTimes()
+	mockUpdateManager2.EXPECT().Name().Return(testDomain2).AnyTimes()
+
+	mockCommand := func(command types.CommandType, domains ...string) func() {
 		return func() {
 			for _, domain := range domains {
-				mockUpdateManager.EXPECT().Name().Return(domain).Times(1)
-				mockUpdateManager.EXPECT().Command(context.Background(), test.ActivityID, generateCommand(command))
+				if testDomain1 == domain {
+					mockUpdateManager1.EXPECT().Command(context.Background(), test.ActivityID, generateCommand(command))
+				} else if testDomain2 == domain {
+					mockUpdateManager2.EXPECT().Command(context.Background(), test.ActivityID, generateCommand(command))
+				}
 			}
 		}
 	}
@@ -290,31 +298,31 @@ func TestHandleCommandSignal(t *testing.T) {
 			domainStatus1: types.StatusIdentified,
 			domainStatus2: types.StatusIdentified,
 			command:       types.CommandDownload,
-			expectedCalls: mockCommand(mockUpdateManager, types.CommandDownload, testDomain1, testDomain2),
+			expectedCalls: mockCommand(types.CommandDownload, testDomain2, testDomain1),
 		},
 		"test_handle_command_signal_update": {
 			domainStatus1: types.BaselineStatusDownloadSuccess,
 			domainStatus2: types.BaselineStatusDownloadFailure,
 			command:       types.CommandUpdate,
-			expectedCalls: mockCommand(mockUpdateManager, types.CommandUpdate, testDomain1),
+			expectedCalls: mockCommand(types.CommandUpdate, testDomain1),
 		},
 		"test_handle_command_signal_activate": {
 			domainStatus1: types.BaselineStatusUpdateSuccess,
 			domainStatus2: types.BaselineStatusUpdateFailure,
 			command:       types.CommandActivate,
-			expectedCalls: mockCommand(mockUpdateManager, types.CommandActivate, testDomain1),
+			expectedCalls: mockCommand(types.CommandActivate, testDomain1),
 		},
 		"test_handle_command_signal_cleanup": {
 			domainStatus1: types.BaselineStatusActivationSuccess,
 			domainStatus2: types.BaselineStatusActivationFailure,
 			command:       types.CommandCleanup,
-			expectedCalls: mockCommand(mockUpdateManager, types.CommandCleanup, testDomain1),
+			expectedCalls: mockCommand(types.CommandCleanup, testDomain1),
 		},
 		"test_handle_command_signal_activate_failure": {
 			domainStatus1: types.BaselineStatusUpdateFailure,
 			domainStatus2: types.BaselineStatusUpdateFailure,
 			command:       types.CommandActivate,
-			expectedCalls: mockCommand(mockUpdateManager, types.CommandActivate),
+			expectedCalls: func() {},
 		},
 		"test_handle_command_signal_no_operation": {
 			noOperation: true,
