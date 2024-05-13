@@ -390,3 +390,235 @@ func (mr *MockDesiredStateClientMockRecorder) Stop() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockDesiredStateClient)(nil).Stop))
 }
+
+// MockOwnerConsentAgentHandler is a mock of OwnerConsentAgentHandler interface.
+type MockOwnerConsentAgentHandler struct {
+	ctrl     *gomock.Controller
+	recorder *MockOwnerConsentAgentHandlerMockRecorder
+}
+
+// MockOwnerConsentAgentHandlerMockRecorder is the mock recorder for MockOwnerConsentAgentHandler.
+type MockOwnerConsentAgentHandlerMockRecorder struct {
+	mock *MockOwnerConsentAgentHandler
+}
+
+// NewMockOwnerConsentAgentHandler creates a new mock instance.
+func NewMockOwnerConsentAgentHandler(ctrl *gomock.Controller) *MockOwnerConsentAgentHandler {
+	mock := &MockOwnerConsentAgentHandler{ctrl: ctrl}
+	mock.recorder = &MockOwnerConsentAgentHandlerMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockOwnerConsentAgentHandler) EXPECT() *MockOwnerConsentAgentHandlerMockRecorder {
+	return m.recorder
+}
+
+// HandleOwnerConsent mocks base method.
+func (m *MockOwnerConsentAgentHandler) HandleOwnerConsent(arg0 string, arg1 int64, arg2 *types.OwnerConsent) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HandleOwnerConsent", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// HandleOwnerConsent indicates an expected call of HandleOwnerConsent.
+func (mr *MockOwnerConsentAgentHandlerMockRecorder) HandleOwnerConsent(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleOwnerConsent", reflect.TypeOf((*MockOwnerConsentAgentHandler)(nil).HandleOwnerConsent), arg0, arg1, arg2)
+}
+
+// MockOwnerConsentAgentClient is a mock of OwnerConsentAgentClient interface.
+type MockOwnerConsentAgentClient struct {
+	ctrl     *gomock.Controller
+	recorder *MockOwnerConsentAgentClientMockRecorder
+}
+
+// MockOwnerConsentAgentClientMockRecorder is the mock recorder for MockOwnerConsentAgentClient.
+type MockOwnerConsentAgentClientMockRecorder struct {
+	mock *MockOwnerConsentAgentClient
+}
+
+// NewMockOwnerConsentAgentClient creates a new mock instance.
+func NewMockOwnerConsentAgentClient(ctrl *gomock.Controller) *MockOwnerConsentAgentClient {
+	mock := &MockOwnerConsentAgentClient{ctrl: ctrl}
+	mock.recorder = &MockOwnerConsentAgentClientMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockOwnerConsentAgentClient) EXPECT() *MockOwnerConsentAgentClientMockRecorder {
+	return m.recorder
+}
+
+// Domain mocks base method.
+func (m *MockOwnerConsentAgentClient) Domain() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Domain")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Domain indicates an expected call of Domain.
+func (mr *MockOwnerConsentAgentClientMockRecorder) Domain() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Domain", reflect.TypeOf((*MockOwnerConsentAgentClient)(nil).Domain))
+}
+
+// SendOwnerConsentFeedback mocks base method.
+func (m *MockOwnerConsentAgentClient) SendOwnerConsentFeedback(arg0 string, arg1 *types.OwnerConsentFeedback) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SendOwnerConsentFeedback", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SendOwnerConsentFeedback indicates an expected call of SendOwnerConsentFeedback.
+func (mr *MockOwnerConsentAgentClientMockRecorder) SendOwnerConsentFeedback(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendOwnerConsentFeedback", reflect.TypeOf((*MockOwnerConsentAgentClient)(nil).SendOwnerConsentFeedback), arg0, arg1)
+}
+
+// Start mocks base method.
+func (m *MockOwnerConsentAgentClient) Start(arg0 api.OwnerConsentAgentHandler) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Start", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Start indicates an expected call of Start.
+func (mr *MockOwnerConsentAgentClientMockRecorder) Start(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockOwnerConsentAgentClient)(nil).Start), arg0)
+}
+
+// Stop mocks base method.
+func (m *MockOwnerConsentAgentClient) Stop() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Stop")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Stop indicates an expected call of Stop.
+func (mr *MockOwnerConsentAgentClientMockRecorder) Stop() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockOwnerConsentAgentClient)(nil).Stop))
+}
+
+// MockOwnerConsentHandler is a mock of OwnerConsentHandler interface.
+type MockOwnerConsentHandler struct {
+	ctrl     *gomock.Controller
+	recorder *MockOwnerConsentHandlerMockRecorder
+}
+
+// MockOwnerConsentHandlerMockRecorder is the mock recorder for MockOwnerConsentHandler.
+type MockOwnerConsentHandlerMockRecorder struct {
+	mock *MockOwnerConsentHandler
+}
+
+// NewMockOwnerConsentHandler creates a new mock instance.
+func NewMockOwnerConsentHandler(ctrl *gomock.Controller) *MockOwnerConsentHandler {
+	mock := &MockOwnerConsentHandler{ctrl: ctrl}
+	mock.recorder = &MockOwnerConsentHandlerMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockOwnerConsentHandler) EXPECT() *MockOwnerConsentHandlerMockRecorder {
+	return m.recorder
+}
+
+// HandleOwnerConsentFeedback mocks base method.
+func (m *MockOwnerConsentHandler) HandleOwnerConsentFeedback(arg0 string, arg1 int64, arg2 *types.OwnerConsentFeedback) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HandleOwnerConsentFeedback", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// HandleOwnerConsentFeedback indicates an expected call of HandleOwnerConsentFeedback.
+func (mr *MockOwnerConsentHandlerMockRecorder) HandleOwnerConsentFeedback(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleOwnerConsentFeedback", reflect.TypeOf((*MockOwnerConsentHandler)(nil).HandleOwnerConsentFeedback), arg0, arg1, arg2)
+}
+
+// MockOwnerConsentClient is a mock of OwnerConsentClient interface.
+type MockOwnerConsentClient struct {
+	ctrl     *gomock.Controller
+	recorder *MockOwnerConsentClientMockRecorder
+}
+
+// MockOwnerConsentClientMockRecorder is the mock recorder for MockOwnerConsentClient.
+type MockOwnerConsentClientMockRecorder struct {
+	mock *MockOwnerConsentClient
+}
+
+// NewMockOwnerConsentClient creates a new mock instance.
+func NewMockOwnerConsentClient(ctrl *gomock.Controller) *MockOwnerConsentClient {
+	mock := &MockOwnerConsentClient{ctrl: ctrl}
+	mock.recorder = &MockOwnerConsentClientMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockOwnerConsentClient) EXPECT() *MockOwnerConsentClientMockRecorder {
+	return m.recorder
+}
+
+// Domain mocks base method.
+func (m *MockOwnerConsentClient) Domain() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Domain")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Domain indicates an expected call of Domain.
+func (mr *MockOwnerConsentClientMockRecorder) Domain() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Domain", reflect.TypeOf((*MockOwnerConsentClient)(nil).Domain))
+}
+
+// SendOwnerConsent mocks base method.
+func (m *MockOwnerConsentClient) SendOwnerConsent(arg0 string, arg1 *types.OwnerConsent) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SendOwnerConsent", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SendOwnerConsent indicates an expected call of SendOwnerConsent.
+func (mr *MockOwnerConsentClientMockRecorder) SendOwnerConsent(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendOwnerConsent", reflect.TypeOf((*MockOwnerConsentClient)(nil).SendOwnerConsent), arg0, arg1)
+}
+
+// Start mocks base method.
+func (m *MockOwnerConsentClient) Start(arg0 api.OwnerConsentHandler) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Start", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Start indicates an expected call of Start.
+func (mr *MockOwnerConsentClientMockRecorder) Start(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockOwnerConsentClient)(nil).Start), arg0)
+}
+
+// Stop mocks base method.
+func (m *MockOwnerConsentClient) Stop() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Stop")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Stop indicates an expected call of Stop.
+func (mr *MockOwnerConsentClientMockRecorder) Stop() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockOwnerConsentClient)(nil).Stop))
+}

@@ -33,14 +33,9 @@ type desiredStateClient struct {
 
 // NewDesiredStateClient instantiates a new client for triggering MQTT requests.
 func NewDesiredStateClient(domain string, updateAgent api.UpdateAgentClient) (api.DesiredStateClient, error) {
-	var mqttClient *mqttClient
-	switch v := updateAgent.(type) {
-	case *updateAgentClient:
-		mqttClient = updateAgent.(*updateAgentClient).mqttClient
-	case *updateAgentThingsClient:
-		mqttClient = updateAgent.(*updateAgentThingsClient).mqttClient
-	default:
-		return nil, fmt.Errorf("Unexpected type: %T", v)
+	mqttClient, err := getMQTTClient(updateAgent)
+	if err != nil {
+		return nil, err
 	}
 	return &desiredStateClient{
 		mqttClient: newInternalClient(domain, mqttClient.mqttConfig, mqttClient.pahoClient),

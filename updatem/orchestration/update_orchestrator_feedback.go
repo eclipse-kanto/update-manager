@@ -40,6 +40,9 @@ var statusHandlers = map[types.StatusType]statusHandler{
 	types.BaselineStatusCleanup:           handleDomainCleanup,
 	types.BaselineStatusCleanupSuccess:    handleDomainCleanupSuccess,
 	types.BaselineStatusCleanupFailure:    handleDomainCleanupFailure,
+	types.BaselineStatusRollback:          handleDomainRollback,
+	types.BaselineStatusRollbackSuccess:   handleDomainRollbackSuccess,
+	types.BaselineStatusRollbackFailure:   handleDomainRollbackFailure,
 }
 
 func (orchestrator *updateOrchestrator) HandleDesiredStateFeedbackEvent(domain, activityID, baseline string, status types.StatusType, message string, actions []*types.Action) {
@@ -109,11 +112,11 @@ func handleDomainIdentified(orchestrator *updateOrchestrator, domain, message st
 	if isIdentified {
 		orchestrator.domainUpdateRunning()
 		orchestrator.operation.updateStatus(types.StatusRunning)
-		orchestrator.operation.phaseChannels[phaseIdentification] <- true
+		orchestrator.operation.commandChannels[types.CommandDownload] <- true
 	} else {
 		// no actions(status CleanupSuccess for all domains), operation is done
 		orchestrator.operation.updateStatus(types.StatusCompleted)
-		orchestrator.operation.phaseChannels[phaseIdentification] <- false
+		orchestrator.operation.commandChannels[types.CommandDownload] <- false
 	}
 }
 
@@ -165,7 +168,7 @@ func handleDomainDownloadSuccess(orchestrator *updateOrchestrator, domain, messa
 			return
 		}
 	}
-	orchestrator.operation.phaseChannels[phaseDownload] <- true
+	orchestrator.operation.commandChannels[types.CommandUpdate] <- true
 	orchestrator.domainUpdateRunning()
 }
 
@@ -207,7 +210,7 @@ func handleDomainUpdateSuccess(orchestrator *updateOrchestrator, domain, message
 			return
 		}
 	}
-	orchestrator.operation.phaseChannels[phaseUpdate] <- true
+	orchestrator.operation.commandChannels[types.CommandActivate] <- true
 	orchestrator.domainUpdateRunning()
 }
 
@@ -250,7 +253,7 @@ func handleDomainActivationSuccess(orchestrator *updateOrchestrator, domain, mes
 			return
 		}
 	}
-	orchestrator.operation.phaseChannels[phaseActivation] <- true
+	orchestrator.operation.commandChannels[types.CommandCleanup] <- true
 	orchestrator.domainUpdateRunning()
 }
 
@@ -273,6 +276,52 @@ func handleDomainActivating(orchestrator *updateOrchestrator, domain, message st
 	}
 	domainStatus := orchestrator.operation.domains[domain]
 	if domainStatus != types.BaselineStatusUpdateSuccess && domainStatus != types.BaselineStatusActivating {
+		return
+	}
+	orchestrator.domainUpdateRunning()
+}
+
+func handleDomainRollbackSuccess(orchestrator *updateOrchestrator, domain, message string, actions []*types.Action) {
+	if orchestrator.operation.status != types.StatusRunning {
+		return
+	}
+	domainStatus := orchestrator.operation.domains[domain]
+	if domainStatus != types.BaselineStatusDownloadSuccess && domainStatus != types.BaselineStatusUpdateSuccess &&
+		domainStatus != types.BaselineStatusRollback {
+		return
+	}
+	orchestrator.operation.domains[domain] = types.BaselineStatusRollbackSuccess
+	for _, status := range orchestrator.operation.domains {
+		if status == types.BaselineStatusDownloadSuccess || status == types.BaselineStatusUpdateSuccess ||
+			status == types.BaselineStatusRollback {
+			return
+		}
+	}
+	orchestrator.operation.commandChannels[types.CommandCleanup] <- true
+	orchestrator.domainUpdateRunning()
+}
+
+func handleDomainRollbackFailure(orchestrator *updateOrchestrator, domain, message string, actions []*types.Action) {
+	if orchestrator.operation.status != types.StatusRunning {
+		return
+	}
+	domainStatus := orchestrator.operation.domains[domain]
+	if domainStatus != types.BaselineStatusDownloadSuccess && domainStatus != types.BaselineStatusUpdateSuccess &&
+		domainStatus != types.BaselineStatusRollback {
+		return
+	}
+	orchestrator.operation.delayedStatus = types.StatusIncomplete
+	orchestrator.operation.domains[domain] = types.BaselineStatusRollbackFailure
+	orchestrator.command(context.Background(), orchestrator.operation.activityID, domain, types.CommandCleanup)
+}
+
+func handleDomainRollback(orchestrator *updateOrchestrator, domain, message string, actions []*types.Action) {
+	if orchestrator.operation.status != types.StatusRunning {
+		return
+	}
+	domainStatus := orchestrator.operation.domains[domain]
+	if domainStatus != types.BaselineStatusDownloadSuccess && domainStatus != types.BaselineStatusUpdateSuccess &&
+		domainStatus != types.BaselineStatusRollback {
 		return
 	}
 	orchestrator.domainUpdateRunning()
@@ -327,11 +376,14 @@ func (orchestrator *updateOrchestrator) domainUpdateCompleted() {
 	if orchestrator.operation.delayedStatus == types.StatusIncomplete {
 		orchestrator.operation.updateStatus(types.StatusIncomplete)
 		orchestrator.operation.errMsg = "the update process is incompleted"
+		if orchestrator.operation.delayedErrMsg != "" {
+			orchestrator.operation.errMsg = fmt.Sprintf("%s: %s", orchestrator.operation.errMsg, orchestrator.operation.delayedErrMsg)
+		}
 		orchestrator.operation.errChan <- true
 		return
 	}
 	orchestrator.operation.updateStatus(types.StatusCompleted)
-	orchestrator.operation.phaseChannels[phaseCleanup] <- false
+	orchestrator.operation.done <- true
 }
 
 func (orchestrator *updateOrchestrator) domainUpdateRunning() {

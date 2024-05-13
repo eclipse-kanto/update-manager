@@ -31,9 +31,10 @@ func TestNewUpdateOrchestrator(t *testing.T) {
 		cfg: &config.Config{
 			RebootEnabled: true,
 		},
-		phaseTimeout: 10 * time.Minute,
+		phaseTimeout:        10 * time.Minute,
+		ownerConsentTimeout: 30 * time.Minute,
 	}
-	assert.Equal(t, expectedOrchestrator, NewUpdateOrchestrator(&config.Config{RebootEnabled: true}))
+	assert.Equal(t, expectedOrchestrator, NewUpdateOrchestrator(&config.Config{RebootEnabled: true}, nil))
 }
 
 func TestUpdOrchApply(t *testing.T) {

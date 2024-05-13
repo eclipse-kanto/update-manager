@@ -37,6 +37,8 @@ const (
 	suffixCurrentState         = "/currentstate"
 	suffixCurrentStateGet      = "/currentstate/get"
 	suffixDesiredStateFeedback = "/desiredstatefeedback"
+	suffixOwnerConsent         = "/ownerconsent"
+	suffixOwnerConsentFeedback = "/ownerconsentfeedback"
 
 	disconnectQuiesce uint = 10000
 )
@@ -77,13 +79,15 @@ type mqttClient struct {
 	mqttConfig *internalConnectionConfig
 	pahoClient pahomqtt.Client
 
-	// incoming topics
+	// UM incoming topics
 	topicCurrentState         string
 	topicDesiredStateFeedback string
-	// outgoing topics
+	topicOwnerConsentFeedback string
+	// UM outgoing topics
 	topicDesiredState        string
 	topicDesiredStateCommand string
 	topicCurrentStateGet     string
+	topicOwnerConsent        string
 }
 
 func newInternalClient(domain string, config *internalConnectionConfig, pahoClient pahomqtt.Client) *mqttClient {
@@ -97,6 +101,8 @@ func newInternalClient(domain string, config *internalConnectionConfig, pahoClie
 		topicDesiredState:         mqttPrefix + suffixDesiredState,
 		topicDesiredStateCommand:  mqttPrefix + suffixDesiredStateCommand,
 		topicDesiredStateFeedback: mqttPrefix + suffixDesiredStateFeedback,
+		topicOwnerConsent:         mqttPrefix + suffixOwnerConsent,
+		topicOwnerConsentFeedback: mqttPrefix + suffixOwnerConsentFeedback,
 	}
 }
 

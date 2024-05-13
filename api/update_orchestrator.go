@@ -23,4 +23,5 @@ type UpdateOrchestrator interface {
 	Apply(context.Context, map[string]UpdateManager, string, *types.DesiredState, DesiredStateFeedbackHandler) bool
 
 	DesiredStateFeedbackHandler
+	OwnerConsentHandler
 }

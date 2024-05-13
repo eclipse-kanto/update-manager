@@ -41,17 +41,9 @@ func main() {
 	}
 	defer loggerOut.Close()
 
-	var client api.UpdateAgentClient
-	if cfg.ThingsEnabled {
-		client, err = mqtt.NewUpdateAgentThingsClient(cfg.Domain, cfg.MQTT)
-	} else {
-		client, err = mqtt.NewUpdateAgentClient(cfg.Domain, cfg.MQTT)
-	}
+	uac, um, err := initUpdateManager(cfg)
 	if err == nil {
-		updateManager, err := orchestration.NewUpdateManager(version, cfg, client, orchestration.NewUpdateOrchestrator(cfg))
-		if err == nil {
-			err = app.Launch(cfg, client, updateManager)
-		}
+		err = app.Launch(cfg, uac, um)
 	}
 
 	if err != nil {
@@ -59,4 +51,32 @@ func main() {
 		loggerOut.Close()
 		os.Exit(1)
 	}
+}
+
+func initUpdateManager(cfg *config.Config) (api.UpdateAgentClient, api.UpdateManager, error) {
+	var (
+		uac api.UpdateAgentClient
+		occ api.OwnerConsentClient
+		um  api.UpdateManager
+		err error
+	)
+
+	if cfg.ThingsEnabled {
+		uac, err = mqtt.NewUpdateAgentThingsClient(cfg.Domain, cfg.MQTT)
+	} else {
+		uac, err = mqtt.NewUpdateAgentClient(cfg.Domain, cfg.MQTT)
+	}
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if len(cfg.OwnerConsentCommands) != 0 {
+		if occ, err = mqtt.NewOwnerConsentClient(cfg.Domain, uac); err != nil {
+			return nil, nil, err
+		}
+	}
+	if um, err = orchestration.NewUpdateManager(version, cfg, uac, orchestration.NewUpdateOrchestrator(cfg, occ)); err != nil {
+		return nil, nil, err
+	}
+	return uac, um, nil
 }

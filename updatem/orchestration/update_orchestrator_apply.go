@@ -15,12 +15,15 @@ package orchestration
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/eclipse-kanto/update-manager/api"
 	"github.com/eclipse-kanto/update-manager/api/types"
 	"github.com/eclipse-kanto/update-manager/logger"
 )
+
+var orderedCommands = []types.CommandType{types.CommandDownload, types.CommandUpdate, types.CommandActivate, types.CommandCleanup}
 
 func (orchestrator *updateOrchestrator) apply(ctx context.Context) (bool, error) {
 	orchestrator.notifyFeedback(types.StatusIdentifying, "")
@@ -30,44 +33,62 @@ func (orchestrator *updateOrchestrator) apply(ctx context.Context) (bool, error)
 		}(updateManagerForDomain, statePerDomain)
 	}
 
-	wait, err := orchestrator.waitPhase(ctx, phaseIdentification, handlePhaseCompletion)
+	// send DOWNLOAD command when identification is done
+	running, rollback, err := orchestrator.waitCommandSignal(ctx, types.CommandDownload, handleCommandSignal)
 	if err != nil {
 		return false, err
 	}
-
-	for i := 1; i < len(orderedPhases) && wait; i++ {
-		wait, err = orchestrator.waitPhase(ctx, orderedPhases[i], handlePhaseCompletion)
+	// send the rest of the commands in order
+	for i := 1; i < len(orderedCommands) && running; i++ {
+		if rollback && orderedCommands[i] != types.CommandCleanup {
+			continue
+		}
+		running, rollback, err = orchestrator.waitCommandSignal(ctx, orderedCommands[i], handleCommandSignal)
+	}
+	// wait for the last command(CLEANUP) to finish
+	if running {
+		_, _, _, err = orchestrator.waitSignal(ctx, orchestrator.operation.done)
 	}
 	return orchestrator.operation.rebootRequired && orchestrator.operation.status == types.StatusCompleted, err
 }
 
-type phaseHandler func(ctx context.Context, phase phase, orchestrator *updateOrchestrator)
+type commandSignalHandler func(ctx context.Context, command types.CommandType, orchestrator *updateOrchestrator)
 
-func (orchestrator *updateOrchestrator) waitPhase(ctx context.Context, currentPhase phase, handle phaseHandler) (bool, error) {
+func (orchestrator *updateOrchestrator) waitCommandSignal(ctx context.Context, command types.CommandType, handle commandSignalHandler) (bool, bool, error) {
+	signalValue, rollback, timeout, err := orchestrator.waitSignal(ctx, orchestrator.operation.commandChannels[command])
+	if err != nil {
+		if timeout {
+			if command == types.CommandDownload {
+				orchestrator.operation.updateStatus(types.StatusIdentificationFailed)
+			} else {
+				orchestrator.operation.updateStatus(types.StatusIncomplete)
+			}
+		}
+		return false, false, fmt.Errorf("failed to wait for command '%s' signal: %v", command, err)
+	}
+	if signalValue && !rollback {
+		go handle(ctx, command, orchestrator)
+	}
+	return signalValue, rollback, nil
+}
+
+func (orchestrator *updateOrchestrator) waitSignal(ctx context.Context, signal chan bool) (bool, bool, bool, error) {
 	select {
 	case <-time.After(orchestrator.phaseTimeout):
-		if currentPhase == phaseIdentification {
-			orchestrator.operation.updateStatus(types.StatusIdentificationFailed)
-		} else {
-			orchestrator.operation.updateStatus(types.StatusIncomplete)
-		}
-		return false, fmt.Errorf("%s phase not done in %v", currentPhase, orchestrator.phaseTimeout)
+		return false, false, true, fmt.Errorf("not received in %v", orchestrator.phaseTimeout)
 	case <-orchestrator.operation.errChan:
-		return false, fmt.Errorf(orchestrator.operation.errMsg)
-	case running := <-orchestrator.operation.phaseChannels[currentPhase]:
-		logger.Info("the %s phase is done", currentPhase)
-		if running {
-			go handle(ctx, currentPhase, orchestrator)
-			return true, nil
-		}
-		return false, nil
+		return false, false, false, fmt.Errorf(orchestrator.operation.errMsg)
+	case <-orchestrator.operation.rollbackChan:
+		return true, true, false, nil
+	case value := <-signal:
+		return value, false, false, nil
 	case <-ctx.Done():
 		orchestrator.operation.updateStatus(types.StatusIncomplete)
-		return false, fmt.Errorf("the update manager instance is terminated")
+		return false, false, false, fmt.Errorf("the update manager instance is terminated")
 	}
 }
 
-func handlePhaseCompletion(ctx context.Context, completedPhase phase, orchestrator *updateOrchestrator) {
+func handleCommandSignal(ctx context.Context, command types.CommandType, orchestrator *updateOrchestrator) {
 	orchestrator.operationLock.Lock()
 	defer orchestrator.operationLock.Unlock()
 
@@ -75,24 +96,79 @@ func handlePhaseCompletion(ctx context.Context, completedPhase phase, orchestrat
 		return
 	}
 
-	executeCommand := func(status types.StatusType, command types.CommandType) {
+	if err := orchestrator.getOwnerConsent(ctx, command); err != nil {
+		if command != types.CommandUpdate && command != types.CommandActivate {
+			orchestrator.operation.updateStatus(types.StatusIncomplete)
+			orchestrator.operation.errMsg = err.Error()
+			orchestrator.operation.errChan <- true
+			return
+		}
+		command = types.CommandRollback
+		orchestrator.operation.delayedStatus = types.StatusIncomplete
+		orchestrator.operation.delayedErrMsg = err.Error()
+		orchestrator.operation.rollbackChan <- true
+	}
+
+	executeCommand := func(statuses ...types.StatusType) {
 		for domain, domainStatus := range orchestrator.operation.domains {
-			if domainStatus == status {
+			if slices.Contains(statuses, domainStatus) {
 				orchestrator.command(ctx, orchestrator.operation.activityID, domain, command)
 			}
 		}
 	}
-	switch completedPhase {
-	case phaseIdentification:
-		executeCommand(types.StatusIdentified, types.CommandDownload)
-	case phaseDownload:
-		executeCommand(types.BaselineStatusDownloadSuccess, types.CommandUpdate)
-	case phaseUpdate:
-		executeCommand(types.BaselineStatusUpdateSuccess, types.CommandActivate)
-	case phaseActivation:
-		executeCommand(types.BaselineStatusActivationSuccess, types.CommandCleanup)
+
+	switch command {
+	case types.CommandDownload:
+		executeCommand(types.StatusIdentified)
+	case types.CommandUpdate:
+		executeCommand(types.BaselineStatusDownloadSuccess)
+	case types.CommandActivate:
+		executeCommand(types.BaselineStatusUpdateSuccess)
+	case types.CommandCleanup:
+		executeCommand(types.BaselineStatusActivationSuccess, types.BaselineStatusRollbackSuccess)
+	case types.CommandRollback:
+		executeCommand(types.BaselineStatusDownloadSuccess, types.BaselineStatusUpdateSuccess)
 	default:
-		logger.Error("unknown phase %s", completedPhase)
+		logger.Error("unknown command %s", command)
+	}
+}
+
+func (orchestrator *updateOrchestrator) getOwnerConsent(ctx context.Context, command types.CommandType) error {
+	if command == "" || !slices.Contains(orchestrator.cfg.OwnerConsentCommands, command) {
+		return nil
+	}
+	if command == types.CommandRollback || command == types.CommandCleanup {
+		// no need for owner consent
+		return nil
+	}
+
+	if orchestrator.ownerConsentClient == nil {
+		return fmt.Errorf("owner consent client not available")
+	}
+
+	if err := orchestrator.ownerConsentClient.Start(orchestrator); err != nil {
+		return err
+	}
+	defer func() {
+		if err := orchestrator.ownerConsentClient.Stop(); err != nil {
+			logger.Error("failed to stop owner consent client: %v", err)
+		}
+	}()
+
+	if err := orchestrator.ownerConsentClient.SendOwnerConsent(orchestrator.operation.activityID, &types.OwnerConsent{Command: command}); err != nil {
+		return err
+	}
+
+	select {
+	case approved := <-orchestrator.operation.ownerConsented:
+		if !approved {
+			return fmt.Errorf("owner approval not granted")
+		}
+		return nil
+	case <-time.After(orchestrator.ownerConsentTimeout):
+		return fmt.Errorf("owner consent not granted in %v", orchestrator.ownerConsentTimeout)
+	case <-ctx.Done():
+		return fmt.Errorf("the update manager instance is terminated")
 	}
 }
 

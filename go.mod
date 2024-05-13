@@ -1,6 +1,6 @@
 module github.com/eclipse-kanto/update-manager
 
-go 1.17
+go 1.18
 
 require (
 	github.com/eclipse/ditto-clients-golang v0.0.0-20230504175246-3e6e17510ac4

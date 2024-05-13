@@ -27,6 +27,7 @@ type updateOperation struct {
 	statusLock    sync.Mutex
 	status        types.StatusType
 	delayedStatus types.StatusType
+	delayedErrMsg string
 
 	domains map[string]types.StatusType
 	actions map[string]map[string]*types.Action
@@ -34,10 +35,14 @@ type updateOperation struct {
 	desiredState    *types.DesiredState
 	statesPerDomain map[api.UpdateManager]*types.DesiredState
 
-	phaseChannels map[phase]chan bool
+	commandChannels map[types.CommandType]chan bool
+	done            chan bool
 
 	errChan chan bool
 	errMsg  string
+
+	ownerConsented chan bool
+	rollbackChan   chan bool
 
 	rebootRequired bool
 
@@ -72,9 +77,13 @@ func newUpdateOperation(domainAgents map[string]api.UpdateManager, activityID st
 
 		statesPerDomain: statesPerDomain,
 		desiredState:    desiredState,
-		phaseChannels:   generatePhaseChannels(),
+		commandChannels: generateCommandChannels(),
 
-		errChan: make(chan bool, 1),
+		done: make(chan bool, 1),
+
+		errChan:        make(chan bool, 1),
+		ownerConsented: make(chan bool, 1),
+		rollbackChan:   make(chan bool, 1),
 
 		desiredStateCallback: desiredStateCallback,
 	}, nil
@@ -87,10 +96,10 @@ func (operation *updateOperation) updateStatus(status types.StatusType) {
 	operation.status = status
 }
 
-func generatePhaseChannels() map[phase]chan bool {
-	phaseChannels := make(map[phase]chan bool, len(orderedPhases))
-	for _, phase := range orderedPhases {
-		phaseChannels[phase] = make(chan bool, 1)
+func generateCommandChannels() map[types.CommandType]chan bool {
+	commandChannels := make(map[types.CommandType]chan bool, len(orderedCommands))
+	for _, command := range orderedCommands {
+		commandChannels[command] = make(chan bool, 1)
 	}
-	return phaseChannels
+	return commandChannels
 }
