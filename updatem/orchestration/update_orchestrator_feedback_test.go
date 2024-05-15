@@ -549,6 +549,104 @@ func TestFeedbackHandleDesiredStateFeedbackEvent(t *testing.T) {
 			expectedDomainStatus: types.StatusCompleted,
 			testCode:             func() {},
 		},
+		"test_handleDomainRollback_Success": {
+			handleStatus:     types.BaselineStatusRollback,
+			updateOrchStatus: types.StatusRunning,
+			domains: map[string]types.StatusType{
+				"testDomain1": types.BaselineStatusDownloadSuccess,
+			},
+			expectedStatus:       types.StatusRunning,
+			expectedDomainStatus: types.BaselineStatusDownloadSuccess,
+			testCode: func() {
+				eventCallback.EXPECT().HandleDesiredStateFeedbackEvent("device", test.ActivityID, "", types.StatusRunning, "", gomock.Any())
+			},
+		},
+		"test_handleDomainRollback_orchestration_status_not_running": {
+			handleStatus:     types.BaselineStatusRollback,
+			updateOrchStatus: types.StatusIncomplete,
+			domains: map[string]types.StatusType{
+				"testDomain1": types.StatusRunning,
+			},
+			expectedStatus:       types.StatusIncomplete,
+			expectedDomainStatus: types.StatusRunning,
+			testCode:             func() {},
+		},
+		"test_handleDomainRollback_domain_status_not_from_supported": {
+			handleStatus:     types.BaselineStatusRollback,
+			updateOrchStatus: types.StatusRunning,
+			domains: map[string]types.StatusType{
+				"testDomain1": types.StatusCompleted,
+			},
+			expectedStatus:       types.StatusRunning,
+			expectedDomainStatus: types.StatusCompleted,
+			testCode:             func() {},
+		},
+		"test_handleDomainRollbackSuccess_Success": {
+			handleStatus:     types.BaselineStatusRollbackSuccess,
+			updateOrchStatus: types.StatusRunning,
+			domains: map[string]types.StatusType{
+				"testDomain1": types.BaselineStatusDownloadSuccess,
+			},
+			expectedStatus:       types.StatusRunning,
+			expectedDomainStatus: types.BaselineStatusRollbackSuccess,
+			testCode: func() {
+				eventCallback.EXPECT().HandleDesiredStateFeedbackEvent("device", test.ActivityID, "", types.StatusRunning, "", gomock.Any())
+			},
+		},
+		"test_handleDomainRollbackSuccess_orchestration_status_not_running": {
+			handleStatus:     types.BaselineStatusRollbackSuccess,
+			updateOrchStatus: types.StatusIncomplete,
+			domains: map[string]types.StatusType{
+				"testDomain1": types.StatusRunning,
+			},
+			expectedStatus:       types.StatusIncomplete,
+			expectedDomainStatus: types.StatusRunning,
+			testCode:             func() {},
+		},
+		"test_handleDomainRollbackSuccess_domain_status_not_from_supported": {
+			handleStatus:     types.BaselineStatusRollbackSuccess,
+			updateOrchStatus: types.StatusRunning,
+			domains: map[string]types.StatusType{
+				"testDomain1": types.StatusRunning,
+			},
+			expectedStatus:       types.StatusRunning,
+			expectedDomainStatus: types.StatusRunning,
+			testCode:             func() {},
+		},
+		"test_handleDomainRollbackFailure_Success": {
+			handleStatus:     types.BaselineStatusRollbackFailure,
+			updateOrchStatus: types.StatusRunning,
+			domains: map[string]types.StatusType{
+				"testDomain1": types.BaselineStatusUpdateSuccess,
+			},
+			expectedStatus:        types.StatusRunning,
+			expectedDomainStatus:  types.BaselineStatusRollbackFailure,
+			expectedDelayedStatus: types.StatusIncomplete,
+			testCode: func() {
+				mockUpdateManager.EXPECT().Name().Return("testDomain1").AnyTimes()
+				mockUpdateManager.EXPECT().Command(context.Background(), test.ActivityID, generateCommand(types.CommandCleanup))
+			},
+		},
+		"test_handleDomainRollbackFailure_orchestration_status_not_running": {
+			handleStatus:     types.BaselineStatusRollbackFailure,
+			updateOrchStatus: types.StatusIncomplete,
+			domains: map[string]types.StatusType{
+				"testDomain1": types.StatusRunning,
+			},
+			expectedStatus:       types.StatusIncomplete,
+			expectedDomainStatus: types.StatusRunning,
+			testCode:             func() {},
+		},
+		"test_handleDomainRollbackFailure_domain_status_not_from_supported": {
+			handleStatus:     types.BaselineStatusRollbackFailure,
+			updateOrchStatus: types.StatusRunning,
+			domains: map[string]types.StatusType{
+				"testDomain1": types.StatusCompleted,
+			},
+			expectedStatus:       types.StatusRunning,
+			expectedDomainStatus: types.StatusCompleted,
+			testCode:             func() {},
+		},
 		"test_handleDomainCleanup_Success": {
 			handleStatus:     types.BaselineStatusCleanup,
 			updateOrchStatus: types.StatusRunning,
