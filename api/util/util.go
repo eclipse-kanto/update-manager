@@ -67,3 +67,13 @@ func FixActivationActionStatus(action *types.Action) *types.Action {
 		Message:   action.Message,
 	}
 }
+
+// Contains checks if the given value is in the slice.
+func Contains[T comparable](slice []T, value T) bool {
+	for _, v := range slice {
+		if value == v {
+			return true
+		}
+	}
+	return false
+}

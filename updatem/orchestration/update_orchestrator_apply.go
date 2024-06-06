@@ -15,11 +15,11 @@ package orchestration
 import (
 	"context"
 	"fmt"
-	"slices"
 	"time"
 
 	"github.com/eclipse-kanto/update-manager/api"
 	"github.com/eclipse-kanto/update-manager/api/types"
+	"github.com/eclipse-kanto/update-manager/api/util"
 	"github.com/eclipse-kanto/update-manager/logger"
 )
 
@@ -111,7 +111,7 @@ func handleCommandSignal(ctx context.Context, command types.CommandType, orchest
 
 	executeCommand := func(statuses ...types.StatusType) {
 		for domain, domainStatus := range orchestrator.operation.domains {
-			if slices.Contains(statuses, domainStatus) {
+			if util.Contains(statuses, domainStatus) {
 				orchestrator.command(ctx, orchestrator.operation.activityID, domain, command)
 			}
 		}
@@ -134,7 +134,7 @@ func handleCommandSignal(ctx context.Context, command types.CommandType, orchest
 }
 
 func (orchestrator *updateOrchestrator) getOwnerConsent(ctx context.Context, command types.CommandType) error {
-	if command == "" || !slices.Contains(orchestrator.cfg.OwnerConsentCommands, command) {
+	if command == "" || !util.Contains(orchestrator.cfg.OwnerConsentCommands, command) {
 		return nil
 	}
 	if command == types.CommandRollback || command == types.CommandCleanup {

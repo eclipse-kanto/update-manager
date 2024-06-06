@@ -104,3 +104,13 @@ func TestFixActivationActionStatus(t *testing.T) {
 	}
 
 }
+
+func TestContains(t *testing.T) {
+	assert.True(t, Contains([]int{2, 5, 9}, 2))
+	assert.False(t, Contains([]int{2, -3, 9}, 3))
+	assert.False(t, Contains([]int{}, 3))
+	assert.True(t, Contains([]string{"", "text", "string"}, "text"))
+	assert.False(t, Contains([]string{"", "text", "string"}, "number"))
+	assert.True(t, Contains([]types.CommandType{types.CommandActivate, types.CommandDownload, types.CommandUpdate}, types.CommandUpdate))
+	assert.False(t, Contains([]types.CommandType{types.CommandActivate, types.CommandDownload, types.CommandUpdate}, types.CommandRollback))
+}
