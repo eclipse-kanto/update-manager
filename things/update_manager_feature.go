@@ -25,6 +25,7 @@ import (
 	"github.com/eclipse/ditto-clients-golang/model"
 	"github.com/eclipse/ditto-clients-golang/protocol"
 	"github.com/eclipse/ditto-clients-golang/protocol/things"
+	"github.com/google/uuid"
 )
 
 const (
@@ -37,6 +38,7 @@ const (
 	updateManagerFeatureOperationRefresh = "refresh"
 	// outgoing messages
 	updateManagerFeatureMessageFeedback = "feedback"
+	updateManagerFeatureMessageConsent  = "consent"
 	// properties
 	updateManagerFeaturePropertyDomain     = "domain"
 	updateManagerFeaturePropertyActivityID = "activityId"
@@ -56,6 +58,16 @@ type feedback struct {
 	DesiredStateFeedback *types.DesiredStateFeedback `json:"desiredStateFeedback,omitempty"`
 }
 
+type consent struct {
+	base
+	OwnerConsent *types.OwnerConsent `json:"ownerConsent,omitempty"`
+}
+
+type consentFeedback struct {
+	base
+	OwnerConsentFeedback *types.OwnerConsentFeedback `json:"ownerConsentFeedback,omitempty"`
+}
+
 type updateManagerProperties struct {
 	base
 	Domain    string           `json:"domain"`
@@ -73,15 +85,19 @@ type UpdateManagerFeature interface {
 	Deactivate()
 	SetState(activityID string, currentState *types.Inventory) error
 	SendFeedback(activityID string, desiredStateFeedback *types.DesiredStateFeedback) error
+	SendConsent(activityID string, ownerConsent *types.OwnerConsent) error
+	SetConsentHandler(handler api.OwnerConsentHandler)
 }
 
 type updateManagerFeature struct {
 	sync.Mutex
-	active      bool
-	thingID     *model.NamespacedID
-	dittoClient ditto.Client
-	domain      string
-	handler     api.UpdateAgentHandler
+	active               bool
+	thingID              *model.NamespacedID
+	dittoClient          ditto.Client
+	domain               string
+	handler              api.UpdateAgentHandler
+	consentHandler       api.OwnerConsentHandler
+	consentCorrelationID string
 }
 
 // NewUpdateManagerFeature creates a new update manager feature representation.
@@ -163,6 +179,30 @@ func (um *updateManagerFeature) SendFeedback(activityID string, desiredStateFeed
 	return um.dittoClient.Send(message.Envelope(protocol.WithResponseRequired(false), protocol.WithContentType(jsonContent)))
 }
 
+// SendConsent issues an owner consent message to the cloud.
+func (um *updateManagerFeature) SendConsent(activityID string, ownerConsent *types.OwnerConsent) error {
+	um.Lock()
+	defer um.Unlock()
+
+	if !um.active {
+		return nil
+	}
+	consent := &consent{
+		base:         base{ActivityID: activityID, Timestamp: time.Now().UnixNano() / int64(time.Millisecond)},
+		OwnerConsent: ownerConsent,
+	}
+	um.consentCorrelationID = uuid.New().String()
+	message := things.NewMessage(um.thingID).Feature(updateManagerFeatureID).Outbox(updateManagerFeatureMessageConsent).WithPayload(consent)
+	return um.dittoClient.Send(message.Envelope(protocol.WithResponseRequired(true), protocol.WithContentType(jsonContent), protocol.WithCorrelationID(um.consentCorrelationID)))
+}
+
+func (um *updateManagerFeature) SetConsentHandler(handler api.OwnerConsentHandler) {
+	um.Lock()
+	defer um.Unlock()
+
+	um.consentHandler = handler
+}
+
 func (um *updateManagerFeature) messagesHandler(requestID string, msg *protocol.Envelope) {
 	um.Lock()
 	defer um.Unlock()
@@ -176,6 +216,8 @@ func (um *updateManagerFeature) messagesHandler(requestID string, msg *protocol.
 			um.processApply(requestID, msg)
 		} else if msg.Path == fmt.Sprintf("/features/%s/inbox/messages/%s", updateManagerFeatureID, updateManagerFeatureOperationRefresh) {
 			um.processRefresh(requestID, msg)
+		} else if msg.Path == fmt.Sprintf("/features/%s/inbox/messages/%s", updateManagerFeatureID, updateManagerFeatureMessageConsent) {
+			um.processConsent(requestID, msg)
 		} else {
 			logger.Debug("There is no handler for a message - skipping processing")
 		}
@@ -191,7 +233,7 @@ func (um *updateManagerFeature) processApply(requestID string, msg *protocol.Env
 			um.replySuccess(requestID, msg, updateManagerFeatureOperationApply)
 			go func(handler api.UpdateAgentHandler) {
 				logger.Trace("[%s][%s] processing apply operation", updateManagerFeatureID, um.domain)
-				if err := um.handler.HandleDesiredState(args.ActivityID, args.Timestamp, args.DesiredState); err != nil {
+				if err := handler.HandleDesiredState(args.ActivityID, args.Timestamp, args.DesiredState); err != nil {
 					logger.ErrorErr(err, "[%s][%s] error processing apply operation", updateManagerFeatureID, um.domain)
 				}
 			}(um.handler)
@@ -207,10 +249,32 @@ func (um *updateManagerFeature) processRefresh(requestID string, msg *protocol.E
 		um.replySuccess(requestID, msg, updateManagerFeatureOperationRefresh)
 		go func(handler api.UpdateAgentHandler) {
 			logger.Trace("[%s][%s] processing refresh operation", updateManagerFeatureID, um.domain)
-			if err := um.handler.HandleCurrentStateGet(args.ActivityID, args.Timestamp); err != nil {
+			if err := handler.HandleCurrentStateGet(args.ActivityID, args.Timestamp); err != nil {
 				logger.ErrorErr(err, "[%s][%s] error processing refresh operation", updateManagerFeatureID, um.domain)
 			}
 		}(um.handler)
+	}
+}
+
+func (um *updateManagerFeature) processConsent(requestID string, msg *protocol.Envelope) {
+	if um.consentHandler == nil {
+		um.replyError("owner consent handler not available", requestID, msg, updateManagerFeatureMessageConsent)
+		return
+	}
+	consentFeedback := &consentFeedback{}
+	if um.prepare(requestID, msg, updateManagerFeatureMessageConsent, consentFeedback) {
+		if msg.Headers.CorrelationID() != um.consentCorrelationID {
+			um.replyError("correlation id mismatch", requestID, msg, updateManagerFeatureMessageConsent)
+			return
+		}
+		um.consentCorrelationID = ""
+		um.replySuccess(requestID, msg, updateManagerFeatureMessageConsent)
+		go func(handler api.OwnerConsentHandler) {
+			logger.Trace("[%s][%s] processing consent operation", updateManagerFeatureID, um.domain)
+			if err := handler.HandleOwnerConsentFeedback(consentFeedback.ActivityID, consentFeedback.Timestamp, consentFeedback.OwnerConsentFeedback); err != nil {
+				logger.ErrorErr(err, "[%s][%s] error processing consent operation", updateManagerFeatureID, um.domain)
+			}
+		}(um.consentHandler)
 	}
 }
 

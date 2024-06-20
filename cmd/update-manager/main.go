@@ -71,8 +71,14 @@ func initUpdateManager(cfg *config.Config) (api.UpdateAgentClient, api.UpdateMan
 	}
 
 	if len(cfg.OwnerConsentCommands) != 0 {
-		if occ, err = mqtt.NewOwnerConsentClient(cfg.Domain, uac); err != nil {
-			return nil, nil, err
+		if cfg.ThingsEnabled {
+			if occ, err = mqtt.NewOwnerConsentThingsClient(cfg.Domain, uac); err != nil {
+				return nil, nil, err
+			}
+		} else {
+			if occ, err = mqtt.NewOwnerConsentClient(cfg.Domain, uac); err != nil {
+				return nil, nil, err
+			}
 		}
 	}
 	if um, err = orchestration.NewUpdateManager(version, cfg, uac, orchestration.NewUpdateOrchestrator(cfg, occ)); err != nil {
