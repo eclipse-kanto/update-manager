@@ -76,7 +76,7 @@ func TestActivate(t *testing.T) {
 
 	for name, testCase := range tests {
 		t.Run(name, func(t *testing.T) {
-			mockCtrl, mockDittoClient, _ := setupMocks(t, testCase.feature)
+			mockCtrl, mockDittoClient, _, _ := setupMocks(t, testCase.feature)
 			defer mockCtrl.Finish()
 
 			expectedError := testCase.mockExecution(mockDittoClient)
@@ -111,7 +111,7 @@ func TestDeactivate(t *testing.T) {
 
 	for name, testCase := range tests {
 		t.Run(name, func(t *testing.T) {
-			mockCtrl, mockDittoClient, _ := setupMocks(t, testCase.feature)
+			mockCtrl, mockDittoClient, _, _ := setupMocks(t, testCase.feature)
 			defer mockCtrl.Finish()
 
 			testCase.mockExecution(mockDittoClient)
@@ -161,7 +161,7 @@ func TestSetState(t *testing.T) {
 
 	for name, testCase := range tests {
 		t.Run(name, func(t *testing.T) {
-			mockCtrl, mockDittoClient, _ := setupMocks(t, testCase.feature)
+			mockCtrl, mockDittoClient, _, _ := setupMocks(t, testCase.feature)
 			defer mockCtrl.Finish()
 
 			expectedError := testCase.mockExecution(mockDittoClient)
@@ -214,7 +214,7 @@ func TestSendFeedback(t *testing.T) {
 
 	for name, testCase := range tests {
 		t.Run(name, func(t *testing.T) {
-			mockCtrl, mockDittoClient, _ := setupMocks(t, testCase.feature)
+			mockCtrl, mockDittoClient, _, _ := setupMocks(t, testCase.feature)
 			defer mockCtrl.Finish()
 
 			expectedError := testCase.mockExecution(mockDittoClient)
@@ -228,10 +228,74 @@ func TestSendFeedback(t *testing.T) {
 	}
 }
 
+func TestSendConsent(t *testing.T) {
+	testConsent := &types.OwnerConsent{}
+	tests := map[string]struct {
+		feature       *updateManagerFeature
+		mockExecution func(*mocks.MockClient) error
+	}{
+		"test_send_consent_ok": {
+			feature: &updateManagerFeature{active: true, thingID: tesThingID, domain: test.Domain},
+			mockExecution: func(mockDittoClient *mocks.MockClient) error {
+				mockDittoClient.EXPECT().Send(gomock.AssignableToTypeOf(&protocol.Envelope{})).DoAndReturn(func(message *protocol.Envelope) error {
+					assert.True(t, message.Headers.IsResponseRequired())
+					assertLiveMessageTopic(t, *tesThingID, updateManagerFeatureMessageConsent, message.Topic)
+					assert.Equal(t, fmt.Sprintf(outboxPathFmt, updateManagerFeatureMessageConsent), message.Path)
+					consent := message.Value.(*consent)
+					assert.Equal(t, test.ActivityID, consent.ActivityID)
+					assert.Equal(t, testConsent, consent.OwnerConsent)
+					assert.True(t, consent.Timestamp > 0)
+					return nil
+				})
+				return nil
+			},
+		},
+		"test_send_consent_not_active": {
+			feature: &updateManagerFeature{active: false},
+			mockExecution: func(_ *mocks.MockClient) error {
+				return nil
+			},
+		},
+		"test_send_consent_error": {
+			feature: &updateManagerFeature{active: true, thingID: tesThingID, domain: test.Domain},
+			mockExecution: func(mockDittoClient *mocks.MockClient) error {
+				mockDittoClient.EXPECT().Send(gomock.AssignableToTypeOf(&protocol.Envelope{})).Return(errTest)
+				return errTest
+			},
+		},
+	}
+
+	for name, testCase := range tests {
+		t.Run(name, func(t *testing.T) {
+			mockCtrl, mockDittoClient, _, _ := setupMocks(t, testCase.feature)
+			defer mockCtrl.Finish()
+
+			expectedError := testCase.mockExecution(mockDittoClient)
+			actualError := testCase.feature.SendConsent(test.ActivityID, testConsent)
+			if expectedError != nil {
+				assert.EqualError(t, actualError, expectedError.Error())
+			} else {
+				assert.Nil(t, actualError)
+			}
+		})
+	}
+}
+
+func TestSetConsentHandler(t *testing.T) {
+	testFeature := &updateManagerFeature{}
+	testFeature.SetConsentHandler(mocks.NewMockOwnerConsentHandler(gomock.NewController(t)))
+	assert.NotNil(t, testFeature.consentHandler)
+	testFeature.SetConsentHandler(nil)
+	assert.Nil(t, testFeature.consentHandler)
+}
+
 func TestMessageHandler(t *testing.T) {
 	testRequestID := "testRequestID"
-	mockThingExecution := func(operation string) func(*mocks.MockClient, *mocks.MockUpdateAgentHandler) {
-		return func(mockDittoClient *mocks.MockClient, mockHandler *mocks.MockUpdateAgentHandler) {
+	testConsentFeedback := &types.OwnerConsentFeedback{
+		Status: types.StatusApproved,
+	}
+	mockThingExecution := func(operation string) func(*mocks.MockClient, *mocks.MockUpdateAgentHandler, *mocks.MockOwnerConsentHandler) {
+		return func(mockDittoClient *mocks.MockClient, mockHandler *mocks.MockUpdateAgentHandler, mockConsentHandler *mocks.MockOwnerConsentHandler) {
 			mockDittoClient.EXPECT().Reply(testRequestID, gomock.AssignableToTypeOf(&protocol.Envelope{})).DoAndReturn(
 				func(_ string, message *protocol.Envelope) error {
 					assert.False(t, message.Headers.IsResponseRequired())
@@ -254,14 +318,20 @@ func TestMessageHandler(t *testing.T) {
 					testWG.Done()
 					return nil
 				})
+			case updateManagerFeatureMessageConsent:
+				mockConsentHandler.EXPECT().HandleOwnerConsentFeedback(test.ActivityID, gomock.Any(), gomock.Any()).DoAndReturn(func(activityID string, timestamp int64, cf *types.OwnerConsentFeedback) error {
+					assert.Equal(t, testConsentFeedback, cf)
+					testWG.Done()
+					return nil
+				})
 			default:
 				testWG.Done()
 			}
 		}
 	}
 
-	mockThingErrorExecution := func(operation string) func(*mocks.MockClient, *mocks.MockUpdateAgentHandler) {
-		return func(mockDittoClient *mocks.MockClient, _ *mocks.MockUpdateAgentHandler) {
+	mockThingErrorExecution := func(operation string) func(*mocks.MockClient, *mocks.MockUpdateAgentHandler, *mocks.MockOwnerConsentHandler) {
+		return func(mockDittoClient *mocks.MockClient, _ *mocks.MockUpdateAgentHandler, _ *mocks.MockOwnerConsentHandler) {
 			mockDittoClient.EXPECT().Reply(testRequestID, gomock.AssignableToTypeOf(&protocol.Envelope{})).DoAndReturn(
 				func(_ string, message *protocol.Envelope) error {
 					assert.False(t, message.Headers.IsResponseRequired())
@@ -280,21 +350,21 @@ func TestMessageHandler(t *testing.T) {
 	tests := map[string]struct {
 		feature       *updateManagerFeature
 		envelope      *protocol.Envelope
-		mockExecution func(*mocks.MockClient, *mocks.MockUpdateAgentHandler)
+		mockExecution func(*mocks.MockClient, *mocks.MockUpdateAgentHandler, *mocks.MockOwnerConsentHandler)
 	}{
 		"test_message_handler_not_active": {
 			feature:       &updateManagerFeature{},
-			mockExecution: func(_ *mocks.MockClient, _ *mocks.MockUpdateAgentHandler) {},
+			mockExecution: func(_ *mocks.MockClient, _ *mocks.MockUpdateAgentHandler, _ *mocks.MockOwnerConsentHandler) {},
 		},
 		"test_message_handler_unexpected_command": {
 			feature:       &updateManagerFeature{active: true, thingID: tesThingID},
 			envelope:      things.NewMessage(tesThingID).Feature(updateManagerFeatureID).Inbox("unexpected").Envelope(),
-			mockExecution: func(_ *mocks.MockClient, _ *mocks.MockUpdateAgentHandler) {},
+			mockExecution: func(_ *mocks.MockClient, _ *mocks.MockUpdateAgentHandler, _ *mocks.MockOwnerConsentHandler) {},
 		},
 		"test_message_handler_unexpected_thing_id": {
 			feature:       &updateManagerFeature{active: true, thingID: tesThingID},
 			envelope:      things.NewMessage(model.NewNamespacedIDFrom("ns:unexpected")).Feature(updateManagerFeatureID).Inbox("unexpected").Envelope(),
-			mockExecution: func(_ *mocks.MockClient, _ *mocks.MockUpdateAgentHandler) {},
+			mockExecution: func(_ *mocks.MockClient, _ *mocks.MockUpdateAgentHandler, _ *mocks.MockOwnerConsentHandler) {},
 		},
 		"test_message_handler_refresh_ok": {
 			feature: &updateManagerFeature{active: true, thingID: tesThingID},
@@ -326,14 +396,32 @@ func TestMessageHandler(t *testing.T) {
 				Envelope(protocol.WithResponseRequired(true)),
 			mockExecution: mockThingErrorExecution(updateManagerFeatureOperationApply),
 		},
+		"test_message_handler_consent_ok": {
+			feature: &updateManagerFeature{active: true, thingID: tesThingID},
+			envelope: things.NewMessage(tesThingID).Feature(updateManagerFeatureID).Inbox(updateManagerFeatureMessageConsent).
+				WithPayload(&consentFeedback{base: base{ActivityID: test.ActivityID}, OwnerConsentFeedback: testConsentFeedback}).Envelope(protocol.WithResponseRequired(true)),
+			mockExecution: mockThingExecution(updateManagerFeatureMessageConsent),
+		},
+		"test_message_handler_consent_error": {
+			feature: &updateManagerFeature{active: true, thingID: tesThingID},
+			envelope: things.NewMessage(tesThingID).Feature(updateManagerFeatureID).Inbox(updateManagerFeatureMessageConsent).WithPayload("invalid payload").
+				Envelope(protocol.WithResponseRequired(true)),
+			mockExecution: mockThingErrorExecution(updateManagerFeatureMessageConsent),
+		},
+		"test_message_handler_correlation_id_mismatch_error": {
+			feature: &updateManagerFeature{active: true, thingID: tesThingID},
+			envelope: things.NewMessage(tesThingID).Feature(updateManagerFeatureID).Inbox(updateManagerFeatureMessageConsent).
+				WithPayload(&consentFeedback{base: base{ActivityID: test.ActivityID}, OwnerConsentFeedback: testConsentFeedback}).Envelope(protocol.WithResponseRequired(true), protocol.WithCorrelationID("mismatch")),
+			mockExecution: mockThingErrorExecution(updateManagerFeatureMessageConsent),
+		},
 	}
 
 	for name, testCase := range tests {
 		t.Run(name, func(t *testing.T) {
-			mockCtrl, mockDittoClient, mockHandler := setupMocks(t, testCase.feature)
+			mockCtrl, mockDittoClient, mockHandler, mockConsentHandler := setupMocks(t, testCase.feature)
 			defer mockCtrl.Finish()
 
-			testCase.mockExecution(mockDittoClient, mockHandler)
+			testCase.mockExecution(mockDittoClient, mockHandler, mockConsentHandler)
 			testCase.feature.messagesHandler(testRequestID, testCase.envelope)
 			test.AssertWithTimeout(t, testWG, 2*time.Second)
 		})
@@ -364,11 +452,13 @@ func assertLiveMessageTopic(t *testing.T, tesThingID model.NamespacedID, operati
 	assert.Equal(t, expectedTopic, topic)
 }
 
-func setupMocks(t *testing.T, feature *updateManagerFeature) (*gomock.Controller, *mocks.MockClient, *mocks.MockUpdateAgentHandler) {
+func setupMocks(t *testing.T, feature *updateManagerFeature) (*gomock.Controller, *mocks.MockClient, *mocks.MockUpdateAgentHandler, *mocks.MockOwnerConsentHandler) {
 	mockCtrl := gomock.NewController(t)
 	mockDittoClient := mocks.NewMockClient(mockCtrl)
 	mockHandler := mocks.NewMockUpdateAgentHandler(mockCtrl)
+	mockConsentHandler := mocks.NewMockOwnerConsentHandler(mockCtrl)
 	feature.dittoClient = mockDittoClient
 	feature.handler = mockHandler
-	return mockCtrl, mockDittoClient, mockHandler
+	feature.consentHandler = mockConsentHandler
+	return mockCtrl, mockDittoClient, mockHandler, mockConsentHandler
 }

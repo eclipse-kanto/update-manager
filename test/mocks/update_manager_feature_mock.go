@@ -19,6 +19,7 @@ package mocks
 import (
 	reflect "reflect"
 
+	api "github.com/eclipse-kanto/update-manager/api"
 	types "github.com/eclipse-kanto/update-manager/api/types"
 	gomock "github.com/golang/mock/gomock"
 )
@@ -72,6 +73,20 @@ func (mr *MockUpdateManagerFeatureMockRecorder) Deactivate() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Deactivate", reflect.TypeOf((*MockUpdateManagerFeature)(nil).Deactivate))
 }
 
+// SendConsent mocks base method.
+func (m *MockUpdateManagerFeature) SendConsent(activityID string, ownerConsent *types.OwnerConsent) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SendConsent", activityID, ownerConsent)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SendConsent indicates an expected call of SendConsent.
+func (mr *MockUpdateManagerFeatureMockRecorder) SendConsent(activityID, ownerConsent interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendConsent", reflect.TypeOf((*MockUpdateManagerFeature)(nil).SendConsent), activityID, ownerConsent)
+}
+
 // SendFeedback mocks base method.
 func (m *MockUpdateManagerFeature) SendFeedback(activityID string, desiredStateFeedback *types.DesiredStateFeedback) error {
 	m.ctrl.T.Helper()
@@ -84,6 +99,18 @@ func (m *MockUpdateManagerFeature) SendFeedback(activityID string, desiredStateF
 func (mr *MockUpdateManagerFeatureMockRecorder) SendFeedback(activityID, desiredStateFeedback interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendFeedback", reflect.TypeOf((*MockUpdateManagerFeature)(nil).SendFeedback), activityID, desiredStateFeedback)
+}
+
+// SetConsentHandler mocks base method.
+func (m *MockUpdateManagerFeature) SetConsentHandler(handler api.OwnerConsentHandler) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetConsentHandler", handler)
+}
+
+// SetConsentHandler indicates an expected call of SetConsentHandler.
+func (mr *MockUpdateManagerFeatureMockRecorder) SetConsentHandler(handler interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetConsentHandler", reflect.TypeOf((*MockUpdateManagerFeature)(nil).SetConsentHandler), handler)
 }
 
 // SetState mocks base method.
